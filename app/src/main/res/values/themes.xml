@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LumiTube" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/splash_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="splash_bg">#FF0F0F0F</color>
+    <color name="ic_bg_start">#FFFF2D55</color>
+    <color name="ic_bg_end">#FF7B2CF5</color>
+</resources>
