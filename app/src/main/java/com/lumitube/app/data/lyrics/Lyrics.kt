@@ -297,14 +297,28 @@ private fun url(base: String, vararg params: Pair<String, Any?>): String {
 
 /** Kenali format isi lirik (TTML, LRC per kata, LRC biasa, teks) — diadaptasi dari BitChord. */
 fun parseAnyLyrics(raw: String, source: String): Lyrics? {
-    var content = raw.trim()
-    if (content.startsWith("{")) {
-        val j = try {
-            JSONObject(content)
+    var content = raw.trim().removePrefix("\uFEFF")
+    // Bongkar JSON berlapis: {ttml}, {lyrics}, {data:{...}}, {result}, {response} (seperti ArchiveTune)
+    var depth = 0
+    while ((content.startsWith("{") || content.startsWith("\"")) && depth < 5) {
+        depth++
+        val inner: String? = try {
+            if (content.startsWith("\"")) {
+                org.json.JSONTokener(content).nextValue() as? String
+            } else {
+                val j = JSONObject(content)
+                val v = listOf("ttml", "lyrics", "syncedLyrics", "data", "result", "response", "plainLyrics")
+                    .firstNotNullOfOrNull { k -> j.opt(k)?.takeIf { it != JSONObject.NULL } }
+                when (v) {
+                    is String -> v
+                    is JSONObject -> v.toString()
+                    else -> null
+                }
+            }
         } catch (_: Exception) {
             null
         }
-        content = j?.str("ttml") ?: j?.str("lyrics") ?: j?.str("syncedLyrics") ?: j?.str("plainLyrics") ?: return null
+        content = inner?.trim() ?: return null
     }
     val lyrics = when {
         content.contains("<tt", ignoreCase = true) || content.contains("w3.org/ns/ttml") -> TtmlParser.parse(content, source)
@@ -330,14 +344,53 @@ private fun norm(v: String): String =
 object BetterLyricsProvider : LyricsProvider {
     override val name = "BetterLyrics"
     override suspend fun fetch(q: SongQuery): Lyrics? {
-        val body = httpGet(
-            url(
-                "https://lyrics-api.boidu.dev/getLyrics",
-                "s" to q.title, "a" to q.artist, "d" to q.durationSec.takeIf { it > 0 }, "al" to q.album,
-            ),
-            mapOf("Accept" to "application/json"),
-        ) ?: return null
-        return parseAnyLyrics(body, name)
+        // Endpoint Apple Music dulu, lalu cadangan KuGou milik BetterLyrics (seperti ArchiveTune)
+        for (path in listOf("getLyrics", "kugou/getLyrics")) {
+            val body = try {
+                httpGet(
+                    url(
+                        "https://lyrics-api.boidu.dev/$path",
+                        "s" to q.title, "a" to q.artist, "d" to q.durationSec.takeIf { it > 0 }, "al" to q.album,
+                    ),
+                    mapOf("Accept" to "application/json"),
+                )
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            parseAnyLyrics(body, name)?.let { return it }
+        }
+        return null
+    }
+}
+
+/** YouLyPlus: TTML dari server LyricsPlus (endpoint v1/ttml), dipakai ArchiveTune. */
+object YouLyPlusProvider : LyricsProvider {
+    override val name = "YouLyPlus"
+    private val mirrors = listOf(
+        "https://lyricsplus.binimum.org/",
+        "https://lyricsplus.prjktla.my.id/",
+        "https://lyricsplus.prjktla.workers.dev/",
+        "https://lyricsplus.atomix.one/",
+        "https://lyricsplus-seven.vercel.app/",
+    )
+
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        for (m in mirrors) {
+            val body = try {
+                httpGet(
+                    url(
+                        "${m}v1/ttml/get",
+                        "title" to q.title, "artist" to q.artist, "album" to q.album,
+                        "duration" to q.durationSec.takeIf { it > 0 },
+                    ),
+                    mapOf("Accept" to "application/json"),
+                )
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            parseAnyLyrics(body, name)?.takeIf { it.synced }?.let { return it }
+        }
+        return null
     }
 }
 
@@ -569,8 +622,9 @@ object LyricsRepo {
 
     /** Urutan prioritas (diadaptasi dari BitChord & ArchiveTune): sumber Apple per kata dulu. */
     val providers: List<LyricsProvider> = listOf(
-        LrcRedProvider, BiniLyricsProvider, BetterLyricsProvider, SimpMusicProvider, LyricsPlusProvider,
-        BetterLyricsQQProvider, UnisonProvider, LrcLibProvider, KuGouProvider, YouTubeMusicProvider,
+        LrcRedProvider, BiniLyricsProvider, BetterLyricsProvider, SimpMusicProvider, YouLyPlusProvider,
+        LyricsPlusProvider, BetterLyricsQQProvider, UnisonProvider, LrcLibProvider, KuGouProvider,
+        YouTubeMusicProvider,
     )
 
     /**

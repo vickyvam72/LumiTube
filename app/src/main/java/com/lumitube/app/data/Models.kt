@@ -82,8 +82,17 @@ data class Comment(
     val repliesToken: String?,
     val isCreator: Boolean,
     val isReply: Boolean,
+    val pinned: String? = null,
 )
 
-data class CommentPage(val comments: List<Comment>, val next: String?, val count: String?)
+data class CommentPage(
+    val comments: List<Comment>,
+    val next: String?,
+    val count: String?,
+    /** Pilihan urutan (judul, token), mis. Teratas / Terbaru. */
+    val sorts: List<Pair<String, String>> = emptyList(),
+    val sortSelected: Int = 0,
+    val createParams: String? = null,
+)
 
 data class MusicQueue(val items: List<Item>, val lyricsBrowseId: String?)

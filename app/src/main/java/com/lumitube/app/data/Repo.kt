@@ -50,6 +50,14 @@ object Repo {
     suspend fun comments(token: String): CommentPage =
         Parser.comments(InnerTube.continuation(Client.WEB, "next", "b:$token"))
 
+    /** Kirim komentar baru (perlu login). */
+    suspend fun postComment(createParams: String, text: String) {
+        InnerTube.post(
+            Client.WEB, "comment/create_comment",
+            org.json.JSONObject().put("commentText", text).put("createCommentParams", createParams)
+        )
+    }
+
     /** Simpan ke "Tonton nanti". */
     suspend fun saveWatchLater(videoId: String) {
         InnerTube.post(

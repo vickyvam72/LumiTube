@@ -179,6 +179,19 @@ object Parser {
 
     // ---------------- YouTube Music ----------------
 
+    private val typeLabels = setOf(
+        "lagu", "song", "video", "single", "album", "ep", "episode", "podcast", "playlist", "artis", "artist",
+        "video musik", "music video",
+    )
+
+    /** Ambil nama artis dari subtitle "Lagu • Taylor Swift • 3:55" (lewati label tipe). */
+    fun artistFromSubtitle(sub: String): String? =
+        sub.split(" • ").map { it.trim() }.firstOrNull { seg ->
+            seg.isNotEmpty() && seg.lowercase() !in typeLabels &&
+                !Regex("^\\d+(:\\d+)+$").matches(seg) && !seg.contains("x diputar") && !seg.contains("views") &&
+                !seg.contains("penayangan") && !seg.contains("plays")
+        }
+
     private fun pageTypeOf(browse: JSONObject?): String? =
         browse.str("browseEndpointContextSupportedConfigs", "browseEndpointContextMusicConfig", "pageType")
 
@@ -229,7 +242,7 @@ object Parser {
                 subtitle = subtitle,
                 thumbnail = thumb,
                 duration = duration,
-                channelName = artistRun?.str("text") ?: cols.getOrNull(1)?.substringBefore(" • "),
+                channelName = artistRun?.str("text") ?: artistFromSubtitle(subtitle),
                 channelId = artistRun.str("navigationEndpoint", "browseEndpoint", "browseId"),
                 row = true,
             )
@@ -247,7 +260,7 @@ object Parser {
             val id = w.str("videoId") ?: return null
             return Item(
                 ItemType.SONG, id, title, subtitle, thumb,
-                channelName = subtitle.substringBefore(" • "),
+                channelName = artistFromSubtitle(subtitle),
                 playlistId = w.str("playlistId"), wide = wide
             )
         }
@@ -268,7 +281,7 @@ object Parser {
         val thumb = musicThumb(v.obj("thumbnail", "musicThumbnailRenderer", "thumbnail"))
         val nav = v.obj("title", "runs", 0, "navigationEndpoint") ?: v.obj("onTap")
         nav.obj("watchEndpoint")?.str("videoId")?.let {
-            return Item(ItemType.SONG, it, title, subtitle, thumb, channelName = subtitle.substringAfter(" • ", subtitle))
+            return Item(ItemType.SONG, it, title, subtitle, thumb, channelName = artistFromSubtitle(subtitle))
         }
         nav.obj("browseEndpoint")?.let { b ->
             val id = b.str("browseId") ?: return null
@@ -517,12 +530,25 @@ object Parser {
         val out = mutableListOf<Comment>()
         var count: String? = null
         var nextToken: String? = null
+        var sorts: List<Pair<String, String>> = emptyList()
+        var sortSelected = 0
+        var createParams: String? = null
         val actions = root.arr("onResponseReceivedEndpoints")?.objects() ?: emptyList()
         for (a in actions) {
             val items = (a.obj("reloadContinuationItemsCommand") ?: a.obj("appendContinuationItemsAction"))
                 ?.arr("continuationItems")?.objects() ?: continue
             for (it in items) {
-                it.obj("commentsHeaderRenderer")?.let { h -> count = text(h.obj("countText")) ?: count }
+                it.obj("commentsHeaderRenderer")?.let { h ->
+                    count = text(h.obj("countText")) ?: count
+                    val subs = findFirst(h.obj("sortMenu"), "sortFilterSubMenuRenderer")?.arr("subMenuItems")?.objects().orEmpty()
+                    sorts = subs.mapNotNull { m ->
+                        val t = m.str("title") ?: return@mapNotNull null
+                        val tok = findFirst(m.obj("serviceEndpoint"), "continuationCommand")?.str("token") ?: return@mapNotNull null
+                        t to tok
+                    }
+                    sortSelected = subs.indexOfFirst { m -> m.optBoolean("selected", false) }.coerceAtLeast(0)
+                    createParams = findFirst(h.obj("createRenderer"), "createCommentEndpoint")?.str("createCommentParams")
+                }
                 it.obj("continuationItemRenderer")?.let { c ->
                     nextToken = findFirst(c, "continuationCommand")?.str("token")
                 }
@@ -545,11 +571,12 @@ object Parser {
                         repliesToken = repliesToken,
                         isCreator = p.obj("author")?.optBoolean("isCreator", false) == true,
                         isReply = (p.obj("properties")?.optInt("replyLevel", 0) ?: 0) > 0,
+                        pinned = vm.str("pinnedText"),
                     )
                 )
             }
         }
-        return CommentPage(out, nextToken, count)
+        return CommentPage(out, nextToken, count, sorts, sortSelected, createParams)
     }
 
     fun account(root: JSONObject): Account? {

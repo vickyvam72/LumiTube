@@ -19,11 +19,14 @@ data class Format(
     val url: String,
     val mimeType: String,
     val height: Int,
+    val width: Int = 0,
     val bitrate: Int,
     val contentLength: Long,
     val isAudio: Boolean,
 ) {
     val isMp4: Boolean get() = mimeType.contains("mp4")
+    /** Kualitas = sisi terpendek (video vertikal 720x1280 tetap dianggap 720p). */
+    val quality: Int get() = if (width > 0) minOf(width, height) else height
     val codec: String get() = Regex("codecs=\"([^.\"]+)").find(mimeType)?.groupValues?.get(1) ?: ""
 }
 
@@ -40,10 +43,12 @@ data class Stream(
     val formats: List<Format> = emptyList(),
     val lengthSeconds: Long = 0,
     val captions: List<Caption> = emptyList(),
+    /** Bahasa terjemahan otomatis yang didukung YouTube (kode, nama). */
+    val translations: List<Pair<String, String>> = emptyList(),
 ) {
     /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
     val qualities: List<Int>
-        get() = formats.filter { !it.isAudio && it.codec != "av01" }.map { it.height }.filter { it > 0 }.distinct().sortedDescending()
+        get() = formats.filter { !it.isAudio && it.codec != "av01" }.map { it.quality }.filter { it > 0 }.distinct().sortedDescending()
 }
 
 /**
@@ -170,14 +175,14 @@ object StreamResolver {
         // Hindari AV1 (belum semua HP bisa memutarnya); utamakan H.264 lalu VP9.
         val videos = raw.formats.filter { !it.isAudio && it.codec != "av01" }
         val video = videos
-            .filter { it.height <= maxH }
+            .filter { it.quality <= maxH }
             .sortedWith(
-                compareByDescending<Format> { it.height }
+                compareByDescending<Format> { it.quality }
                     .thenByDescending { if (it.codec == "avc1") 1 else 0 }
                     .thenByDescending { it.bitrate }
             )
             .firstOrNull()?.url
-            ?: videos.minByOrNull { it.height }?.url
+            ?: videos.minByOrNull { it.quality }?.url
         val ok = when {
             raw.isLive -> raw.hlsUrl != null
             audioOnly -> audio != null || raw.hlsUrl != null
@@ -267,6 +272,7 @@ object StreamResolver {
                 url = u,
                 mimeType = mime,
                 height = f.optInt("height", 0),
+                width = f.optInt("width", 0),
                 bitrate = f.optInt("bitrate", 0),
                 contentLength = f.str("contentLength")?.toLongOrNull() ?: 0L,
                 isAudio = mime.startsWith("audio/"),
@@ -287,6 +293,11 @@ object StreamResolver {
                         url = (if (base.startsWith("/")) "https://www.youtube.com$base" else base) + "&fmt=vtt",
                         auto = t.str("kind") == "asr",
                     )
+                } ?: emptyList(),
+            translations = json.arr("captions", "playerCaptionsTracklistRenderer", "translationLanguages")?.objects()
+                ?.mapNotNull { t ->
+                    val code = t.str("languageCode") ?: return@mapNotNull null
+                    code to (text(t.obj("languageName")) ?: code)
                 } ?: emptyList(),
             userAgent = c.userAgent,
             isLive = isLive,

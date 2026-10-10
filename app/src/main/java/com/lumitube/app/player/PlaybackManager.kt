@@ -24,6 +24,8 @@ import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import com.lumitube.app.data.Item
 import com.lumitube.app.data.Repo
+import com.lumitube.app.data.InnerTube
+import com.lumitube.app.data.Parser
 import com.lumitube.app.data.Stream
 import com.lumitube.app.data.StreamResolver
 import com.lumitube.app.data.Session
@@ -68,11 +70,25 @@ object PlaybackManager {
     /** true saat ExoPlayer sedang buffering (menunggu data). */
     var buffering by mutableStateOf(false)
         private set
+    /** videoId yang frame pertamanya sudah tampil (untuk menyembunyikan thumbnail). */
+    var firstFrameFor by mutableStateOf<String?>(null)
+        private set
+    var playWhenReady by mutableStateOf(false)
+        private set
     /** Daftar subtitle untuk video saat ini; -1 = nonaktif. */
     var captions by mutableStateOf<List<com.lumitube.app.data.Caption>>(emptyList())
         private set
     var captionIndex by mutableIntStateOf(-1)
         private set
+    /** Kode bahasa terjemahan otomatis (null = tanpa terjemahan). */
+    var captionTranslate by mutableStateOf<String?>(null)
+        private set
+    var translations by mutableStateOf<List<Pair<String, String>>>(emptyList())
+        private set
+    var captionLoading by mutableStateOf(false)
+        private set
+    var captionError by mutableStateOf<String?>(null)
+    private var captionFile: java.io.File? = null
     /** Dipanggil saat video selesai & autoplay aktif (mis. putar video terkait berikutnya). */
     var onAutoNext: (() -> Unit)? = null
     private var retried: String? = null
@@ -119,6 +135,14 @@ object PlaybackManager {
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+
+            override fun onPlayWhenReadyChanged(play: Boolean, reason: Int) {
+                playWhenReady = play
+            }
+
+            override fun onRenderedFirstFrame() {
+                firstFrameFor = current?.id
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -296,15 +320,9 @@ object PlaybackManager {
         lyricsList = emptyList()
         lyricsIndex = 0
         val dur = (exo.duration.takeIf { it > 0 } ?: 0L) / 1000
-        val q = SongQuery(
-            videoId = item.id,
-            title = item.title,
-            artist = item.channelName ?: item.subtitle.substringBefore(" • "),
-            album = null,
-            durationSec = dur.toInt(),
-        )
         scope.launch {
             try {
+                val q = songQuery(item, dur.toInt())
                 // Hasil ditampilkan bertahap: begitu ada lirik sinkron, langsung muncul.
                 val list = LyricsRepo.fetchAll(q) { partial ->
                     scope.launch { if (current?.id == item.id) applyLyrics(partial) }
@@ -320,6 +338,43 @@ object PlaybackManager {
     }
 
     private var chosenSource: String? = null
+
+    /**
+     * Metadata lagu yang akurat untuk pencarian lirik. Judul/artis dari kartu beranda bisa
+     * berisi label tipe ("Lagu"), jadi ambil dari antrean YT Music (artis • album • tahun)
+     * dan cadangan dari detail video ("Taylor Swift - Topic").
+     */
+    private suspend fun songQuery(item: Item, durationSec: Int): SongQuery {
+        var artist = item.channelName?.takeIf { it.isNotBlank() && Parser.artistFromSubtitle(it) == it }
+        var album: String? = null
+        var title = item.title
+        try {
+            val rich = Repo.musicQueue(item.id).items.firstOrNull { it.id == item.id }
+            if (rich != null) {
+                val parts = rich.subtitle.split(" • ").map { it.trim() }
+                rich.channelName?.takeIf { it.isNotBlank() }?.let { artist = it }
+                if (parts.size >= 3) album = parts[1]
+                title = rich.title.ifBlank { title }
+                // Perbarui tampilan (mini player menampilkan artis yang benar)
+                if (current?.id == item.id && artist != null) {
+                    val upd = current!!.copy(channelName = artist, subtitle = rich.subtitle.ifBlank { current!!.subtitle })
+                    current = upd
+                    if (index in queue.indices && queue[index].id == item.id) queue[index] = upd
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+        if (artist == null) {
+            artist = try {
+                StreamResolver.resolve(item.id, true).author?.removeSuffix(" - Topic")
+            } catch (_: Exception) {
+                null
+            }
+        }
+        return SongQuery(item.id, title, artist ?: Parser.artistFromSubtitle(item.subtitle) ?: "", album, durationSec)
+    }
 
     private fun applyLyrics(list: List<Lyrics>) {
         val keep = chosenSource
@@ -343,11 +398,44 @@ object PlaybackManager {
         load(item, pos)
     }
 
-    /** Pilih subtitle (-1 = nonaktif) lalu muat ulang dari posisi sekarang. */
-    fun setCaption(i: Int) {
+    /**
+     * Pilih subtitle (-1 = nonaktif). Bila [translate] diisi, subtitle diterjemahkan otomatis
+     * oleh YouTube ke bahasa tersebut. File VTT diunduh dulu lalu dipasang sebagai trek teks.
+     */
+    fun setCaption(i: Int, translate: String? = null) {
         val item = current ?: return
-        captionIndex = i
-        if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+        if (i < 0) {
+            captionIndex = -1
+            captionTranslate = null
+            captionFile = null
+            if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+            return
+        }
+        val cap = captions.getOrNull(i) ?: return
+        captionLoading = true
+        captionError = null
+        scope.launch {
+            try {
+                val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    val url = cap.url + (translate?.let { "&tlang=$it" } ?: "")
+                    val req = okhttp3.Request.Builder().url(url).header("User-Agent", InnerTube.DESKTOP_UA).build()
+                    val body = InnerTube.http.newCall(req).execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
+                    if (body.isNullOrBlank() || !body.contains("-->")) throw java.io.IOException("Subtitle kosong")
+                    java.io.File(appContext.cacheDir, "cap_${item.id}_${cap.lang}_${translate ?: "o"}.vtt").apply { writeText(body) }
+                }
+                if (current?.id != item.id) return@launch
+                captionIndex = i
+                captionTranslate = translate
+                captionFile = file
+                if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                captionError = "Subtitle tidak bisa dimuat"
+            } finally {
+                captionLoading = false
+            }
+        }
     }
 
     fun seekBy(ms: Long) {
@@ -380,7 +468,10 @@ object PlaybackManager {
     private fun load(item: Item, startPosition: Long = 0L) {
         if (current?.id != item.id) {
             captions = emptyList()
+            translations = emptyList()
             captionIndex = -1
+            captionTranslate = null
+            captionFile = null
             retried = null
         }
         loadJob?.cancel()
@@ -391,6 +482,7 @@ object PlaybackManager {
             lyricsIndex = 0
         }
         loading = true
+        if (firstFrameFor == item.id && startPosition == 0L) firstFrameFor = null
         exo.stop()
         val audioOnly = !isVideo
         loadJob = scope.launch {
@@ -409,6 +501,7 @@ object PlaybackManager {
                     val stream = StreamResolver.resolve(item.id, audioOnly)
                     qualities = stream.qualities
                     captions = stream.captions
+                    translations = stream.translations
                     queue.getOrNull(index + 1)?.let { if (it.localUri == null) StreamResolver.prefetch(it.id) }
                     exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
                 }
@@ -422,6 +515,25 @@ object PlaybackManager {
                 if (current?.id == item.id) loading = false
             }
         }
+    }
+
+    /**
+     * Trek subtitle dari file VTT lokal. Media3 1.4+ mengharuskan subtitle diurai saat ekstraksi
+     * (SingleSampleMediaSource menimbulkan ERROR_CODE_FAILED_RUNTIME_CHECK), jadi pakai SubtitleExtractor.
+     */
+    private fun subtitleSource(file: java.io.File, lang: String, label: String): MediaSource {
+        val format = androidx.media3.common.Format.Builder()
+            .setSampleMimeType(androidx.media3.common.MimeTypes.TEXT_VTT)
+            .setLanguage(lang)
+            .setLabel(label)
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+            .build()
+        val parserFactory = androidx.media3.extractor.text.DefaultSubtitleParserFactory()
+        val extractors = androidx.media3.extractor.ExtractorsFactory {
+            arrayOf(androidx.media3.extractor.text.SubtitleExtractor(parserFactory.create(format), format))
+        }
+        return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(appContext), extractors)
+            .createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
     }
 
     private fun buildSource(item: Item, s: Stream, audioOnly: Boolean): MediaSource {
@@ -457,18 +569,10 @@ object PlaybackManager {
                     ProgressiveMediaSource.Factory(http).createMediaSource(mediaItem(videoUrl)),
                     ProgressiveMediaSource.Factory(http).createMediaSource(MediaItem.fromUri(audioUrl)),
                 )
-                s.captions.getOrNull(captionIndex)?.let { cap ->
-                    val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(cap.url))
-                        .setMimeType(androidx.media3.common.MimeTypes.TEXT_VTT)
-                        .setLanguage(cap.lang)
-                        .setLabel(cap.name)
-                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
-                        .build()
-                    sources.add(
-                        androidx.media3.exoplayer.source.SingleSampleMediaSource.Factory(plainHttp)
-                            .setTreatLoadErrorsAsEndOfStream(true)
-                            .createMediaSource(sub, C.TIME_UNSET)
-                    )
+                val capFile = captionFile
+                val cap = s.captions.getOrNull(captionIndex)
+                if (capFile != null && cap != null && capFile.exists()) {
+                    sources.add(subtitleSource(capFile, captionTranslate ?: cap.lang, cap.name))
                 }
                 MergingMediaSource(*sources.toTypedArray())
             }

@@ -24,6 +24,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.text.withLink
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -119,6 +127,38 @@ fun BottomPanel(
 
 // ---------------------------------------------------------------- Komentar
 
+private val LinkBlue = Color(0xFF3EA6FF)
+private val timestampRegex = Regex("(?<![\\d:])(\\d{1,2}:)?\\d{1,2}:\\d{2}(?![\\d:])")
+
+private fun timestampMs(t: String): Long {
+    val parts = t.split(":").map { it.toLongOrNull() ?: 0L }
+    return when (parts.size) {
+        3 -> (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000
+        2 -> (parts[0] * 60 + parts[1]) * 1000
+        else -> 0L
+    }
+}
+
+/** Teks komentar dengan timestamp (mis. 4:19) yang bisa diklik untuk lompat di video. */
+private fun commentText(text: String, onSeek: (Long) -> Unit) = androidx.compose.ui.text.buildAnnotatedString {
+    var last = 0
+    for (m in timestampRegex.findAll(text)) {
+        append(text.substring(last, m.range.first))
+        val ms = timestampMs(m.value)
+        withLink(
+            androidx.compose.ui.text.LinkAnnotation.Clickable(
+                tag = "ts",
+                styles = androidx.compose.ui.text.TextLinkStyles(
+                    androidx.compose.ui.text.SpanStyle(color = LinkBlue, background = LinkBlue.copy(alpha = 0.12f))
+                ),
+                linkInteractionListener = { onSeek(ms) },
+            )
+        ) { append(m.value) }
+        last = m.range.last + 1
+    }
+    append(text.substring(last))
+}
+
 @Composable
 fun CommentsPanel(
     token: String?,
@@ -126,25 +166,42 @@ fun CommentsPanel(
     colors: PanelColors,
     onClose: () -> Unit,
     onChannel: ((String) -> Unit)? = null,
+    onSeek: (Long) -> Unit = { PlaybackManager.exo.seekTo(it) },
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val comments = remember(token) { mutableStateListOf<Comment>() }
     var next by remember(token) { mutableStateOf<String?>(null) }
     var loading by remember(token) { mutableStateOf(false) }
     var error by remember(token) { mutableStateOf<String?>(null) }
     var header by remember(token) { mutableStateOf(count) }
+    var sorts by remember(token) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var sortSel by remember(token) { mutableStateOf(0) }
+    var createParams by remember(token) { mutableStateOf<String?>(null) }
+    var draft by remember(token) { mutableStateOf("") }
+    var sending by remember(token) { mutableStateOf(false) }
     val replies = remember(token) { mutableStateMapOf<String, List<Comment>>() }
     val loadingReplies = remember(token) { mutableStateMapOf<String, Boolean>() }
 
-    fun load(t: String) {
-        if (loading) return
+    fun load(t: String, reset: Boolean = false) {
+        if (loading && !reset) return
         loading = true
         scope.launch {
             try {
                 val page = Repo.comments(t)
+                if (reset) {
+                    comments.clear()
+                    replies.clear()
+                }
                 comments.addAll(page.comments.filter { c -> comments.none { it.id == c.id } })
                 next = page.next?.takeIf { it != t }
                 page.count?.let { header = it }
+                if (page.sorts.isNotEmpty()) {
+                    sorts = page.sorts
+                    sortSel = page.sortSelected
+                }
+                page.createParams?.let { createParams = it }
+                error = null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -168,49 +225,160 @@ fun CommentsPanel(
     }
     LaunchedEffect(nearEnd, comments.size) { if (nearEnd) next?.let { load(it) } }
 
-    BottomPanel(title = "Komentar" + (header?.let { "  •  $it" } ?: ""), colors = colors, onClose = onClose) {
-        when {
-            token == null -> Text("Komentar tidak tersedia untuk video ini.", color = colors.sub, modifier = Modifier.padding(24.dp))
-            else -> LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-                items(comments, key = { it.id }) { c ->
-                    CommentRow(c, colors, onChannel)
-                    val rs = replies[c.id]
-                    if (rs != null) {
-                        rs.forEach { r ->
-                            Box(Modifier.padding(start = 44.dp)) { CommentRow(r, colors, onChannel) }
-                        }
-                    } else if (c.repliesToken != null && c.replyCount.isNotBlank()) {
-                        Row(
-                            Modifier.padding(start = 60.dp, bottom = 6.dp).clip(RoundedCornerShape(16.dp))
+    BackHandler { onClose() }
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize().background(Color(0x66000000))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onClose() }
+        )
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.70f)
+                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                .background(colors.bg)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
+            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))
+            }
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Komentar", color = colors.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                header?.let {
+                    Text(
+                        "  " + it.replace(Regex("(?i)\\s*(komentar|comments?)$"), ""),
+                        color = colors.sub, fontSize = 16.sp, modifier = Modifier.weight(1f),
+                    )
+                } ?: Spacer(Modifier.weight(1f))
+                IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Tutup", tint = colors.text) }
+            }
+            if (sorts.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sorts.forEachIndexed { i, (title, tok) ->
+                        val sel = i == sortSel
+                        Box(
+                            Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) colors.text else colors.chip)
                                 .clickable {
-                                    val rt = c.repliesToken ?: return@clickable
-                                    loadingReplies[c.id] = true
-                                    scope.launch {
-                                        try {
-                                            replies[c.id] = Repo.comments(rt).comments
-                                        } catch (_: Exception) {
-                                        } finally {
-                                            loadingReplies[c.id] = false
-                                        }
+                                    if (!sel) {
+                                        sortSel = i
+                                        load(tok, reset = true)
                                     }
                                 }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
                         ) {
-                            Text("${c.replyCount} balasan", color = Color(0xFF3EA6FF), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            if (loadingReplies[c.id] == true) {
-                                Spacer(Modifier.width(8.dp))
-                                CircularProgressIndicator(Modifier.size(14.dp), color = colors.sub, strokeWidth = 2.dp)
-                            }
+                            Text(
+                                when (title.lowercase()) {
+                                    "top", "top comments" -> "Teratas"
+                                    "newest", "newest first" -> "Terbaru"
+                                    else -> title
+                                },
+                                color = if (sel) colors.bg else colors.text, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                            )
                         }
                     }
                 }
-                if (loading) item { LoadingBox(color = colors.accent) }
-                error?.let { e ->
-                    if (comments.isEmpty()) item { Text("Gagal memuat komentar: $e", color = colors.sub, modifier = Modifier.padding(24.dp)) }
+            }
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(colors.sub.copy(alpha = 0.25f)))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (token == null) {
+                    Text("Komentar tidak tersedia untuk video ini.", color = colors.sub, modifier = Modifier.padding(24.dp))
+                } else {
+                    LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+                        items(comments, key = { it.id }) { c ->
+                            val rs = replies[c.id]
+                            CommentRow(
+                                c, colors, onChannel, onSeek,
+                                thread = c.repliesToken != null && c.replyCount.isNotBlank(),
+                            )
+                            if (rs != null) {
+                                rs.forEach { r -> Box(Modifier.padding(start = 48.dp)) { CommentRow(r, colors, onChannel, onSeek, false) } }
+                            } else if (c.repliesToken != null && c.replyCount.isNotBlank()) {
+                                Row(
+                                    Modifier.padding(start = 56.dp, bottom = 8.dp).clip(RoundedCornerShape(16.dp))
+                                        .clickable {
+                                            val rt = c.repliesToken ?: return@clickable
+                                            loadingReplies[c.id] = true
+                                            scope.launch {
+                                                try {
+                                                    replies[c.id] = Repo.comments(rt).comments
+                                                } catch (_: Exception) {
+                                                } finally {
+                                                    loadingReplies[c.id] = false
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("•  ${c.replyCount} balasan", color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    if (loadingReplies[c.id] == true) {
+                                        Spacer(Modifier.width(8.dp))
+                                        CircularProgressIndicator(Modifier.size(14.dp), color = colors.sub, strokeWidth = 2.dp)
+                                    } else {
+                                        Icon(Icons.Filled.KeyboardArrowDown, null, tint = colors.text, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            }
+                        }
+                        if (loading) item { LoadingBox(color = colors.accent) }
+                        error?.let { e ->
+                            if (comments.isEmpty()) item { Text("Gagal memuat komentar: $e", color = colors.sub, modifier = Modifier.padding(24.dp)) }
+                        }
+                        if (!loading && error == null && comments.isEmpty()) {
+                            item { Text("Belum ada komentar.", color = colors.sub, modifier = Modifier.padding(24.dp)) }
+                        }
+                    }
                 }
-                if (!loading && error == null && comments.isEmpty()) {
-                    item { Text("Belum ada komentar.", color = colors.sub, modifier = Modifier.padding(24.dp)) }
+            }
+            // Kolom tulis komentar
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(colors.sub.copy(alpha = 0.25f)))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Session.account?.photo?.let { Img(it, Modifier.size(30.dp).clip(CircleShape)) }
+                androidx.compose.foundation.text.BasicTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(color = colors.text, fontSize = 15.sp),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.accent),
+                    maxLines = 4,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        .clip(RoundedCornerShape(20.dp)).background(colors.chip)
+                        .padding(horizontal = 16.dp, vertical = 11.dp),
+                    decorationBox = { inner ->
+                        if (draft.isEmpty()) Text("Komentar…", color = colors.sub, fontSize = 15.sp)
+                        inner()
+                    },
+                )
+                if (draft.isNotBlank()) {
+                    IconButton(
+                        enabled = !sending,
+                        onClick = {
+                            val params = createParams
+                            when {
+                                !Session.loggedIn -> Toast.makeText(context, "Login dulu untuk berkomentar", Toast.LENGTH_SHORT).show()
+                                params == null -> Toast.makeText(context, "Komentar tidak bisa dikirim untuk video ini", Toast.LENGTH_SHORT).show()
+                                else -> {
+                                    sending = true
+                                    val text = draft.trim()
+                                    scope.launch {
+                                        try {
+                                            Repo.postComment(params, text)
+                                            draft = ""
+                                            Toast.makeText(context, "Komentar terkirim", Toast.LENGTH_SHORT).show()
+                                            val newest = sorts.getOrNull(1)?.second ?: sorts.getOrNull(sortSel)?.second ?: token
+                                            if (newest != null) {
+                                                sortSel = if (sorts.size > 1) 1 else sortSel
+                                                load(newest, reset = true)
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Gagal mengirim: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            sending = false
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    ) { Icon(Icons.AutoMirrored.Filled.Send, "Kirim", tint = colors.accent) }
                 }
             }
         }
@@ -218,27 +386,73 @@ fun CommentsPanel(
 }
 
 @Composable
-private fun CommentRow(c: Comment, colors: PanelColors, onChannel: ((String) -> Unit)?) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+private fun CommentRow(
+    c: Comment,
+    colors: PanelColors,
+    onChannel: ((String) -> Unit)?,
+    onSeek: (Long) -> Unit,
+    thread: Boolean,
+) {
+    var expanded by remember(c.id) { mutableStateOf(false) }
+    var overflow by remember(c.id) { mutableStateOf(false) }
+    val lineColor = colors.sub.copy(alpha = 0.25f)
+    Row(
+        Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)
+            .drawBehind {
+                // Garis utas di bawah avatar saat komentar punya balasan (seperti YouTube)
+                if (thread) {
+                    val x = 16.dp.toPx()
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(x, 40.dp.toPx()), androidx.compose.ui.geometry.Offset(x, size.height + 4.dp.toPx()), 1.5.dp.toPx())
+                }
+            }
+    ) {
         Img(
             c.avatar,
-            Modifier.size(if (c.isReply) 26.dp else 34.dp).clip(CircleShape)
+            Modifier.size(if (c.isReply) 24.dp else 32.dp).clip(CircleShape)
                 .clickable(enabled = onChannel != null && c.authorId != null) { c.authorId?.let { onChannel?.invoke(it) } }
         )
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    if (c.isCreator) Modifier.clip(RoundedCornerShape(10.dp)).background(colors.sub.copy(alpha = 0.3f)).padding(horizontal = 6.dp)
-                    else Modifier
-                ) {
-                    Text(c.author, color = if (c.isCreator) colors.text else colors.sub, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            c.pinned?.let { pin ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                    Icon(Icons.Filled.PushPin, null, tint = colors.sub, modifier = Modifier.size(14.dp))
+                    Text(
+                        " " + pin.replace("Pinned by", "Disematkan oleh"),
+                        color = colors.sub, fontSize = 12.sp,
+                    )
                 }
-                Text("  •  ${c.published}", color = colors.sub, fontSize = 12.sp)
             }
-            Text(c.text, color = colors.text, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp), lineHeight = 19.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (c.isCreator) {
+                    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(colors.text).padding(horizontal = 7.dp, vertical = 1.dp)) {
+                        Text(c.author, color = colors.bg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    }
+                } else {
+                    Text(c.author, color = colors.sub, fontSize = 12.sp)
+                }
+                Text(" • ${c.published}", color = colors.sub, fontSize = 12.sp)
+            }
+            Text(
+                commentText(c.text, onSeek),
+                style = androidx.compose.ui.text.TextStyle(color = colors.text, fontSize = 14.sp, lineHeight = 20.sp),
+                maxLines = if (expanded) Int.MAX_VALUE else 4,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (!expanded) overflow = it.hasVisualOverflow },
+                modifier = Modifier.padding(top = 3.dp),
+            )
+            if (overflow || expanded) {
+                Text(
+                    if (expanded) "Lebih sedikit" else "Selengkapnya",
+                    color = colors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp).clickable { expanded = !expanded },
+                )
+            }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ThumbUp, null, tint = colors.sub, modifier = Modifier.size(16.dp))
-                if (c.likes.isNotBlank()) Text("  ${c.likes}", color = colors.sub, fontSize = 12.sp)
+                Icon(Icons.Outlined.ThumbUp, null, tint = colors.text, modifier = Modifier.size(18.dp))
+                Text(if (c.likes.isNotBlank()) "  ${c.likes}" else "", color = colors.sub, fontSize = 12.sp)
+                Spacer(Modifier.width(22.dp))
+                Icon(Icons.Outlined.ThumbDown, null, tint = colors.text, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(26.dp))
+                Icon(Icons.Outlined.ChatBubbleOutline, null, tint = colors.text, modifier = Modifier.size(18.dp))
             }
         }
     }

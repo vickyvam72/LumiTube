@@ -236,23 +236,18 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
             }
 
             // Tab bawah
-            Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 BottomTab("BERIKUTNYA", panel == 1) { panel = if (panel == 1) 0 else 1 }
                 BottomTab("LIRIK", panel == 2) {
                     panel = if (panel == 2) 0 else 2
                     if (panel == 2) PlaybackManager.loadLyrics()
                 }
                 BottomTab("KOMENTAR", showComments) { showComments = true }
-                Box(
-                    Modifier.weight(1f).height(52.dp).clickable { showDownload = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Download, null, tint = MusicColors.sub, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("DOWNLOAD", color = MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
+                BottomTab("DOWNLOAD", false) { showDownload = true }
             }
         }
         if (showComments) {
@@ -292,8 +287,14 @@ private fun ModeToggle() {
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.BottomTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(Modifier.weight(1f).height(52.dp).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Text(label, color = if (selected) Color.White else MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    Box(
+        Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label, color = if (selected) Color.White else MusicColors.sub,
+            fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp, maxLines = 1,
+        )
     }
 }
 

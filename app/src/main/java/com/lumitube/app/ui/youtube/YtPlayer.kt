@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -194,7 +195,8 @@ fun YtVideoPlayer(
                             if (PlaybackManager.captionIndex >= 0) {
                                 PlaybackManager.setCaption(-1)
                             } else {
-                                PlaybackManager.setCaption(defaultCaption())
+                                val (idx, tl) = defaultCaption()
+                                PlaybackManager.setCaption(idx, tl)
                             }
                         },
                         enabled = hasCaptions,
@@ -253,6 +255,25 @@ fun YtVideoPlayer(
             }
         }
 
+        if (PlaybackManager.captionLoading) {
+            Text(
+                "Memuat subtitle…", color = Color.White, fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
+                    .clip(RoundedCornerShape(6.dp)).background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+        PlaybackManager.captionError?.let { msg ->
+            LaunchedEffect(msg) {
+                delay(2500)
+                PlaybackManager.captionError = null
+            }
+            Text(
+                msg, color = Color.White, fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)
+                    .clip(RoundedCornerShape(6.dp)).background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+
         PlaybackManager.error?.let { err ->
             Column(
                 Modifier.fillMaxSize().background(Color(0xDD000000)).padding(16.dp),
@@ -282,14 +303,18 @@ fun YtVideoPlayer(
     }
 }
 
-/** Bahasa subtitle bawaan: bahasa HP, lalu yang dibuat manusia, lalu yang pertama. */
-private fun defaultCaption(): Int {
+/**
+ * Subtitle bawaan: bahasa HP bila ada; kalau tidak ada, terjemahkan otomatis
+ * subtitle terbaik ke bahasa HP (bila YouTube mendukung).
+ */
+private fun defaultCaption(): Pair<Int, String?> {
     val list = PlaybackManager.captions
     val lang = Locale.getDefault().language
-    return list.indexOfFirst { it.lang.startsWith(lang) && !it.auto }.takeIf { it >= 0 }
-        ?: list.indexOfFirst { it.lang.startsWith(lang) }.takeIf { it >= 0 }
-        ?: list.indexOfFirst { !it.auto }.takeIf { it >= 0 }
-        ?: 0
+    list.indexOfFirst { it.lang.startsWith(lang) && !it.auto }.takeIf { it >= 0 }?.let { return it to null }
+    list.indexOfFirst { it.lang.startsWith(lang) }.takeIf { it >= 0 }?.let { return it to null }
+    val base = list.indexOfFirst { !it.auto }.takeIf { it >= 0 } ?: 0
+    val canTranslate = PlaybackManager.translations.any { it.first == lang }
+    return base to (if (canTranslate) lang else null)
 }
 
 @Composable
@@ -408,9 +433,17 @@ fun YtSettingsSheet(onClose: () -> Unit) {
                     SettingRow(Icons.Outlined.Tune, "Kualitas video", if (actual != null) "${actual}p" else "Otomatis", arrow = true) { page = 1 }
                     SettingRow(Icons.Outlined.Speed, "Kecepatan pemutaran", speedLabel(PlaybackManager.speed), arrow = true) { page = 2 }
                     val cap = PlaybackManager.captions.getOrNull(PlaybackManager.captionIndex)
+                    val tl = PlaybackManager.captionTranslate?.let { code ->
+                        PlaybackManager.translations.firstOrNull { it.first == code }?.second ?: code
+                    }
                     SettingRow(
                         if (cap != null) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaptionOff, "Teks",
-                        cap?.name ?: if (PlaybackManager.captions.isEmpty()) "Tidak tersedia" else "Nonaktif", arrow = true,
+                        when {
+                            cap == null -> if (PlaybackManager.captions.isEmpty()) "Tidak tersedia" else "Nonaktif"
+                            tl != null -> "$tl (terjemahan)"
+                            else -> cap.name
+                        },
+                        arrow = true,
                     ) { if (PlaybackManager.captions.isNotEmpty()) page = 3 }
                     Row(
                         Modifier.fillMaxWidth().clickable {
@@ -468,11 +501,36 @@ fun YtSettingsSheet(onClose: () -> Unit) {
                         PlaybackManager.setCaption(-1)
                         onClose()
                     }
-                    LazyColumn(Modifier.fillMaxWidth().height((PlaybackManager.captions.size.coerceAtMost(6) * 52).dp)) {
+                    LazyColumn(Modifier.fillMaxWidth().height(((PlaybackManager.captions.size + 1).coerceAtMost(6) * 52).dp)) {
                         items(PlaybackManager.captions.size) { i ->
                             val c = PlaybackManager.captions[i]
-                            CheckRow(c.name + if (c.auto && !c.name.contains("(")) " (otomatis)" else "", PlaybackManager.captionIndex == i) {
+                            CheckRow(
+                                c.name + if (c.auto && !c.name.contains("(")) " (otomatis)" else "",
+                                PlaybackManager.captionIndex == i && PlaybackManager.captionTranslate == null,
+                            ) {
                                 PlaybackManager.setCaption(i)
+                                onClose()
+                            }
+                        }
+                        if (PlaybackManager.translations.isNotEmpty()) {
+                            item {
+                                SettingRow(Icons.Outlined.Translate, "Terjemahkan otomatis", PlaybackManager.captionTranslate ?: "", arrow = true) { page = 4 }
+                            }
+                        }
+                    }
+                }
+                4 -> SubPage("Terjemahkan ke", { page = 3 }) {
+                    // Dasar terjemahan: subtitle aktif, atau subtitle buatan manusia, atau yang pertama
+                    val base = PlaybackManager.captionIndex.takeIf { it >= 0 }
+                        ?: PlaybackManager.captions.indexOfFirst { !it.auto }.takeIf { it >= 0 } ?: 0
+                    val list = PlaybackManager.translations
+                    val mine = Locale.getDefault().language
+                    val ordered = list.filter { it.first == mine } + list.filter { it.first != mine }
+                    LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
+                        items(ordered.size) { i ->
+                            val (code, name) = ordered[i]
+                            CheckRow(name, PlaybackManager.captionTranslate == code) {
+                                PlaybackManager.setCaption(base, code)
                                 onClose()
                             }
                         }

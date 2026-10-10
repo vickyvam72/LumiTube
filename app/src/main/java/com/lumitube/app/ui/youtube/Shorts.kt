@@ -178,15 +178,16 @@ private fun ShortPage(
                 if (active) PlaybackManager.togglePlay()
             }
     ) {
-        if (active && PlaybackManager.current?.id == item.id && !PlaybackManager.loading) {
-            VideoSurface(Modifier.fillMaxSize(), controller = false, zoom = true)
-        } else {
+        // Permukaan video langsung disiapkan; thumbnail menutupinya sampai frame pertama tampil,
+        // sehingga tidak ada layar hitam / tombol play yang muncul sesaat.
+        if (active) VideoSurface(Modifier.fillMaxSize(), controller = false, zoom = true)
+        if (!active || PlaybackManager.firstFrameFor != item.id) {
             Img(item.thumbnail, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, placeholder = Color.Black)
         }
-        if (active && PlaybackManager.loading) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
+        if (active && PlaybackManager.firstFrameFor == item.id && PlaybackManager.buffering) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.align(Alignment.Center).size(36.dp))
         }
-        if (active && !PlaybackManager.isPlaying && !PlaybackManager.loading && PlaybackManager.current?.id == item.id) {
+        if (active && !PlaybackManager.playWhenReady && !PlaybackManager.loading && PlaybackManager.current?.id == item.id) {
             Box(
                 Modifier.align(Alignment.Center).size(72.dp).clip(CircleShape).background(Color(0x66000000)),
                 contentAlignment = Alignment.Center,

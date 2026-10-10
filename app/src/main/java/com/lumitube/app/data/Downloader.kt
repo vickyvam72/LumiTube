@@ -93,14 +93,14 @@ object Downloader {
         val out = mutableListOf<DownloadOption>()
         if (m4a != null) {
             // MP4 (H.264) bisa digabung dengan audio M4A di semua HP.
-            s.formats.filter { !it.isAudio && it.isMp4 && it.codec == "avc1" && it.height > 0 }
-                .groupBy { it.height }
+            s.formats.filter { !it.isAudio && it.isMp4 && it.codec == "avc1" && it.quality > 0 }
+                .groupBy { it.quality }
                 .map { (_, list) -> list.maxByOrNull { it.bitrate }!! }
-                .sortedByDescending { it.height }
+                .sortedByDescending { it.quality }
                 .forEach { v ->
                     out.add(
                         DownloadOption(
-                            label = "${v.height}p",
+                            label = "${v.quality}p",
                             detail = "Video MP4",
                             video = v, audio = m4a, ext = "mp4", mime = "video/mp4",
                             size = v.contentLength + m4a.contentLength,
