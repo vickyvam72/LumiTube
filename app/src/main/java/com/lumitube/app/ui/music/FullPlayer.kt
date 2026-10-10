@@ -236,10 +236,11 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
             }
 
             // Tab bawah
+            // Jarak antar label sama rata (SpaceEvenly), bukan lebar kolom yang sama
             Row(
-                Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 12.dp),
+                Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 BottomTab("BERIKUTNYA", panel == 1) { panel = if (panel == 1) 0 else 1 }
                 BottomTab("LIRIK", panel == 2) {
@@ -288,7 +289,7 @@ private fun ModeToggle() {
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.BottomTab(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
+        Modifier.height(52.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

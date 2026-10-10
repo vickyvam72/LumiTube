@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -62,6 +63,7 @@ import com.lumitube.app.data.ItemType
 import com.lumitube.app.data.Session
 import com.lumitube.app.player.PlaybackManager
 import com.lumitube.app.ui.common.Img
+import com.lumitube.app.ui.common.hdThumb
 import com.lumitube.app.ui.common.LocalYt
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.common.YtRed
@@ -148,7 +150,7 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
     val yt = LocalYt.current
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(bottom = 16.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-            Img(item.thumbnail, Modifier.fillMaxSize())
+            Img(hdThumb(item), Modifier.fillMaxSize(), fallback = item.thumbnail)
             item.duration?.let {
                 DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(8.dp))
             }
@@ -191,7 +193,7 @@ fun VideoRow(item: Item, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Box(Modifier.width(160.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
-            Img(item.thumbnail, Modifier.fillMaxSize())
+            Img(if (item.type == ItemType.VIDEO) "https://i.ytimg.com/vi/${item.id}/hq720.jpg" else item.thumbnail, Modifier.fillMaxSize(), fallback = item.thumbnail)
             if (item.type == ItemType.PLAYLIST) {
                 Box(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(22.dp).background(Color(0xB3000000)),
@@ -231,7 +233,7 @@ fun ChannelRow(item: Item, onClick: () -> Unit) {
 @Composable
 fun ShortCard(item: Item, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(modifier.aspectRatio(9f / 16f).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick)) {
-        Img(item.thumbnail, Modifier.fillMaxSize())
+        Img(hdThumb(item), Modifier.fillMaxSize(), fallback = item.thumbnail)
         Box(
             Modifier.fillMaxSize().background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
@@ -295,6 +297,10 @@ fun YtMiniPlayer(onOpen: () -> Unit) {
             }
             IconButton(onClick = { PlaybackManager.togglePlay() }) {
                 Icon(if (PlaybackManager.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Putar/Jeda", tint = yt.text)
+            }
+            val canNext = PlaybackManager.index + 1 < PlaybackManager.queue.size || PlaybackManager.relatedNext != null
+            IconButton(onClick = { PlaybackManager.nextVideo() }, enabled = canNext) {
+                Icon(Icons.Filled.SkipNext, "Berikutnya", tint = if (canNext) yt.text else yt.sub)
             }
             IconButton(onClick = { PlaybackManager.stop() }) {
                 Icon(Icons.Filled.Close, "Tutup", tint = yt.text)

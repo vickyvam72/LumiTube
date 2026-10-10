@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.sp
 /** Layar pembuka: pilih YouTube atau YouTube Music. */
 @Composable
 fun ModeChooser(onPick: (mode: String, remember: Boolean) -> Unit) {
-    var rememberChoice by remember { mutableStateOf(false) }
     Box(
         Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF1D1934), Color(0xFF0B0B0B))))
@@ -59,39 +58,21 @@ fun ModeChooser(onPick: (mode: String, remember: Boolean) -> Unit) {
             )
             ModeCard(
                 title = "YouTube",
-                subtitle = "Video, Shorts, Subscription",
                 bg = Brush.horizontalGradient(listOf(Color(0xFFFF0033), Color(0xFFB0002A))),
                 music = false,
-            ) { onPick("video", rememberChoice) }
+            ) { onPick("video", false) }
             Spacer(Modifier.height(16.dp))
             ModeCard(
                 title = "YouTube Music",
-                subtitle = "Lagu, album, lirik sinkron",
                 bg = Brush.horizontalGradient(listOf(Color(0xFF7B2CF5), Color(0xFF3B1C8C))),
                 music = true,
-            ) { onPick("music", rememberChoice) }
-            Row(
-                Modifier.padding(top = 24.dp).clip(RoundedCornerShape(8.dp)).clickable { rememberChoice = !rememberChoice }
-                    .padding(end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    checked = rememberChoice,
-                    onCheckedChange = { rememberChoice = it },
-                    colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black, uncheckedColor = Color(0x99FFFFFF)),
-                )
-                Text("Ingat pilihan saya", color = Color(0xCCFFFFFF), fontSize = 14.sp)
-            }
-            Text(
-                "Kamu bisa berpindah kapan saja lewat tombol di aplikasi.",
-                color = Color(0x80FFFFFF), fontSize = 12.sp, textAlign = TextAlign.Center,
-            )
+            ) { onPick("music", false) }
         }
     }
 }
 
 @Composable
-private fun ModeCard(title: String, subtitle: String, bg: Brush, music: Boolean, onClick: () -> Unit) {
+private fun ModeCard(title: String, bg: Brush, music: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(20.dp)).background(bg)
             .clickable(onClick = onClick).padding(horizontal = 20.dp),
@@ -110,10 +91,7 @@ private fun ModeCard(title: String, subtitle: String, bg: Brush, music: Boolean,
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Filled.PlayArrow, null, tint = YtRed, modifier = Modifier.size(28.dp)) }
         }
-        Column(Modifier.padding(start = 18.dp)) {
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = Color(0xD9FFFFFF), fontSize = 13.sp)
-        }
+        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 18.dp))
         Spacer(Modifier.width(8.dp))
     }
 }

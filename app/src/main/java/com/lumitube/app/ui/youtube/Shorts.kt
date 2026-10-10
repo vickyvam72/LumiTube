@@ -133,6 +133,7 @@ fun ShortsPlayer(
                 colors = ShortsPanelColors,
                 onClose = { showComments = false },
                 onChannel = { showComments = false; onChannel(it) },
+                edgeToEdge = false,
             )
         }
     }
@@ -182,7 +183,7 @@ private fun ShortPage(
         // sehingga tidak ada layar hitam / tombol play yang muncul sesaat.
         if (active) VideoSurface(Modifier.fillMaxSize(), controller = false, zoom = true)
         if (!active || PlaybackManager.firstFrameFor != item.id) {
-            Img(item.thumbnail, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, placeholder = Color.Black)
+            Img(com.lumitube.app.ui.common.hdThumb(item), Modifier.fillMaxSize(), contentScale = ContentScale.Crop, placeholder = Color.Black, fallback = item.thumbnail)
         }
         if (active && PlaybackManager.firstFrameFor == item.id && PlaybackManager.buffering) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.align(Alignment.Center).size(36.dp))

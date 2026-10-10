@@ -205,6 +205,14 @@ object InnerTube {
         )
     }
 
+    suspend fun dislike(videoId: String, dislike: Boolean) {
+        post(
+            Client.WEB,
+            if (dislike) "like/dislike" else "like/removelike",
+            JSONObject().put("target", JSONObject().put("videoId", videoId))
+        )
+    }
+
     suspend fun like(videoId: String, like: Boolean) {
         post(
             Client.WEB,

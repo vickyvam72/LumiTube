@@ -34,6 +34,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.HighQuality
@@ -678,10 +685,9 @@ fun WatchScreen(
     BackHandler { if (full) full = false else onBack() }
 
     // Putar otomatis: saat video selesai, lanjut ke video terkait pertama.
-    DisposableEffect(info) {
+    LaunchedEffect(info) {
         val next = info?.related?.firstOrNull { it.type == ItemType.VIDEO }
-        PlaybackManager.onAutoNext = next?.let { n -> { onOpen(n) } }
-        onDispose { PlaybackManager.onAutoNext = null }
+        if (next != null && PlaybackManager.current?.id == current.id) PlaybackManager.relatedNext = next
     }
 
     DisposableEffect(full) {
@@ -718,7 +724,7 @@ fun WatchScreen(
             onFullscreen = { full = it },
             onMinimize = onBack,
             onSettings = { panel = 2 },
-            onNext = nextRelated?.let { n -> { onOpen(n) } },
+            onNext = if (nextRelated != null) ({ PlaybackManager.nextVideo() }) else null,
         )
         if (!full) {
             WatchDetails(
@@ -734,7 +740,7 @@ fun WatchScreen(
             token = info?.commentsToken, count = info?.commentCount, colors = ytPanelColors(),
             onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
         )
-        2 -> YtSettingsSheet { panel = 0 }
+        2 -> YtSettingsSheet(onListenMusic = { panel = 0; onPlayInMusic(current) }) { panel = 0 }
     }
     }
     downloadItem?.let { DownloadDialog(it) { downloadItem = null } }
@@ -765,13 +771,20 @@ private fun WatchDetails(
             contentPadding = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues(),
         ) {
             item {
-                Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(12.dp).animateContentSize()) {
+                Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp).animateContentSize()) {
                     Text(
                         i?.title ?: current.title, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                        maxLines = if (expanded) 10 else 2, overflow = TextOverflow.Ellipsis,
+                        maxLines = if (expanded) 10 else 2, overflow = TextOverflow.Ellipsis, lineHeight = 24.sp,
                     )
                     val meta = listOfNotNull(i?.views, i?.date).joinToString("  ")
-                    if (meta.isNotBlank()) Text("$meta  ...selengkapnya", color = yt.sub, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            (i?.channel ?: current.channelName)?.let { if (it.startsWith("@")) it else it } ?: "",
+                            color = yt.text, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Text("  $meta  ...selengkapnya", color = yt.sub, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                     if (expanded) {
                         i?.description?.let {
                             Box(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(yt.surface).padding(12.dp)) {
@@ -782,21 +795,19 @@ private fun WatchDetails(
                 }
             }
             item {
+                // Baris aksi seperti aplikasi YouTube: avatar, Subscribe, lalu suka/tidak suka/bagikan/simpan/unduh
+                var disliked by remember(current.id) { mutableStateOf(false) }
+                var saved by remember(current.id) { mutableStateOf(false) }
+                val chId = i?.channelId ?: current.channelId
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val chId = i?.channelId ?: current.channelId
-                    Row(
-                        Modifier.weight(1f).clickable(enabled = chId != null) { chId?.let(onChannel) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Img(i?.channelThumb ?: current.channelThumb, Modifier.size(38.dp).clip(CircleShape))
-                        Column(Modifier.padding(start = 10.dp)) {
-                            Text(i?.channel ?: current.channelName ?: "", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                            i?.subscribers?.let { Text(it, color = yt.sub, fontSize = 12.sp, maxLines = 1) }
-                        }
-                    }
+                    Img(
+                        i?.channelThumb ?: current.channelThumb,
+                        Modifier.size(36.dp).clip(CircleShape).clickable(enabled = chId != null) { chId?.let(onChannel) }
+                    )
+                    Spacer(Modifier.width(10.dp))
                     Box(
                         Modifier.clip(RoundedCornerShape(18.dp))
                             .background(if (subscribed) yt.chip else yt.text)
@@ -815,27 +826,23 @@ private fun WatchDetails(
                                     }
                                 }
                             }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
                             if (subscribed) "Disubscribe" else "Subscribe",
                             color = if (subscribed) yt.text else yt.bg, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                         )
                     }
-                }
-            }
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        ActionChip(if (liked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp, i?.likes ?: "Suka") {
+                    Spacer(Modifier.weight(1f))
+                    // Suka (dengan jumlah)
+                    Row(
+                        Modifier.clip(RoundedCornerShape(18.dp)).clickable {
                             if (!Session.loggedIn) {
                                 onLogin()
                             } else {
                                 val target = !liked
                                 liked = target
+                                if (target) disliked = false
                                 scope.launch {
                                     try {
                                         InnerTube.like(current.id, target)
@@ -844,11 +851,47 @@ private fun WatchDetails(
                                     }
                                 }
                             }
+                        }.padding(horizontal = 6.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(if (liked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp, "Suka", tint = yt.text, modifier = Modifier.size(24.dp))
+                        i?.likes?.let { Text(" $it", color = yt.text, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+                    }
+                    WatchIcon(if (disliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown, "Tidak suka") {
+                        if (!Session.loggedIn) {
+                            onLogin()
+                        } else {
+                            val target = !disliked
+                            disliked = target
+                            if (target) liked = false
+                            scope.launch {
+                                try {
+                                    InnerTube.dislike(current.id, target)
+                                } catch (_: Exception) {
+                                    disliked = !target
+                                }
+                            }
                         }
                     }
-                    item { ActionChip(Icons.Filled.MusicNote, "Putar di Music") { onPlayInMusic(current) } }
-                    item { ActionChip(Icons.Filled.Download, "Download") { onDownload() } }
-                    item { ActionChip(Icons.Filled.Share, "Bagikan") { shareVideo(context, current.id, current.title, false) } }
+                    WatchIcon(Icons.AutoMirrored.Outlined.Reply, "Bagikan", mirror = true) {
+                        shareVideo(context, current.id, current.title, false)
+                    }
+                    WatchIcon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, "Simpan") {
+                        if (!Session.loggedIn) {
+                            onLogin()
+                        } else if (!saved) {
+                            saved = true
+                            scope.launch {
+                                try {
+                                    Repo.saveWatchLater(current.id)
+                                    android.widget.Toast.makeText(context, "Disimpan ke Tonton nanti", android.widget.Toast.LENGTH_SHORT).show()
+                                } catch (_: Exception) {
+                                    saved = false
+                                }
+                            }
+                        }
+                    }
+                    WatchIcon(Icons.Outlined.Download, "Unduh") { onDownload() }
                 }
             }
             item {
@@ -888,6 +931,20 @@ private fun WatchDetails(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WatchIcon(icon: ImageVector, label: String, mirror: Boolean = false, onClick: () -> Unit) {
+    val yt = LocalYt.current
+    Box(
+        Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon, label, tint = yt.text,
+            modifier = Modifier.size(24.dp).then(if (mirror) Modifier.graphicsLayer { scaleX = -1f } else Modifier),
+        )
     }
 }
 

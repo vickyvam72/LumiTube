@@ -12,8 +12,8 @@ android {
         applicationId = "com.lumitube.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
     }
 
     // Kunci tetap supaya APK versi baru bisa langsung meng-update versi lama.
@@ -79,6 +79,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-session:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

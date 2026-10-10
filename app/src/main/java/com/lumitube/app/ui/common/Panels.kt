@@ -167,6 +167,8 @@ fun CommentsPanel(
     onClose: () -> Unit,
     onChannel: ((String) -> Unit)? = null,
     onSeek: (Long) -> Unit = { PlaybackManager.exo.seekTo(it) },
+    /** false bila panel sudah berada di atas navigasi bawah (mis. di Shorts). */
+    edgeToEdge: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -236,8 +238,7 @@ fun CommentsPanel(
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(colors.bg)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-                .navigationBarsPadding()
-                .imePadding()
+                .then(if (edgeToEdge) Modifier.navigationBarsPadding().imePadding() else Modifier)
         ) {
             Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))

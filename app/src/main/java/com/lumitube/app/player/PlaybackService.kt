@@ -26,10 +26,12 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
+    /** Aplikasi di-clear dari daftar aplikasi terbaru: hentikan semua pemutaran. */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (!PlaybackManager.exo.playWhenReady) {
-            stopSelf()
-        }
+        PlaybackManager.stop()
+        session?.let { it.player.stop() }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onDestroy() {

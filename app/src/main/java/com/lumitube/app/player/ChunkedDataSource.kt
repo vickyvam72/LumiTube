@@ -20,8 +20,11 @@ import kotlin.math.min
 @OptIn(UnstableApi::class)
 class ChunkedDataSource(
     private val upstream: DataSource,
-    private val chunkSize: Long = 2L * 1024 * 1024,
+    /** Potongan pertama kecil supaya cepat mulai/lanjut setelah seek, lalu membesar. */
+    private val firstChunk: Long = 512L * 1024,
+    private val maxChunk: Long = 8L * 1024 * 1024,
 ) : DataSource {
+    private var nextChunk = firstChunk
 
     private var spec: DataSpec? = null
     private var position = 0L
@@ -36,6 +39,7 @@ class ChunkedDataSource(
 
     override fun open(dataSpec: DataSpec): Long {
         spec = dataSpec
+        nextChunk = firstChunk
         position = dataSpec.position
         end = when {
             dataSpec.length != C.LENGTH_UNSET.toLong() -> dataSpec.position + dataSpec.length
@@ -54,7 +58,8 @@ class ChunkedDataSource(
 
     private fun openChunk(): Boolean {
         val base = spec ?: return false
-        var len = chunkSize
+        var len = nextChunk
+        nextChunk = minOf(nextChunk * 2, maxChunk)
         if (end >= 0) len = min(len, end - position)
         if (len <= 0) return false
         val chunk = base.buildUpon().setPosition(position).setLength(len).build()

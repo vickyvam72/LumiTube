@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var inPip by mutableStateOf(false)
+    /** Layar pilih YouTube / YouTube Music sudah dilewati untuk kunjungan ini. */
+    private var chooserDone by mutableStateOf(!Session.askMode)
+    private var askOnReturn = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +61,6 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         var mode by rememberSaveable { mutableStateOf(Session.mode) }
         var showLogin by rememberSaveable { mutableStateOf(false) }
-        var chooserDone by rememberSaveable { mutableStateOf(!Session.askMode) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }
         var pendingPlay by remember { mutableStateOf<Item?>(null) }
         val dark = mode == "music" || isSystemInDarkTheme()
@@ -136,7 +138,8 @@ class MainActivity : ComponentActivity() {
                 }
                 // Mode Picture-in-Picture: tampilkan video saja di atas UI (state UI tetap terjaga).
                 if (inPip) {
-                    if (PlaybackManager.isVideo) {
+                    // Selama di YouTube Music: PiP lirik. Di YouTube biasa: PiP video.
+                    if (mode != "music") {
                         VideoSurface(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black), controller = false)
                     } else {
                         com.lumitube.app.ui.music.LyricsPip()
@@ -155,21 +158,45 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
+        // Keluar ke layar utama (bukan rotasi/PiP): saat dibuka lagi, tanya mode lagi.
+        if (!isChangingConfigurations && !(Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode)) askOnReturn = true
         super.onStop()
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        if (askOnReturn && Session.askMode) chooserDone = false
+        askOnReturn = false
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        val videoPip = PlaybackManager.isVideo && PlaybackManager.isPlaying &&
-            PlaybackManager.current?.type != ItemType.SHORT
-        // Mode Music: tampilkan PiP lirik (bisa dimatikan di Setelan Music)
-        val lyricsPip = !PlaybackManager.isVideo && PlaybackManager.isPlaying && Session.lyricsPip
+        if (!chooserDone) return
+        val musicMode = Session.mode == "music"
+        // YouTube biasa (termasuk Shorts): PiP video. YouTube Music: PiP lirik (walau sedang mode Video).
+        val videoPip = !musicMode && PlaybackManager.isVideo && PlaybackManager.isPlaying
+        val lyricsPip = musicMode && PlaybackManager.isPlaying && Session.lyricsPip
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (videoPip || lyricsPip)) {
             if (lyricsPip) PlaybackManager.loadLyrics()
+            val ratio = when {
+                lyricsPip -> Rational(16, 9)
+                PlaybackManager.current?.type == ItemType.SHORT -> Rational(9, 16)
+                else -> {
+                    val vs = PlaybackManager.exo.videoSize
+                    if (vs.width > 0 && vs.height > 0) {
+                        val r = vs.width.toFloat() / vs.height
+                        when {
+                            r > 2.39f -> Rational(239, 100)
+                            r < 0.42f -> Rational(100, 239)
+                            else -> Rational(vs.width, vs.height)
+                        }
+                    } else {
+                        Rational(16, 9)
+                    }
+                }
+            }
             try {
-                enterPictureInPictureMode(
-                    PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()
-                )
+                enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(ratio).build())
             } catch (_: Exception) {
             }
         }

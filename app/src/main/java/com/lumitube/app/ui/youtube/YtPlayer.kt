@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -406,7 +407,7 @@ private fun YtSeekBar(
 
 /** Sheet setelan video: Kualitas, Kecepatan, Teks, dan Ulang video. */
 @Composable
-fun YtSettingsSheet(onClose: () -> Unit) {
+fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
     val yt = LocalYt.current
     var page by remember { mutableIntStateOf(0) }
     var loop by remember { mutableStateOf(Session.loopVideo) }
@@ -445,6 +446,9 @@ fun YtSettingsSheet(onClose: () -> Unit) {
                         },
                         arrow = true,
                     ) { if (PlaybackManager.captions.isNotEmpty()) page = 3 }
+                    if (onListenMusic != null) {
+                        SettingRow(Icons.Outlined.MusicNote, "Dengarkan di YouTube Music", "", arrow = true) { onListenMusic() }
+                    }
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             loop = !loop

@@ -54,17 +54,29 @@ fun Img(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     placeholder: Color = Color(0x22888888),
+    fallback: String? = null,
 ) {
+    // Coba URL utama (mis. versi HD); bila gagal/404, pakai cadangan.
+    var current by remember(url, fallback) { mutableStateOf(url ?: fallback) }
     Box(modifier.background(placeholder)) {
-        if (url != null) {
+        val u = current
+        if (u != null) {
             AsyncImage(
-                model = url,
+                model = u,
                 contentDescription = null,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
+                onError = { if (fallback != null && current != fallback) current = fallback },
             )
         }
     }
+}
+
+/** Thumbnail HD untuk video (maxresdefault) dan Shorts (oar2, vertikal). */
+fun hdThumb(item: Item): String? = when (item.type) {
+    com.lumitube.app.data.ItemType.VIDEO -> "https://i.ytimg.com/vi/${item.id}/maxresdefault.jpg"
+    com.lumitube.app.data.ItemType.SHORT -> "https://i.ytimg.com/vi/${item.id}/oar2.jpg"
+    else -> item.thumbnail
 }
 
 /** Memuat halaman pertama + halaman lanjutan (infinite scroll). */

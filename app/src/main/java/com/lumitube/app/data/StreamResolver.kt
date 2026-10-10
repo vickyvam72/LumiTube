@@ -90,6 +90,23 @@ object StreamResolver {
                     .put("deviceMake", "Apple").put("deviceModel", "RealityDevice17,1")
                     .put("osName", "visionOS").put("osVersion", "26.6.0.23O770")
             },
+            // Klien dari Morphe (ClientType.ANDROID_VR_DASH / ANDROID_XR_DASH)
+            PlayerClient(
+                "ANDROID_VR", 28, "1.64.34",
+                "com.google.android.apps.youtube.vr.pico/1.64.34 (Linux; U; Android 10; en_US; A8110 Build/5.13.7)",
+                WWW, false, emptyMap(),
+            ) {
+                it.put("deviceMake", "Pico").put("deviceModel", "A8110")
+                    .put("androidSdkVersion", 29).put("osName", "Android").put("osVersion", "10")
+            },
+            PlayerClient(
+                "ANDROID_VR", 28, "1.69.27",
+                "com.google.android.apps.youtube.xr/1.69.27 (Linux; U; Android 14; en_US; SM-I610 Build/UML1.250710.002.A1)",
+                WWW, false, emptyMap(),
+            ) {
+                it.put("deviceMake", "Samsung").put("deviceModel", "SM-I610")
+                    .put("androidSdkVersion", 34).put("osName", "Android").put("osVersion", "14")
+            },
             PlayerClient(
                 "ANDROID_VR", 28, "1.65.10",
                 "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",

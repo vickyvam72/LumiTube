@@ -91,6 +91,8 @@ object PlaybackManager {
     private var captionFile: java.io.File? = null
     /** Dipanggil saat video selesai & autoplay aktif (mis. putar video terkait berikutnya). */
     var onAutoNext: (() -> Unit)? = null
+    /** Video terkait berikutnya (untuk tombol next & putar otomatis). */
+    var relatedNext by mutableStateOf<Item?>(null)
     private var retried: String? = null
     /** Semua hasil lirik untuk lagu saat ini (terbaik di depan). */
     var lyricsList by mutableStateOf<List<Lyrics>>(emptyList())
@@ -128,7 +130,7 @@ object PlaybackManager {
             // Mulai putar lebih cepat: cukup 0,7 detik data untuk mulai
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(15_000, 60_000, 700, 2_000)
+                    .setBufferDurationsMs(15_000, 60_000, 500, 1_000)
                     .build()
             )
             .build()
@@ -163,6 +165,8 @@ object PlaybackManager {
                 }
             }
         })
+        // Seek ke keyframe terdekat: maju/mundur jauh lebih cepat (seperti aplikasi YouTube)
+        exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
         player = QueuePlayer(exo)
         startWatchdog()
     }
@@ -274,6 +278,28 @@ object PlaybackManager {
         }
     }
 
+    /** Next untuk mode video: antrean dulu, lalu video terkait (dan siapkan terkait berikutnya). */
+    fun nextVideo() {
+        if (!isVideo || index + 1 < queue.size) {
+            next()
+            return
+        }
+        val n = relatedNext ?: return
+        relatedNext = null
+        playVideo(n.copy(type = ItemType.VIDEO))
+        scope.launch {
+            try {
+                val w = Repo.watch(n.id)
+                if (current?.id == n.id && relatedNext == null) {
+                    relatedNext = w.related.firstOrNull { it.type == ItemType.VIDEO }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun previous() {
         if (exo.currentPosition > 3000 || index <= 0) {
             exo.seekTo(0)
@@ -304,6 +330,7 @@ object PlaybackManager {
         index = -1
         current = null
         isVideo = false
+        relatedNext = null
     }
 
     fun retry() {
@@ -458,8 +485,10 @@ object PlaybackManager {
         if (loop) {
             exo.seekTo(0)
             exo.play()
-        } else if (isVideo && index + 1 >= queue.size && Session.autoplay && onAutoNext != null) {
-            onAutoNext?.invoke()
+        } else if (isVideo && index + 1 >= queue.size && Session.autoplay && relatedNext != null &&
+            current?.type != ItemType.SHORT
+        ) {
+            nextVideo()
         } else {
             next()
         }
@@ -467,6 +496,7 @@ object PlaybackManager {
 
     private fun load(item: Item, startPosition: Long = 0L) {
         if (current?.id != item.id) {
+            if (relatedNext?.id == item.id) relatedNext = null
             captions = emptyList()
             translations = emptyList()
             captionIndex = -1
@@ -536,12 +566,17 @@ object PlaybackManager {
             .createMediaSource(MediaItem.fromUri(Uri.fromFile(file)))
     }
 
+    private val mediaHttp: okhttp3.OkHttpClient by lazy {
+        InnerTube.http.newBuilder()
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
     private fun buildSource(item: Item, s: Stream, audioOnly: Boolean): MediaSource {
-        val plainHttp = DefaultHttpDataSource.Factory()
+        // OkHttp: koneksi dipakai ulang antar potongan (tanpa handshake TLS berulang), mendukung HTTP/2.
+        val plainHttp = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
             .setUserAgent(s.userAgent)
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(15_000)
         // Progressive (video/audio terpisah) diunduh per potongan agar tidak macet.
         val http = ChunkedDataSource.Factory(plainHttp)
         val artist = item.channelName ?: s.author ?: item.subtitle.substringBefore(" • ")
@@ -598,10 +633,11 @@ class QueuePlayer(player: Player) : ForwardingPlayer(player) {
     override fun isCommandAvailable(command: Int): Boolean =
         command in extra || super.isCommandAvailable(command)
 
-    override fun hasNextMediaItem(): Boolean = PlaybackManager.index + 1 < PlaybackManager.queue.size
+    override fun hasNextMediaItem(): Boolean =
+        PlaybackManager.index + 1 < PlaybackManager.queue.size || PlaybackManager.relatedNext != null
     override fun hasPreviousMediaItem(): Boolean = PlaybackManager.index > 0
-    override fun seekToNext() = PlaybackManager.next()
-    override fun seekToNextMediaItem() = PlaybackManager.next()
+    override fun seekToNext() = PlaybackManager.nextVideo()
+    override fun seekToNextMediaItem() = PlaybackManager.nextVideo()
     override fun seekToPrevious() = PlaybackManager.previous()
     override fun seekToPreviousMediaItem() = PlaybackManager.previous()
 }

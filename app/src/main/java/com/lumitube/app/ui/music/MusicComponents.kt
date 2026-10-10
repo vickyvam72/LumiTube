@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
@@ -312,6 +313,9 @@ fun MusicMiniPlayer(onOpen: () -> Unit) {
             }
             IconButton(onClick = { PlaybackManager.next() }) {
                 Icon(Icons.Filled.SkipNext, "Berikutnya", tint = Color.White)
+            }
+            IconButton(onClick = { PlaybackManager.stop() }) {
+                Icon(Icons.Filled.Close, "Tutup", tint = Color.White)
             }
         }
     }
