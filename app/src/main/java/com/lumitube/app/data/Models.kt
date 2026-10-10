@@ -17,6 +17,8 @@ data class Item(
     val wide: Boolean = false,
     /** true bila berasal dari baris daftar (musicResponsiveListItemRenderer). */
     val row: Boolean = false,
+    /** Lokasi file hasil download (content:// atau file://), jika diputar offline. */
+    val localUri: String? = null,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"
@@ -62,6 +64,26 @@ data class WatchInfo(
     val likes: String?,
     val description: String?,
     val related: List<Item>,
+    val subscribed: Boolean = false,
+    val liked: Boolean = false,
+    val commentsToken: String? = null,
+    val commentCount: String? = null,
 )
+
+data class Comment(
+    val id: String,
+    val author: String,
+    val authorId: String?,
+    val avatar: String?,
+    val text: String,
+    val published: String,
+    val likes: String,
+    val replyCount: String,
+    val repliesToken: String?,
+    val isCreator: Boolean,
+    val isReply: Boolean,
+)
+
+data class CommentPage(val comments: List<Comment>, val next: String?, val count: String?)
 
 data class MusicQueue(val items: List<Item>, val lyricsBrowseId: String?)

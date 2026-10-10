@@ -321,7 +321,7 @@ fun YtBottomNav(selected: Int, onSelect: (Int) -> Unit, onSwitchMusic: () -> Uni
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
             NavCell(specs[0], selected == 0) { onSelect(0) }
             NavCell(specs[1], selected == 1) { onSelect(1) }
-            // Tombol tengah: pindah ke Lumi Music (posisinya seperti tombol "+" di YouTube)
+            // Tombol tengah: pindah ke LumiTube Music (posisinya seperti tombol "+" di YouTube)
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).background(yt.chip).clickable(onClick = onSwitchMusic),

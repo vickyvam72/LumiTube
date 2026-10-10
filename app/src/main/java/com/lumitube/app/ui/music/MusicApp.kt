@@ -75,12 +75,15 @@ import com.lumitube.app.ui.common.LoadingBox
 import com.lumitube.app.ui.common.MessageBox
 import com.lumitube.app.ui.common.MusicColors
 import com.lumitube.app.ui.common.rememberFeed
+import com.lumitube.app.ui.common.DownloadsList
+import com.lumitube.app.ui.common.MusicPanelColors
+import com.lumitube.app.ui.common.toItem
 
 sealed interface MRoute {
     data class Browse(val id: String, val params: String?, val title: String?) : MRoute
 }
 
-/** Aplikasi "YouTube Music" di dalam Lumi Tube. */
+/** Aplikasi "YouTube Music" di dalam LumiTube. */
 @Composable
 fun MusicApp(
     pendingPlay: Item?,
@@ -92,6 +95,7 @@ fun MusicApp(
     val stack = remember { mutableStateListOf<MRoute>() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showPlayer by rememberSaveable { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(pendingPlay) {
         if (pendingPlay != null) {
@@ -99,7 +103,7 @@ fun MusicApp(
             if (PlaybackManager.current?.id == song.id) {
                 PlaybackManager.switchMode(video = false)
             } else {
-                PlaybackManager.playMusic(listOf(song), 0, radio = true)
+                PlaybackManager.playMusic(listOf(song), 0, radio = song.localUri == null)
             }
             showPlayer = true
             onPendingConsumed()
@@ -154,10 +158,10 @@ fun MusicApp(
                 when (val top = stack.lastOrNull()) {
                     is MRoute.Browse -> MusicBrowseScreen(top, { stack.removeAt(stack.lastIndex) }, onItem, openBrowse)
                     null -> when (tab) {
-                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin)
+                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
                         2 -> MusicSearchScreen(onItem)
-                        else -> LibraryScreen(onItem, onLogin)
+                        else -> LibraryScreen(onItem, onLogin, onOpenVideo)
                     }
                 }
             }
@@ -175,13 +179,14 @@ fun MusicApp(
                 onOpenVideo = { item -> showPlayer = false; onOpenVideo(item) },
             )
         }
+        if (showSettings) MusicSettingsPanel { showSettings = false }
     }
 }
 
 // ---------------------------------------------------------------- Beranda
 
 @Composable
-private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit) {
+private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettings: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().height(60.dp).padding(start = 16.dp, end = 8.dp),
@@ -202,6 +207,7 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit) {
                 } else {
                     DropdownMenuItem(text = { Text("Login") }, onClick = { menu = false; onLogin() })
                 }
+                DropdownMenuItem(text = { Text("Setelan") }, onClick = { menu = false; onSettings() })
                 DropdownMenuItem(text = { Text("Buka LumiTube (video)") }, onClick = { menu = false; onSwitchVideo() })
             }
         }
@@ -218,6 +224,7 @@ private fun MusicHome(
     openBrowse: (String, String?, String?) -> Unit,
     onSwitchVideo: () -> Unit,
     onLogin: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val state = rememberLazyListState()
     val shelves = feed.page?.shelves ?: emptyList()
@@ -231,7 +238,7 @@ private fun MusicHome(
     LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) feed.loadMore() }
 
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-        item { MusicTopBar(onSwitchVideo, onLogin) }
+        item { MusicTopBar(onSwitchVideo, onLogin, onSettings) }
         if (chips.isNotEmpty()) item { MoodChips(chips, chipIndex, onChip) }
         if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = Color.White) }
         feed.error?.let { err ->
@@ -355,24 +362,34 @@ private val libraryTabs = listOf(
     "Album" to "FEmusic_liked_albums",
     "Artis" to "FEmusic_library_corpus_track_artists",
     "Riwayat" to "FEmusic_history",
+    "Download" to "",
 )
 
 @Composable
-private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Unit) {
-    if (!Session.loggedIn) {
-        Column {
-            PageTitle("Koleksi")
-            MessageBox("Login untuk melihat playlist, album, artis, dan riwayat YouTube Music kamu.", MusicColors.sub, "Login", onLogin)
-        }
-        return
-    }
+private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Unit, onOpenVideo: (Item) -> Unit) {
     var sel by rememberSaveable { mutableIntStateOf(0) }
-    val (_, browseId) = libraryTabs[sel]
-    val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
-    ShelfList(feed, onItem) {
+    val browseId = libraryTabs[sel].second
+    val chips: @Composable () -> Unit = {
         Column {
             PageTitle("Koleksi")
             MoodChips(libraryTabs.map { Chip(it.first) }, sel) { sel = it }
+        }
+    }
+    when {
+        browseId.isEmpty() -> Column {
+            chips()
+            DownloadsList(MusicPanelColors) { rec ->
+                val it = rec.toItem()
+                if (rec.audioOnly) PlaybackManager.playMusic(listOf(it), 0, radio = false) else onOpenVideo(it)
+            }
+        }
+        !Session.loggedIn -> Column {
+            chips()
+            MessageBox("Login untuk melihat playlist, album, artis, dan riwayat YouTube Music kamu.", MusicColors.sub, "Login", onLogin)
+        }
+        else -> {
+            val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
+            ShelfList(feed, onItem, chips)
         }
     }
 }

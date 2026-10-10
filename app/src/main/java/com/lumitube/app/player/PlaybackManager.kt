@@ -26,6 +26,12 @@ import com.lumitube.app.data.Item
 import com.lumitube.app.data.Repo
 import com.lumitube.app.data.Stream
 import com.lumitube.app.data.StreamResolver
+import com.lumitube.app.data.Session
+import com.lumitube.app.data.ItemType
+import com.lumitube.app.data.lyrics.Lyrics
+import com.lumitube.app.data.lyrics.LyricsRepo
+import com.lumitube.app.data.lyrics.SongQuery
+import androidx.media3.datasource.DefaultDataSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,19 +65,30 @@ object PlaybackManager {
     var loading by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
-    var lyrics by mutableStateOf<String?>(null)
+    /** Semua hasil lirik untuk lagu saat ini (terbaik di depan). */
+    var lyricsList by mutableStateOf<List<Lyrics>>(emptyList())
         private set
+    var lyricsIndex by mutableIntStateOf(0)
     var lyricsLoading by mutableStateOf(false)
         private set
+    private var lyricsFor: String? = null
+    val lyrics: Lyrics? get() = lyricsList.getOrNull(lyricsIndex)
+
+    /** Resolusi video yang tersedia untuk video saat ini. */
+    var qualities by mutableStateOf<List<Int>>(emptyList())
+        private set
+    var speed by mutableStateOf(1f)
+        private set
+    private lateinit var appContext: Context
     var repeat by mutableStateOf(RepeatMode.OFF)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var loadJob: Job? = null
     private var queueJob: Job? = null
-    private var lyricsBrowseId: String? = null
 
     fun init(context: Context) {
         if (::exo.isInitialized) return
+        appContext = context.applicationContext
         exo = ExoPlayer.Builder(context.applicationContext)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -89,6 +106,7 @@ object PlaybackManager {
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) onEnded()
+                if (state == Player.STATE_READY && !isVideo) loadLyrics()
             }
 
             override fun onPlayerError(e: PlaybackException) {
@@ -137,7 +155,6 @@ object PlaybackManager {
                 try {
                     val q = Repo.musicQueue(item.id, item.playlistId)
                     if (current?.id == item.id) {
-                        lyricsBrowseId = q.lyricsBrowseId
                         val rest = q.items.filter { it.id != item.id }
                         queue.clear()
                         queue.add(item)
@@ -212,31 +229,59 @@ object PlaybackManager {
         current?.let { load(it) }
     }
 
-    fun loadLyrics() {
-        if (lyrics != null || lyricsLoading) return
+    /** Ambil lirik dari semua penyedia (sekali per lagu). */
+    fun loadLyrics(force: Boolean = false) {
         val item = current ?: return
+        if (!force && (lyricsFor == item.id || lyricsLoading)) return
+        lyricsFor = item.id
         lyricsLoading = true
+        lyricsList = emptyList()
+        lyricsIndex = 0
+        val dur = (exo.duration.takeIf { it > 0 } ?: 0L) / 1000
+        val q = SongQuery(
+            videoId = item.id,
+            title = item.title,
+            artist = item.channelName ?: item.subtitle.substringBefore(" • "),
+            album = null,
+            durationSec = dur.toInt(),
+        )
         scope.launch {
             try {
-                val id = lyricsBrowseId ?: Repo.musicQueue(item.id, item.playlistId).lyricsBrowseId
-                lyricsBrowseId = id
-                if (current?.id == item.id) {
-                    lyrics = id?.let { Repo.lyrics(it) } ?: ""
-                }
+                val list = LyricsRepo.fetchAll(q)
+                if (current?.id == item.id) lyricsList = list
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                lyrics = ""
             } finally {
-                lyricsLoading = false
+                if (current?.id == item.id) lyricsLoading = false
             }
         }
+    }
+
+    fun nextLyricsSource() {
+        if (lyricsList.size > 1) lyricsIndex = (lyricsIndex + 1) % lyricsList.size
+    }
+
+    /** Ganti kualitas video dan lanjutkan dari posisi yang sama. */
+    fun setQuality(height: Int) {
+        Session.maxQuality = height
+        val item = current ?: return
+        if (!isVideo || item.localUri != null) return
+        val pos = exo.currentPosition
+        load(item, pos)
+    }
+
+    fun setPlaybackSpeed(value: Float) {
+        speed = value
+        exo.setPlaybackSpeed(value)
     }
 
     // ---------------- Internal ----------------
 
     private fun onEnded() {
-        if (repeat == RepeatMode.ONE) {
+        val loop = repeat == RepeatMode.ONE ||
+            (isVideo && (Session.loopVideo || current?.type == ItemType.SHORT))
+        if (loop) {
             exo.seekTo(0)
             exo.play()
         } else {
@@ -248,15 +293,30 @@ object PlaybackManager {
         loadJob?.cancel()
         current = item
         error = null
-        lyrics = null
-        lyricsBrowseId = null
+        if (lyricsFor != item.id) {
+            lyricsList = emptyList()
+            lyricsIndex = 0
+        }
         loading = true
         exo.stop()
         val audioOnly = !isVideo
         loadJob = scope.launch {
             try {
-                val stream = StreamResolver.resolve(item.id, audioOnly)
-                exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
+                val local = item.localUri
+                if (local != null) {
+                    qualities = emptyList()
+                    val meta = MediaMetadata.Builder().setTitle(item.title).setArtist(item.channelName ?: "")
+                        .apply { item.thumbnail?.let { setArtworkUri(Uri.parse(it)) } }.build()
+                    val mi = MediaItem.Builder().setMediaId(item.id).setUri(Uri.parse(local)).setMediaMetadata(meta).build()
+                    exo.setMediaSource(
+                        ProgressiveMediaSource.Factory(DefaultDataSource.Factory(appContext)).createMediaSource(mi),
+                        startPosition
+                    )
+                } else {
+                    val stream = StreamResolver.resolve(item.id, audioOnly)
+                    qualities = stream.qualities
+                    exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
+                }
                 exo.prepare()
                 exo.play()
             } catch (e: CancellationException) {

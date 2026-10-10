@@ -60,6 +60,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumitube.app.data.Item
+import com.lumitube.app.data.Repo
+import com.lumitube.app.data.WatchInfo
+import com.lumitube.app.ui.common.CommentsPanel
+import com.lumitube.app.ui.common.DownloadDialog
+import com.lumitube.app.ui.common.MusicPanelColors
+import androidx.compose.runtime.produceState
+import androidx.compose.material.icons.filled.Download
 import com.lumitube.app.player.PlaybackManager
 import com.lumitube.app.player.RepeatMode
 import com.lumitube.app.ui.common.Img
@@ -75,6 +82,17 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
     val item = PlaybackManager.current ?: return
     val context = LocalContext.current
     var panel by remember { mutableIntStateOf(0) } // 0 = tidak ada, 1 = berikutnya, 2 = lirik
+    var showDownload by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) }
+    val commentsInfo by produceState<WatchInfo?>(null, item.id, showComments) {
+        if (showComments && (value == null || value?.title == null)) {
+            value = try {
+                Repo.watch(item.id)
+            } catch (_: Exception) {
+                WatchInfo(null, null, null, null, null, null, null, null, null, emptyList())
+            }
+        }
+    }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
@@ -104,6 +122,9 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                 Spacer(Modifier.weight(1f))
                 ModeToggle()
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { showDownload = true }) {
+                    Icon(Icons.Filled.Download, "Download", tint = Color.White)
+                }
                 IconButton(onClick = { shareVideo(context, item.id, item.title, true) }) {
                     Icon(Icons.Filled.Share, "Bagikan", tint = Color.White)
                 }
@@ -133,7 +154,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                     }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    if (panel == 1) QueuePanel() else LyricsPanel()
+                    if (panel == 1) QueuePanel() else SyncedLyricsView(Modifier.fillMaxSize())
                 }
             }
 
@@ -224,6 +245,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                     panel = if (panel == 2) 0 else 2
                     if (panel == 2) PlaybackManager.loadLyrics()
                 }
+                BottomTab("KOMENTAR", showComments) { showComments = true }
                 Box(
                     Modifier.weight(1f).height(52.dp).clickable { onOpenVideo(item) },
                     contentAlignment = Alignment.Center,
@@ -231,12 +253,27 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.OndemandVideo, null, tint = MusicColors.sub, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("YOUTUBE", color = MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("VIDEO", color = MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
         }
+        if (showComments) {
+            val ci = commentsInfo
+            if (ci == null) {
+                Box(Modifier.fillMaxSize().background(Color(0x66000000)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
+                }
+            } else {
+                CommentsPanel(
+                    token = ci.commentsToken, count = ci.commentCount, colors = MusicPanelColors,
+                    onClose = { showComments = false },
+                    onChannel = { showComments = false; onOpenArtist(it) },
+                )
+            }
+        }
     }
+    if (showDownload) DownloadDialog(item) { showDownload = false }
 }
 
 @Composable
@@ -272,19 +309,6 @@ private fun QueuePanel() {
             Box(Modifier.background(if (i == PlaybackManager.index) Color(0x22FFFFFF) else Color.Transparent)) {
                 SongRow(q) { PlaybackManager.playAt(i) }
             }
-        }
-    }
-}
-
-@Composable
-private fun LyricsPanel() {
-    val lyrics = PlaybackManager.lyrics
-    LaunchedEffect(PlaybackManager.current?.id) { PlaybackManager.loadLyrics() }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
-        when {
-            PlaybackManager.lyricsLoading || lyrics == null -> CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.CenterHorizontally))
-            lyrics.isBlank() -> Text("Lirik tidak tersedia untuk lagu ini.", color = MusicColors.sub, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            else -> Text(lyrics, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
         }
     }
 }

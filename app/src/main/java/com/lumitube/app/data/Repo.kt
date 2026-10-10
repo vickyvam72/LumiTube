@@ -47,6 +47,24 @@ object Repo {
     suspend fun watch(videoId: String): WatchInfo =
         Parser.watchInfo(InnerTube.next(Client.WEB, videoId))
 
+    suspend fun comments(token: String): CommentPage =
+        Parser.comments(InnerTube.continuation(Client.WEB, "next", "b:$token"))
+
+    /** Simpan ke "Tonton nanti". */
+    suspend fun saveWatchLater(videoId: String) {
+        InnerTube.post(
+            Client.WEB, "browse/edit_playlist",
+            org.json.JSONObject()
+                .put("playlistId", "WL")
+                .put(
+                    "actions",
+                    org.json.JSONArray().put(
+                        org.json.JSONObject().put("addedVideoId", videoId).put("action", "ACTION_ADD_VIDEO")
+                    )
+                )
+        )
+    }
+
     suspend fun account(): Account? {
         val a = Parser.account(InnerTube.accountMenu())
         if (a != null) Session.saveAccount(a)

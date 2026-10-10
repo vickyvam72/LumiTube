@@ -8,6 +8,7 @@ class LumiApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Session.init(this)
+        com.lumitube.app.data.Downloader.init(this)
         PlaybackManager.init(this)
     }
 }

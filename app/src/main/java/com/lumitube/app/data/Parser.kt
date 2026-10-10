@@ -452,6 +452,27 @@ object Parser {
         val related = items(secondaryResults ?: JSONArray(), false)
             .filter { it.type == ItemType.VIDEO || it.type == ItemType.PLAYLIST || it.type == ItemType.SHORT }
         val likes = findFirst(primary, "likeButtonViewModel")?.let { findFirst(it, "buttonViewModel")?.str("title") }
+        val likeStatus = findFirst(primary, "likeStatusEntity")?.str("likeStatus")
+            ?: findFirst(next.obj("frameworkUpdates"), "likeStatusEntity")?.str("likeStatus")
+        val subscribed = secondary.obj("subscribeButton", "subscribeButtonRenderer")?.optBoolean("subscribed", false)
+            ?: findFirst(next.obj("frameworkUpdates"), "subscriptionStateEntity")?.optBoolean("subscribed", false)
+            ?: false
+        var commentsToken: String? = null
+        findAll(next.obj("contents"), "itemSectionRenderer").forEach { sec ->
+            if (sec.str("sectionIdentifier") == "comment-item-section") {
+                commentsToken = findFirst(sec, "continuationCommand")?.str("token")
+            }
+        }
+        if (commentsToken == null) {
+            findAll(next.arr("engagementPanels"), "engagementPanelSectionListRenderer").forEach { p ->
+                if (commentsToken == null && p.str("panelIdentifier")?.contains("comment") == true) {
+                    commentsToken = findFirst(p.obj("content"), "continuationCommand")?.str("token")
+                }
+            }
+        }
+        val commentCount = findAll(next.arr("engagementPanels"), "engagementPanelSectionListRenderer")
+            .firstOrNull { it.str("panelIdentifier")?.contains("comment") == true }
+            ?.let { text(findFirst(it.obj("header"), "contextualInfo")) }
         return WatchInfo(
             title = text(primary.obj("title")),
             views = text(primary.obj("viewCount", "videoViewCountRenderer", "shortViewCount"))
@@ -464,6 +485,10 @@ object Parser {
             likes = likes,
             description = secondary.str("attributedDescription", "content") ?: text(secondary.obj("description")),
             related = related,
+            subscribed = subscribed,
+            liked = likeStatus == "LIKE",
+            commentsToken = commentsToken,
+            commentCount = commentCount,
         )
     }
 
@@ -480,6 +505,52 @@ object Parser {
 
     fun lyrics(root: JSONObject): String? =
         text(findFirst(root, "musicDescriptionShelfRenderer")?.obj("description"))
+
+    /** Komentar format baru: commentViewModel (urutan) + commentEntityPayload (isi). */
+    fun comments(root: JSONObject): CommentPage {
+        val payloads = HashMap<String, JSONObject>()
+        root.arr("frameworkUpdates", "entityBatchUpdate", "mutations")?.objects()?.forEach { m ->
+            val p = m.obj("payload", "commentEntityPayload")
+            val key = m.str("entityKey") ?: p.str("key")
+            if (p != null && key != null) payloads[key] = p
+        }
+        val out = mutableListOf<Comment>()
+        var count: String? = null
+        var nextToken: String? = null
+        val actions = root.arr("onResponseReceivedEndpoints")?.objects() ?: emptyList()
+        for (a in actions) {
+            val items = (a.obj("reloadContinuationItemsCommand") ?: a.obj("appendContinuationItemsAction"))
+                ?.arr("continuationItems")?.objects() ?: continue
+            for (it in items) {
+                it.obj("commentsHeaderRenderer")?.let { h -> count = text(h.obj("countText")) ?: count }
+                it.obj("continuationItemRenderer")?.let { c ->
+                    nextToken = findFirst(c, "continuationCommand")?.str("token")
+                }
+                val thread = it.obj("commentThreadRenderer")
+                val vmOuter = thread?.obj("commentViewModel") ?: it.obj("commentViewModel")
+                val vm = vmOuter?.obj("commentViewModel") ?: vmOuter ?: continue
+                val key = vm.str("commentKey") ?: continue
+                val p = payloads[key] ?: continue
+                val repliesToken = thread?.obj("replies")?.let { findFirst(it, "continuationCommand")?.str("token") }
+                out.add(
+                    Comment(
+                        id = p.str("properties", "commentId") ?: key,
+                        author = p.str("author", "displayName") ?: "",
+                        authorId = p.str("author", "channelId"),
+                        avatar = p.str("author", "avatarThumbnailUrl"),
+                        text = p.str("properties", "content", "content") ?: "",
+                        published = p.str("properties", "publishedTime") ?: "",
+                        likes = p.str("toolbar", "likeCountNotliked")?.trim() ?: "",
+                        replyCount = p.str("toolbar", "replyCount")?.trim() ?: "",
+                        repliesToken = repliesToken,
+                        isCreator = p.obj("author")?.optBoolean("isCreator", false) == true,
+                        isReply = (p.obj("properties")?.optInt("replyLevel", 0) ?: 0) > 0,
+                    )
+                )
+            }
+        }
+        return CommentPage(out, nextToken, count)
+    }
 
     fun account(root: JSONObject): Account? {
         val h = findFirst(root, "activeAccountHeaderRenderer") ?: return null

@@ -211,6 +211,7 @@ fun VideoSurface(
     modifier: Modifier = Modifier,
     controller: Boolean = true,
     onFullscreen: ((Boolean) -> Unit)? = null,
+    zoom: Boolean = false,
 ) {
     AndroidView(
         modifier = modifier.background(Color.Black),
@@ -235,6 +236,7 @@ fun VideoSurface(
         update = { view ->
             if (view.player !== PlaybackManager.player) view.player = PlaybackManager.player
             view.useController = controller
+            view.resizeMode = if (zoom) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
         },
         onRelease = { view ->
             activeViews.remove(view)

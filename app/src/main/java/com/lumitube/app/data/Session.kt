@@ -66,6 +66,26 @@ object Session {
             prefs.edit().putString("mode", value).apply()
         }
 
+    fun isLyricsProviderEnabled(name: String): Boolean = prefs.getBoolean("lyr_$name", true)
+
+    fun setLyricsProviderEnabled(name: String, enabled: Boolean) {
+        prefs.edit().putBoolean("lyr_$name", enabled).apply()
+    }
+
+    /** Tampilkan PiP lirik saat aplikasi diminimalkan di mode Music. */
+    var lyricsPip: Boolean
+        get() = prefs.getBoolean("lyrics_pip", true)
+        set(value) {
+            prefs.edit().putBoolean("lyrics_pip", value).apply()
+        }
+
+    /** Ulangi video (mode YouTube). */
+    var loopVideo: Boolean
+        get() = prefs.getBoolean("loop_video", false)
+        set(value) {
+            prefs.edit().putBoolean("loop_video", value).apply()
+        }
+
     /** Kualitas maksimum video (tinggi piksel). */
     var maxQuality: Int
         get() = prefs.getInt("max_quality", 720)

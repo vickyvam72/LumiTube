@@ -1,4 +1,4 @@
-# Lumi Tube
+# LumiTube
 
 Klien YouTube + YouTube Music tidak resmi untuk Android dalam satu aplikasi.
 
@@ -14,7 +14,7 @@ Klien YouTube + YouTube Music tidak resmi untuk Android dalam satu aplikasi.
 
 1. Buat repo baru di github.com (boleh private).
 2. Upload seluruh isi folder ini (termasuk folder `.github`, `app`, `gradle`, `keystore`).
-3. Buka tab **Actions** → workflow **Build Lumi Tube APK** berjalan otomatis (atau tekan *Run workflow*).
+3. Buka tab **Actions** → workflow **Build LumiTube APK** berjalan otomatis (atau tekan *Run workflow*).
 4. Setelah selesai (±5–8 menit), unduh `LumiTube.apk` dari halaman **Releases** (atau dari artifact di halaman run).
 
 ## Build di komputer

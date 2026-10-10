@@ -127,7 +127,11 @@ class MainActivity : ComponentActivity() {
                 }
                 // Mode Picture-in-Picture: tampilkan video saja di atas UI (state UI tetap terjaga).
                 if (inPip) {
-                    VideoSurface(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black), controller = false)
+                    if (PlaybackManager.isVideo) {
+                        VideoSurface(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black), controller = false)
+                    } else {
+                        com.lumitube.app.ui.music.LyricsPip()
+                    }
                 }
             }
         }
@@ -147,9 +151,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            PlaybackManager.isVideo && PlaybackManager.isPlaying
-        ) {
+        val videoPip = PlaybackManager.isVideo && PlaybackManager.isPlaying &&
+            PlaybackManager.current?.type != ItemType.SHORT
+        // Mode Music: tampilkan PiP lirik (bisa dimatikan di Setelan Music)
+        val lyricsPip = !PlaybackManager.isVideo && PlaybackManager.isPlaying && Session.lyricsPip
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (videoPip || lyricsPip)) {
+            if (lyricsPip) PlaybackManager.loadLyrics()
             try {
                 enterPictureInPictureMode(
                     PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -35,6 +37,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MusicNote
@@ -97,15 +102,22 @@ import com.lumitube.app.ui.common.YtRed
 import com.lumitube.app.ui.common.findActivity
 import com.lumitube.app.ui.common.rememberFeed
 import com.lumitube.app.ui.common.shareVideo
+import com.lumitube.app.ui.common.toItem
+import com.lumitube.app.ui.common.CommentsPanel
+import com.lumitube.app.ui.common.VideoSettingsPanel
+import com.lumitube.app.ui.common.DownloadDialog
+import com.lumitube.app.ui.common.ytPanelColors
 import kotlinx.coroutines.launch
 
 sealed interface YtRoute {
     data class Watch(val item: Item) : YtRoute
     data class Browse(val id: String, val title: String?) : YtRoute
     data object Search : YtRoute
+    data class Shorts(val items: List<Item>, val index: Int) : YtRoute
+    data object Downloads : YtRoute
 }
 
-/** Aplikasi "YouTube" di dalam Lumi Tube. */
+/** Aplikasi "YouTube" di dalam LumiTube. */
 @Composable
 fun YouTubeApp(
     pendingWatch: Item?,
@@ -127,8 +139,16 @@ fun YouTubeApp(
         stack.add(YtRoute.Watch(video))
     }
 
+    val openShorts: (List<Item>, Int) -> Unit = { list, idx ->
+        stack.removeAll { it is YtRoute.Shorts }
+        stack.add(YtRoute.Shorts(list, idx.coerceAtLeast(0)))
+    }
     val open: (Item) -> Unit = { item ->
-        if (item.isPlayable) openWatch(item) else stack.add(YtRoute.Browse(item.id, item.title))
+        when {
+            item.type == ItemType.SHORT -> openShorts(listOf(item), 0)
+            item.isPlayable -> openWatch(item)
+            else -> stack.add(YtRoute.Browse(item.id, item.title))
+        }
     }
     val openChannel: (String) -> Unit = { id -> stack.add(YtRoute.Browse(id, null)) }
 
@@ -164,20 +184,44 @@ fun YouTubeApp(
         return
     }
 
-    Column(Modifier.fillMaxSize().background(yt.bg)) {
+    val shortsMode = top is YtRoute.Shorts || (top == null && tab == 1)
+    val context = LocalContext.current
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    DisposableEffect(shortsMode) {
+        val window = context.findActivity()?.window
+        if (window != null) {
+            WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !shortsMode && !systemDark
+        }
+        onDispose {}
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalYt provides if (shortsMode) com.lumitube.app.ui.common.YtDark else yt
+    ) {
+    val colors = LocalYt.current
+    Column(Modifier.fillMaxSize().background(if (shortsMode) Color.Black else colors.bg)) {
         Box(Modifier.weight(1f).fillMaxWidth().statusBarsPadding()) {
             when (top) {
                 is YtRoute.Browse -> BrowseScreen(top.id, top.title, { stack.removeAt(stack.lastIndex) }, open)
                 YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel)
+                is YtRoute.Shorts -> ShortsPlayer(
+                    items = top.items, startIndex = top.index, onLoadMore = null,
+                    onChannel = openChannel, onLogin = onLogin,
+                    onBack = { stack.removeAt(stack.lastIndex) },
+                )
+                YtRoute.Downloads -> DownloadsScreen({ stack.removeAt(stack.lastIndex) }) { rec ->
+                    val it = rec.toItem()
+                    if (rec.audioOnly) onPlayInMusic(it) else openWatch(it)
+                }
                 else -> when (tab) {
-                    0 -> HomeTab(home, open, openChannel, onSearch = { stack.add(YtRoute.Search) }, onSwitchMusic = onSwitchMusic, onLogin = onLogin)
-                    1 -> ShortsTab(shorts, open)
+                    0 -> HomeTab(home, open, openChannel, openShorts, onSearch = { stack.add(YtRoute.Search) }, onSwitchMusic = onSwitchMusic, onLogin = onLogin)
+                    1 -> ShortsTabPlayer(shorts, openChannel, onLogin)
                     2 -> SubscriptionsTab(subs, open, openChannel, onLogin)
-                    else -> YouTab(open, { id, title -> stack.add(YtRoute.Browse(id, title)) }, onLogin, onSwitchMusic)
+                    else -> YouTab(open, { id, title -> stack.add(YtRoute.Browse(id, title)) }, onLogin, onSwitchMusic) { stack.add(YtRoute.Downloads) }
                 }
             }
         }
-        if (PlaybackManager.current != null) {
+        if (PlaybackManager.current != null && !shortsMode && PlaybackManager.current?.type != ItemType.SHORT) {
             YtMiniPlayer(onOpen = {
                 val cur = PlaybackManager.current
                 if (cur != null) {
@@ -195,6 +239,15 @@ fun YouTubeApp(
             onSelect = { stack.clear(); tab = it },
             onSwitchMusic = onSwitchMusic,
         )
+    }
+    }
+}
+
+@Composable
+private fun DownloadsScreen(onBack: () -> Unit, onPlay: (com.lumitube.app.data.DownloadRecord) -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        BackBar("Download", onBack)
+        com.lumitube.app.ui.common.DownloadsList(com.lumitube.app.ui.common.ytPanelColors(), onPlay)
     }
 }
 
@@ -228,6 +281,7 @@ private fun FeedList(
     feed: FeedLoader,
     open: (Item) -> Unit,
     openChannel: (String) -> Unit,
+    openShorts: ((List<Item>, Int) -> Unit)? = null,
     header: @Composable () -> Unit = {},
     empty: @Composable () -> Unit = {},
 ) {
@@ -244,7 +298,9 @@ private fun FeedList(
         if (!feed.loading && feed.error == null && feed.items.isEmpty()) item { empty() }
         items(rows.size) { i ->
             when (val row = rows[i]) {
-                is FeedRow.Shorts -> ShortsShelf(row.items, open)
+                is FeedRow.Shorts -> ShortsShelf(row.items) { s ->
+                    if (openShorts != null) openShorts(row.items, row.items.indexOf(s)) else open(s)
+                }
                 is FeedRow.Single -> {
                     val v = row.item
                     when (v.type) {
@@ -264,6 +320,7 @@ private fun HomeTab(
     feed: FeedLoader,
     open: (Item) -> Unit,
     openChannel: (String) -> Unit,
+    openShorts: (List<Item>, Int) -> Unit,
     onSearch: () -> Unit,
     onSwitchMusic: () -> Unit,
     onLogin: () -> Unit,
@@ -275,7 +332,7 @@ private fun HomeTab(
         if (c.isEmpty()) listOf(com.lumitube.app.data.Chip("Semua", selected = true)) else c
     }
     FeedList(
-        feed, open, openChannel,
+        feed, open, openChannel, openShorts,
         header = {
             Column {
                 YtTopBar(onSearch, onSwitchMusic)
@@ -300,29 +357,15 @@ private fun HomeTab(
 }
 
 @Composable
-private fun ShortsTab(feed: FeedLoader, open: (Item) -> Unit) {
+private fun ShortsTabPlayer(feed: FeedLoader, openChannel: (String) -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        item(span = { GridItemSpan(2) }) {
-            Text("Shorts", color = yt.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
-        }
-        if (feed.loading && feed.items.isEmpty()) item(span = { GridItemSpan(2) }) { LoadingBox() }
-        feed.error?.let { err ->
-            item(span = { GridItemSpan(2) }) { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } }
-        }
-        items(feed.items, key = { it.key }) { ShortCard(it, Modifier.fillMaxWidth()) { open(it) } }
-        if (feed.continuation != null && feed.items.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) {
-                LaunchedEffect(feed.items.size) { feed.loadMore() }
-                LoadingBox()
-            }
-        }
+    when {
+        feed.items.isNotEmpty() -> ShortsPlayer(
+            items = feed.items.toList(), startIndex = 0, onLoadMore = { feed.loadMore() },
+            onChannel = openChannel, onLogin = onLogin, onBack = null,
+        )
+        feed.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingBox(color = Color.White) }
+        else -> MessageBox("Gagal memuat Shorts: ${feed.error ?: "kosong"}", yt.sub, "Coba lagi") { feed.load() }
     }
 }
 
@@ -384,6 +427,7 @@ private fun YouTab(
     browse: (String, String) -> Unit,
     onLogin: () -> Unit,
     onSwitchMusic: () -> Unit,
+    onDownloads: () -> Unit,
 ) {
     val yt = LocalYt.current
     val account = Session.account
@@ -439,7 +483,8 @@ private fun YouTab(
             item { MenuRow(Icons.Filled.WatchLater, "Tonton nanti") { browse("VLWL", "Tonton nanti") } }
             item { MenuRow(Icons.Filled.ThumbUp, "Video yang disukai") { browse("VLLL", "Video yang disukai") } }
         }
-        item { MenuRow(Icons.Filled.MusicNote, "Buka Lumi Music", onSwitchMusic) }
+        item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
+        item { MenuRow(Icons.Filled.MusicNote, "Buka LumiTube Music", onSwitchMusic) }
         item {
             MenuRow(Icons.Filled.HighQuality, "Kualitas video maks: ${quality}p") {
                 val next = when (quality) { 360 -> 480; 480 -> 720; 720 -> 1080; else -> 360 }
@@ -620,6 +665,9 @@ fun WatchScreen(
         }
     }
 
+    var panel by remember { mutableIntStateOf(0) } // 1 = komentar, 2 = setelan
+    var downloadItem by remember { mutableStateOf<Item?>(null) }
+
     BackHandler { if (full) full = false else onBack() }
 
     DisposableEffect(full) {
@@ -644,6 +692,7 @@ fun WatchScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize().background(if (full) Color.Black else yt.bg)
             .then(if (full) Modifier else Modifier.statusBarsPadding())
@@ -669,9 +718,23 @@ fun WatchScreen(
             }
         }
         if (!full) {
-            WatchDetails(current, info, onOpen, onChannel, onLogin, onPlayInMusic)
+            WatchDetails(
+                current, info, onOpen, onChannel, onLogin, onPlayInMusic,
+                onComments = { panel = 1 },
+                onSettings = { panel = 2 },
+                onDownload = { downloadItem = current },
+            )
         }
     }
+    when (panel) {
+        1 -> CommentsPanel(
+            token = info?.commentsToken, count = info?.commentCount, colors = ytPanelColors(),
+            onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
+        )
+        2 -> VideoSettingsPanel(ytPanelColors()) { panel = 0 }
+    }
+    }
+    downloadItem?.let { DownloadDialog(it) { downloadItem = null } }
 }
 
 @Composable
@@ -682,16 +745,22 @@ private fun WatchDetails(
     onChannel: (String) -> Unit,
     onLogin: () -> Unit,
     onPlayInMusic: (Item) -> Unit,
+    onComments: () -> Unit,
+    onSettings: () -> Unit,
+    onDownload: () -> Unit,
 ) {
     val yt = LocalYt.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     run {
         var expanded by remember(current.id) { mutableStateOf(false) }
-        var subscribed by remember(current.id) { mutableStateOf(false) }
-        var liked by remember(current.id) { mutableStateOf(false) }
+        var subscribed by remember(current.id, i?.subscribed) { mutableStateOf(i?.subscribed == true) }
+        var liked by remember(current.id, i?.liked) { mutableStateOf(i?.liked == true) }
 
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues(),
+        ) {
             item {
                 Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(12.dp).animateContentSize()) {
                     Text(
@@ -775,7 +844,23 @@ private fun WatchDetails(
                         }
                     }
                     item { ActionChip(Icons.Filled.MusicNote, "Putar di Music") { onPlayInMusic(current) } }
+                    item { ActionChip(Icons.Filled.Download, "Download") { onDownload() } }
+                    item { ActionChip(Icons.Filled.Settings, "Setelan") { onSettings() } }
                     item { ActionChip(Icons.Filled.Share, "Bagikan") { shareVideo(context, current.id, current.title, false) } }
+                }
+            }
+            item {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)).background(yt.surface)
+                        .clickable(onClick = onComments).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.ChatBubbleOutline, null, tint = yt.text, modifier = Modifier.size(20.dp))
+                    Text("Komentar", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
+                    i?.commentCount?.let { Text("  $it", color = yt.sub, fontSize = 14.sp) }
+                    Spacer(Modifier.weight(1f))
+                    Text("Lihat", color = yt.sub, fontSize = 13.sp)
                 }
             }
             if (PlaybackManager.queue.size > 1) {

@@ -11,6 +11,20 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
+/** Satu format stream (untuk pilihan kualitas & download). */
+data class Format(
+    val itag: Int,
+    val url: String,
+    val mimeType: String,
+    val height: Int,
+    val bitrate: Int,
+    val contentLength: Long,
+    val isAudio: Boolean,
+) {
+    val isMp4: Boolean get() = mimeType.contains("mp4")
+    val codec: String get() = Regex("codecs=\"([^.\"]+)").find(mimeType)?.groupValues?.get(1) ?: ""
+}
+
 data class Stream(
     val videoUrl: String?,
     val audioUrl: String?,
@@ -19,7 +33,13 @@ data class Stream(
     val isLive: Boolean,
     val title: String?,
     val author: String?,
-)
+    val formats: List<Format> = emptyList(),
+    val lengthSeconds: Long = 0,
+) {
+    /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
+    val qualities: List<Int>
+        get() = formats.filter { !it.isAudio && it.codec != "av01" }.map { it.height }.filter { it > 0 }.distinct().sortedDescending()
+}
 
 /**
  * Mengambil URL stream lewat endpoint /player.
@@ -82,6 +102,11 @@ object StreamResolver {
     private val visitors = ConcurrentHashMap<String, String>()
 
     private fun nonce(len: Int) = buildString { repeat(len) { append(NONCE_ALPHABET[Random.nextInt(NONCE_ALPHABET.length)]) } }
+
+    /** Ambil ulang tanpa cache (mis. untuk download). */
+    fun invalidate(videoId: String) {
+        cache.keys.filter { it.startsWith("$videoId:") }.forEach { cache.remove(it) }
+    }
 
     suspend fun resolve(videoId: String, audioOnly: Boolean): Stream = withContext(Dispatchers.IO) {
         val key = "$videoId:$audioOnly:${Session.maxQuality}"
@@ -198,7 +223,22 @@ object StreamResolver {
         }
         if (!ok) throw IOException("Format stream tidak tersedia")
 
+        val formats = adaptive.mapNotNull { f ->
+            val u = withCpn(f.str("url")) ?: return@mapNotNull null
+            val mime = f.str("mimeType") ?: return@mapNotNull null
+            Format(
+                itag = f.optInt("itag"),
+                url = u,
+                mimeType = mime,
+                height = f.optInt("height", 0),
+                bitrate = f.optInt("bitrate", 0),
+                contentLength = f.str("contentLength")?.toLongOrNull() ?: 0L,
+                isAudio = mime.startsWith("audio/"),
+            )
+        }
         return Stream(
+            formats = formats,
+            lengthSeconds = json.str("videoDetails", "lengthSeconds")?.toLongOrNull() ?: 0L,
             videoUrl = withCpn(video),
             audioUrl = withCpn(audio),
             hlsUrl = hls,
