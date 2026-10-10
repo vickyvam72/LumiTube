@@ -25,6 +25,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,52 +63,11 @@ import kotlin.math.min
 private val Dim = Color(0x59FFFFFF)
 private val Lit = Color.White
 
-/** Posisi pemutaran yang diperbarui cepat (untuk animasi per kata). */
-@Composable
-private fun rememberPosition(): Long {
-    var pos by remember { mutableLongStateOf(PlaybackManager.exo.currentPosition) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            pos = PlaybackManager.exo.currentPosition
-            delay(33)
-        }
-    }
-    return pos
-}
-
-/**
- * Teks satu baris dengan efek per kata: kata yang sedang dinyanyikan menyala bertahap
- * dan diberi cahaya (glow), kata yang sudah lewat tetap terang.
- */
-fun lineText(line: LyricLine, position: Long, active: Boolean, passed: Boolean): AnnotatedString = buildAnnotatedString {
-    if (!active || line.words.isEmpty()) {
-        withStyle(SpanStyle(color = if (passed) Color(0x80FFFFFF) else Dim)) { append(line.text) }
-        return@buildAnnotatedString
-    }
-    for (w in line.words) {
-        val dur = (w.end - w.start).coerceAtLeast(1)
-        val p = ((position - w.start).toFloat() / dur).coerceIn(0f, 1f)
-        val singing = p > 0f && p < 1f
-        // Kurva ease-out supaya kata menyala lebih lembut
-        val eased = 1f - (1f - p) * (1f - p)
-        withStyle(
-            SpanStyle(
-                color = lerp(Dim, Lit, eased),
-                shadow = if (singing || (p >= 1f && position - w.end < 350)) {
-                    Shadow(Color(0xCCFFFFFF), blurRadius = 18f * (if (singing) 1f else 0.5f))
-                } else {
-                    null
-                },
-            )
-        ) { append(w.text) }
-    }
-}
-
 /** Lirik layar penuh bergaya Apple Music. */
 @Composable
 fun SyncedLyricsView(modifier: Modifier = Modifier, fontSize: TextUnit = 28.sp) {
     val lyrics = PlaybackManager.lyrics
-    val position = rememberPosition()
+    val clock = rememberLyricClock()
     val state = rememberLazyListState()
     var lastTouch by remember { mutableLongStateOf(0L) }
     var auto by remember { mutableStateOf(false) }
@@ -131,7 +92,8 @@ fun SyncedLyricsView(modifier: Modifier = Modifier, fontSize: TextUnit = 28.sp) 
             }
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                 val lines = lyrics.lines
-                val active = LyricsRepo.activeLine(lines, position)
+                // Hanya berubah saat baris aktif berganti (bukan setiap frame)
+                val active by remember(lines) { derivedStateOf { LyricsRepo.activeLine(lines, clock.value) } }
                 val topPad = maxHeight * 0.3f
 
                 LaunchedEffect(active, lyrics) {
@@ -154,11 +116,11 @@ fun SyncedLyricsView(modifier: Modifier = Modifier, fontSize: TextUnit = 28.sp) 
                         val distance = if (active < 0) i + 1 else abs(i - active)
                         val scale by animateFloatAsState(if (isActive) 1f else 0.94f, tween(380), label = "scale")
                         val blur = if (isActive) 0f else min(distance, 4) * 1.2f
-                        Text(
-                            text = lineText(line, position, isActive, i < active),
-                            fontSize = fontSize,
-                            lineHeight = fontSize * 1.25f,
-                            fontWeight = FontWeight.ExtraBold,
+                        SweptLyricLine(
+                            line = line,
+                            clock = clock,
+                            active = isActive,
+                            style = TextStyle(fontSize = fontSize, lineHeight = fontSize * 1.25f, fontWeight = FontWeight.ExtraBold),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer {
@@ -215,7 +177,7 @@ private fun LyricsHeader() {
 fun LyricsPip() {
     val item = PlaybackManager.current
     val lyrics = PlaybackManager.lyrics
-    val position = rememberPosition()
+    val clock = rememberLyricClock()
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Img(item?.thumbnail, Modifier.fillMaxSize().blur(24.dp), placeholder = Color.Black)
         Box(Modifier.fillMaxSize().background(Color(0x99000000)))
@@ -231,13 +193,14 @@ fun LyricsPip() {
                     Text(if (PlaybackManager.lyricsLoading) "Mencari lirik…" else "Lirik tidak tersedia", color = MusicColors.sub, fontSize = 11.sp)
                 }
             } else {
-                val idx = LyricsRepo.activeLine(lyrics.lines, position)
-                val cur = lyrics.lines.getOrNull(idx)
-                val next = lyrics.lines.getOrNull(idx + 1)
+                val lines = lyrics.lines
+                val idx by remember(lines) { derivedStateOf { LyricsRepo.activeLine(lines, clock.value) } }
+                val cur = lines.getOrNull(idx)
+                val next = lines.getOrNull(idx + 1)
                 if (cur != null) {
-                    Text(
-                        lineText(cur, position, true, false), fontSize = 18.sp, lineHeight = 22.sp,
-                        fontWeight = FontWeight.ExtraBold, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    SweptLyricLine(
+                        line = cur, clock = clock, active = true, rise = 2.dp, maxLines = 3,
+                        style = TextStyle(fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.ExtraBold),
                     )
                 } else {
                     Text("♪", color = Color.White, fontSize = 20.sp)

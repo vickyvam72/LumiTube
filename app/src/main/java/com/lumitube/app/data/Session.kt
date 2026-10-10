@@ -79,6 +79,20 @@ object Session {
             prefs.edit().putBoolean("lyrics_pip", value).apply()
         }
 
+    /** Putar otomatis video terkait berikutnya. */
+    var autoplay: Boolean
+        get() = prefs.getBoolean("autoplay", true)
+        set(value) {
+            prefs.edit().putBoolean("autoplay", value).apply()
+        }
+
+    /** Tanyakan YouTube / YouTube Music setiap aplikasi dibuka. */
+    var askMode: Boolean
+        get() = prefs.getBoolean("ask_mode", true)
+        set(value) {
+            prefs.edit().putBoolean("ask_mode", value).apply()
+        }
+
     /** Ulangi video (mode YouTube). */
     var loopVideo: Boolean
         get() = prefs.getBoolean("loop_video", false)

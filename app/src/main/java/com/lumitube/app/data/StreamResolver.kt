@@ -2,6 +2,8 @@ package com.lumitube.app.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -25,6 +27,8 @@ data class Format(
     val codec: String get() = Regex("codecs=\"([^.\"]+)").find(mimeType)?.groupValues?.get(1) ?: ""
 }
 
+data class Caption(val name: String, val lang: String, val url: String, val auto: Boolean)
+
 data class Stream(
     val videoUrl: String?,
     val audioUrl: String?,
@@ -35,6 +39,7 @@ data class Stream(
     val author: String?,
     val formats: List<Format> = emptyList(),
     val lengthSeconds: Long = 0,
+    val captions: List<Caption> = emptyList(),
 ) {
     /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
     val qualities: List<Int>
@@ -105,25 +110,81 @@ object StreamResolver {
 
     /** Ambil ulang tanpa cache (mis. untuk download). */
     fun invalidate(videoId: String) {
-        cache.keys.filter { it.startsWith("$videoId:") }.forEach { cache.remove(it) }
+        cache.remove(videoId)
     }
 
+    /**
+     * Data stream mentah di-cache per video (berlaku untuk mode video maupun audio),
+     * jadi berpindah Video <-> Music tidak perlu meminta ulang ke YouTube.
+     */
     suspend fun resolve(videoId: String, audioOnly: Boolean): Stream = withContext(Dispatchers.IO) {
-        val key = "$videoId:$audioOnly:${Session.maxQuality}"
-        cache[key]?.let { (time, s) ->
-            if (System.currentTimeMillis() - time < 3 * 60 * 60 * 1000L) return@withContext s
-        }
-        var lastError: Exception? = null
-        for (c in clients) {
+        select(raw(videoId), audioOnly)
+    }
+
+    private val inFlight = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Stream>>()
+    private val prefetchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    /** Ambil data stream lebih awal (Shorts berikutnya, lagu berikutnya). */
+    fun prefetch(videoId: String) {
+        val cached = cache[videoId]
+        if (cached != null && System.currentTimeMillis() - cached.first < 3 * 60 * 60 * 1000L) return
+        prefetchScope.launch {
             try {
-                val s = request(c, videoId, audioOnly)
-                cache[key] = System.currentTimeMillis() to s
-                return@withContext s
-            } catch (e: Exception) {
-                lastError = e
+                raw(videoId)
+            } catch (_: Exception) {
             }
         }
-        throw lastError ?: IOException("Video tidak bisa diputar")
+    }
+
+    private suspend fun raw(videoId: String): Stream {
+        cache[videoId]?.let { (time, s) ->
+            if (System.currentTimeMillis() - time < 3 * 60 * 60 * 1000L) return s
+        }
+        // Gabungkan permintaan yang sama yang sedang berjalan (mis. dari prefetch).
+        val job = inFlight.getOrPut(videoId) {
+            prefetchScope.async {
+                var lastError: Exception? = null
+                for (c in clients) {
+                    try {
+                        val st = request(c, videoId)
+                        cache[videoId] = System.currentTimeMillis() to st
+                        return@async st
+                    } catch (e: Exception) {
+                        lastError = e
+                    }
+                }
+                throw lastError ?: IOException("Video tidak bisa diputar")
+            }
+        }
+        try {
+            return job.await()
+        } finally {
+            inFlight.remove(videoId, job)
+        }
+    }
+
+    /** Pilih URL video & audio sesuai mode dan kualitas maksimum. */
+    private fun select(raw: Stream, audioOnly: Boolean): Stream {
+        val audio = raw.formats.filter { it.isAudio }.maxByOrNull { it.bitrate }?.url
+        val maxH = Session.maxQuality
+        // Hindari AV1 (belum semua HP bisa memutarnya); utamakan H.264 lalu VP9.
+        val videos = raw.formats.filter { !it.isAudio && it.codec != "av01" }
+        val video = videos
+            .filter { it.height <= maxH }
+            .sortedWith(
+                compareByDescending<Format> { it.height }
+                    .thenByDescending { if (it.codec == "avc1") 1 else 0 }
+                    .thenByDescending { it.bitrate }
+            )
+            .firstOrNull()?.url
+            ?: videos.minByOrNull { it.height }?.url
+        val ok = when {
+            raw.isLive -> raw.hlsUrl != null
+            audioOnly -> audio != null || raw.hlsUrl != null
+            else -> (video != null && audio != null) || raw.hlsUrl != null
+        }
+        if (!ok) throw IOException("Format stream tidak tersedia")
+        return raw.copy(videoUrl = if (audioOnly) null else video, audioUrl = audio)
     }
 
     private fun context(c: PlayerClient, visitor: String?): JSONObject {
@@ -169,7 +230,7 @@ object StreamResolver {
         return v
     }
 
-    private fun request(c: PlayerClient, videoId: String, audioOnly: Boolean): Stream {
+    private fun request(c: PlayerClient, videoId: String): Stream {
         val cpn = nonce(16)
         val body = JSONObject()
             .put("context", context(c, visitorFor(c)))
@@ -192,36 +253,11 @@ object StreamResolver {
         val isLive = json.obj("videoDetails")?.optBoolean("isLive", false) == true
         val hls = sd.str("hlsManifestUrl")
         val adaptive = sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null } ?: emptyList()
+        if (adaptive.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
+            throw IOException("Format stream tidak tersedia")
+        }
 
         fun withCpn(u: String?) = u?.let { if (it.contains("cpn=")) it else "$it&cpn=$cpn" }
-
-        val audio = adaptive
-            .filter { it.str("mimeType")?.startsWith("audio/") == true }
-            .maxByOrNull { it.optInt("bitrate", 0) }
-            ?.str("url")
-
-        val maxH = Session.maxQuality
-        // Hindari AV1 (belum semua HP bisa memutarnya); utamakan H.264 lalu VP9.
-        val videos = adaptive.filter {
-            val mime = it.str("mimeType") ?: ""
-            mime.startsWith("video/") && !mime.contains("av01")
-        }
-        val video = videos
-            .filter { it.optInt("height", 0) <= maxH }
-            .sortedWith(
-                compareByDescending<JSONObject> { it.optInt("height", 0) }
-                    .thenByDescending { if (it.str("mimeType")?.contains("avc1") == true) 1 else 0 }
-                    .thenByDescending { it.optInt("bitrate", 0) }
-            )
-            .firstOrNull()?.str("url")
-            ?: videos.minByOrNull { it.optInt("height", 0) }?.str("url")
-
-        val ok = when {
-            isLive -> hls != null
-            audioOnly -> audio != null || hls != null
-            else -> (video != null && audio != null) || hls != null
-        }
-        if (!ok) throw IOException("Format stream tidak tersedia")
 
         val formats = adaptive.mapNotNull { f ->
             val u = withCpn(f.str("url")) ?: return@mapNotNull null
@@ -239,9 +275,19 @@ object StreamResolver {
         return Stream(
             formats = formats,
             lengthSeconds = json.str("videoDetails", "lengthSeconds")?.toLongOrNull() ?: 0L,
-            videoUrl = withCpn(video),
-            audioUrl = withCpn(audio),
+            videoUrl = null,
+            audioUrl = null,
             hlsUrl = hls,
+            captions = json.arr("captions", "playerCaptionsTracklistRenderer", "captionTracks")?.objects()
+                ?.mapNotNull { t ->
+                    val base = t.str("baseUrl") ?: return@mapNotNull null
+                    Caption(
+                        name = text(t.obj("name")) ?: t.str("languageCode") ?: "?",
+                        lang = t.str("languageCode") ?: "und",
+                        url = (if (base.startsWith("/")) "https://www.youtube.com$base" else base) + "&fmt=vtt",
+                        auto = t.str("kind") == "asr",
+                    )
+                } ?: emptyList(),
             userAgent = c.userAgent,
             isLive = isLive,
             title = json.str("videoDetails", "title"),

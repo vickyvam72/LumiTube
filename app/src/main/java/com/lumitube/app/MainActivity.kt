@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         var mode by rememberSaveable { mutableStateOf(Session.mode) }
         var showLogin by rememberSaveable { mutableStateOf(false) }
+        var chooserDone by rememberSaveable { mutableStateOf(!Session.askMode) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }
         var pendingPlay by remember { mutableStateOf<Item?>(null) }
         val dark = mode == "music" || isSystemInDarkTheme()
@@ -91,7 +92,15 @@ class MainActivity : ComponentActivity() {
             Session.mode = m
         }
 
-        LumiTheme(dark = dark) {
+        LumiTheme(dark = dark || !chooserDone) {
+            if (!chooserDone) {
+                com.lumitube.app.ui.common.ModeChooser { m, keep ->
+                    switchTo(m)
+                    if (keep) Session.askMode = false
+                    chooserDone = true
+                }
+                return@LumiTheme
+            }
             Box(Modifier.fillMaxSize()) {
                 run {
                     if (mode == "music") {

@@ -6,6 +6,7 @@ import com.lumitube.app.data.Repo
 import com.lumitube.app.data.Session
 import com.lumitube.app.data.arr
 import com.lumitube.app.data.objects
+import com.lumitube.app.data.obj
 import com.lumitube.app.data.str
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -294,6 +295,37 @@ private fun url(base: String, vararg params: Pair<String, Any?>): String {
     return b.build().toString()
 }
 
+/** Kenali format isi lirik (TTML, LRC per kata, LRC biasa, teks) — diadaptasi dari BitChord. */
+fun parseAnyLyrics(raw: String, source: String): Lyrics? {
+    var content = raw.trim()
+    if (content.startsWith("{")) {
+        val j = try {
+            JSONObject(content)
+        } catch (_: Exception) {
+            null
+        }
+        content = j?.str("ttml") ?: j?.str("lyrics") ?: j?.str("syncedLyrics") ?: j?.str("plainLyrics") ?: return null
+    }
+    val lyrics = when {
+        content.contains("<tt", ignoreCase = true) || content.contains("w3.org/ns/ttml") -> TtmlParser.parse(content, source)
+        Regex("\\[\\d{1,3}:\\d{2}").containsMatchIn(content) -> LyricsUtils.parseLrc(content, source)
+        content.trimStart().startsWith("<") -> null
+        else -> LyricsUtils.plain(content, source)
+    }
+    return lyrics?.takeIf { l -> l.lines.any { it.text.isNotBlank() } }
+}
+
+/** Normalisasi judul/artis untuk pencocokan. */
+private fun norm(v: String): String =
+    java.text.Normalizer.normalize(v, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+        .lowercase()
+        .replace(Regex("[(\\[][^)\\]]*[)\\]]"), " ")
+        .map { if (it.isLetterOrDigit()) it else ' ' }
+        .joinToString("")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
 /** Apple Music TTML lewat BetterLyrics (sinkron per kata). */
 object BetterLyricsProvider : LyricsProvider {
     override val name = "BetterLyrics"
@@ -305,8 +337,102 @@ object BetterLyricsProvider : LyricsProvider {
             ),
             mapOf("Accept" to "application/json"),
         ) ?: return null
-        val ttml = JSONObject(body).str("ttml") ?: return null
+        return parseAnyLyrics(body, name)
+    }
+}
+
+/** Waktu karaoke QQ Music lewat BetterLyrics ("Portato"). */
+object BetterLyricsQQProvider : LyricsProvider {
+    override val name = "BetterLyrics QQ"
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        val body = httpGet(
+            url(
+                "https://lyrics-api.boidu.dev/qq/getLyrics",
+                "s" to q.title, "a" to q.artist, "d" to q.durationSec.takeIf { it > 0 }, "al" to q.album,
+            ),
+            mapOf("Accept" to "application/json"),
+        ) ?: return null
+        return parseAnyLyrics(body, name)
+    }
+}
+
+/** lrc.red: TTML Apple Music per suku kata, dicari lewat ISRC. */
+object LrcRedProvider : LyricsProvider {
+    override val name = "lrc.red"
+    private val isrcRegex = Regex("[A-Z]{2}[A-Z0-9]{3}\\d{7}")
+
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        val body = httpGet(url("https://lrc.red/search.json", "q" to "${q.title} ${q.artist}".trim())) ?: return null
+        val hits = JSONObject(body).arr("hits")?.objects() ?: return null
+        val wantTitle = norm(q.title)
+        val wantArtist = norm(q.artist)
+        val hit = hits.filter { h ->
+            val isrc = h.str("isrc")?.uppercase() ?: return@filter false
+            val t = norm(h.str("title") ?: return@filter false)
+            val a = norm(h.str("artist") ?: "")
+            val dur = h.optDouble("duration", 0.0)
+            isrcRegex.matches(isrc) &&
+                (t == wantTitle || t.startsWith(wantTitle) || wantTitle.startsWith(t)) &&
+                (wantArtist.isEmpty() || a.contains(wantArtist) || wantArtist.contains(a.substringBefore(" "))) &&
+                (q.durationSec <= 0 || dur <= 0 || abs(dur - q.durationSec) <= 4)
+        }.minByOrNull { if (q.durationSec > 0) abs(it.optDouble("duration", 0.0) - q.durationSec) else 0.0 }
+            ?: return null
+        val ttml = httpGet("https://lrc.red/s/${hit.str("isrc")!!.uppercase()}.ttml") ?: return null
         return TtmlParser.parse(ttml, name)
+    }
+}
+
+/** BiniLyrics (binimum): TTML Apple Music dicocokkan dengan rekaman. */
+object BiniLyricsProvider : LyricsProvider {
+    override val name = "BiniLyrics"
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        val body = httpGet(
+            url(
+                "https://lyrics-api.binimum.org/",
+                "track" to q.title, "artist" to q.artist, "album" to q.album,
+                "duration" to q.durationSec.takeIf { it > 0 },
+            )
+        ) ?: return null
+        val hit = JSONObject(body).arr("results")?.objects()?.firstOrNull() ?: return null
+        val doc = hit.str("lyricsUrl") ?: return null
+        val ttml = httpGet(doc) ?: return null
+        return parseAnyLyrics(ttml, name)
+    }
+}
+
+/** SimpMusic: dicocokkan langsung lewat videoId, sering punya lirik per kata. */
+object SimpMusicProvider : LyricsProvider {
+    override val name = "SimpMusic"
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        val body = httpGet("https://api-lyrics.simpmusic.org/v1/${q.videoId}") ?: return null
+        val json = JSONObject(body)
+        if (!json.optBoolean("success", false)) return null
+        val track = json.arr("data")?.objects()
+            ?.filter { q.durationSec <= 0 || abs(it.optInt("duration", 0) - q.durationSec) <= 10 }
+            ?.minByOrNull { abs(it.optInt("duration", 0) - q.durationSec) }
+            ?: return null
+        track.str("richSyncLyrics")?.let { r -> LyricsUtils.parseLrc(r, name).takeIf { it.lines.isNotEmpty() }?.let { return it } }
+        track.str("syncedLyrics")?.let { r -> LyricsUtils.parseLrc(r, name).takeIf { it.lines.isNotEmpty() }?.let { return it } }
+        return null
+    }
+}
+
+/** Unison (boidu): lirik komunitas, TTML / LRC. */
+object UnisonProvider : LyricsProvider {
+    override val name = "Unison"
+    override suspend fun fetch(q: SongQuery): Lyrics? {
+        val body = httpGet(
+            url(
+                "https://unison.boidu.dev/lyrics",
+                "song" to q.title, "artist" to q.artist, "album" to q.album,
+                "duration" to q.durationSec.takeIf { it > 0 },
+            )
+        ) ?: return null
+        val json = JSONObject(body)
+        if (!json.optBoolean("success", false)) return null
+        val data = json.obj("data") ?: return null
+        val text = data.str("lyrics") ?: return null
+        return if (data.str("syncType").equals("plain", true)) LyricsUtils.plain(text, name) else parseAnyLyrics(text, name)
     }
 }
 
@@ -441,31 +567,41 @@ object YouTubeMusicProvider : LyricsProvider {
 
 object LyricsRepo {
 
+    /** Urutan prioritas (diadaptasi dari BitChord & ArchiveTune): sumber Apple per kata dulu. */
     val providers: List<LyricsProvider> = listOf(
-        BetterLyricsProvider, LyricsPlusProvider, LrcLibProvider, KuGouProvider, YouTubeMusicProvider,
+        LrcRedProvider, BiniLyricsProvider, BetterLyricsProvider, SimpMusicProvider, LyricsPlusProvider,
+        BetterLyricsQQProvider, UnisonProvider, LrcLibProvider, KuGouProvider, YouTubeMusicProvider,
     )
 
     /**
      * Ambil lirik dari semua penyedia yang aktif secara paralel.
      * Hasil diurutkan: sinkron per kata > sinkron per baris > teks biasa, lalu sesuai prioritas penyedia.
      */
-    suspend fun fetchAll(q: SongQuery): List<Lyrics> = withContext(Dispatchers.IO) {
+    suspend fun fetchAll(q: SongQuery, onUpdate: (List<Lyrics>) -> Unit = {}): List<Lyrics> = withContext(Dispatchers.IO) {
         val enabled = providers.filter { Session.isLyricsProviderEnabled(it.name) }
         val clean = q.copy(title = LyricsUtils.cleanTitle(q.title), artist = LyricsUtils.cleanArtist(q.artist))
-        val results = coroutineScope {
+        val found = java.util.Collections.synchronizedList(mutableListOf<Pair<Int, Lyrics>>())
+        fun sorted(): List<Lyrics> = synchronized(found) {
+            found.sortedWith(compareByDescending<Pair<Int, Lyrics>> { it.second.quality }.thenBy { it.first })
+                .map { it.second }
+        }
+        coroutineScope {
             enabled.mapIndexed { idx, p ->
                 async {
                     val r = try {
-                        withTimeoutOrNull(12_000) { p.fetch(clean) }
+                        withTimeoutOrNull(10_000) { p.fetch(clean) }
                     } catch (_: Exception) {
                         null
                     }
-                    if (r == null || r.lines.isEmpty()) null else idx to r
+                    if (r != null && r.lines.isNotEmpty()) {
+                        found.add(idx to r)
+                        // Tampilkan segera bila hasil sinkron (atau satu-satunya hasil).
+                        if (r.synced || found.size == 1) onUpdate(sorted())
+                    }
                 }
-            }.awaitAll().filterNotNull()
+            }.awaitAll()
         }
-        results.sortedWith(compareByDescending<Pair<Int, Lyrics>> { it.second.quality }.thenBy { it.first })
-            .map { it.second }
+        sorted()
     }
 
     /** Indeks baris aktif untuk posisi [ms]. */

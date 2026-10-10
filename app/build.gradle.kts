@@ -12,8 +12,8 @@ android {
         applicationId = "com.lumitube.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     // Kunci tetap supaya APK versi baru bisa langsung meng-update versi lama.

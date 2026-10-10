@@ -69,6 +69,7 @@ fun Img(
 
 /** Memuat halaman pertama + halaman lanjutan (infinite scroll). */
 class FeedLoader(
+    private val cacheKey: Any?,
     private val scope: CoroutineScope,
     private val first: suspend () -> Page,
     private val more: (suspend (String) -> Page)?,
@@ -84,6 +85,32 @@ class FeedLoader(
         private set
     private var loadingMore = false
 
+    private data class Cached(val page: Page?, val items: List<Item>, val continuation: String?, val time: Long)
+
+    companion object {
+        /** Cache halaman di memori supaya pindah tab / mode YouTube <-> Music terasa instan. */
+        private val cache = HashMap<Any, Cached>()
+        fun clear() = cache.clear()
+    }
+
+    private fun store() {
+        val k = cacheKey ?: return
+        cache[k] = Cached(page, items.toList(), continuation, System.currentTimeMillis())
+    }
+
+    /** Muat dari cache (bila masih segar) atau dari jaringan. */
+    fun loadCachedOrFetch() {
+        val c = cacheKey?.let { cache[it] }
+        if (c != null && System.currentTimeMillis() - c.time < 20 * 60 * 1000L) {
+            page = c.page
+            items.clear()
+            items.addAll(c.items)
+            continuation = c.continuation
+            return
+        }
+        load()
+    }
+
     fun load() {
         scope.launch {
             loading = true
@@ -94,6 +121,7 @@ class FeedLoader(
                 items.clear()
                 items.addAll(p.items)
                 continuation = p.continuation
+                store()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -117,6 +145,7 @@ class FeedLoader(
                 val old = page
                 if (old != null && p.shelves.isNotEmpty()) page = old.copy(shelves = old.shelves + p.shelves)
                 continuation = p.continuation?.takeIf { it != c }
+                store()
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -154,7 +183,7 @@ fun rememberFeed(
     first: suspend () -> Page,
 ): FeedLoader {
     val scope = rememberCoroutineScope()
-    return remember(key) { FeedLoader(scope, first, more).also { it.load() } }
+    return remember(key) { FeedLoader(key, scope, first, more).also { it.loadCachedOrFetch() } }
 }
 
 /** Panggil loadMore saat daftar hampir mencapai akhir. */

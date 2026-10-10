@@ -68,7 +68,7 @@ import com.lumitube.app.ui.common.YtRed
 import kotlinx.coroutines.delay
 
 @Composable
-fun LumiLogo(textColor: Color, label: String = "LumiTube") {
+fun LumiLogo(textColor: Color, label: String = "Premium") {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(width = 30.dp, height = 21.dp).clip(RoundedCornerShape(6.dp)).background(YtRed),
@@ -249,6 +249,9 @@ fun ShortCard(item: Item, modifier: Modifier = Modifier, onClick: () -> Unit) {
 @Composable
 fun ShortsShelf(items: List<Item>, onClick: (Item) -> Unit) {
     val yt = LocalYt.current
+    LaunchedEffect(items.firstOrNull()?.id) {
+        items.take(2).forEach { com.lumitube.app.data.StreamResolver.prefetch(it.id) }
+    }
     Column(Modifier.padding(bottom = 16.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.SlowMotionVideo, null, tint = YtRed, modifier = Modifier.size(24.dp))

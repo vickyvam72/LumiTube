@@ -484,6 +484,13 @@ private fun YouTab(
             item { MenuRow(Icons.Filled.ThumbUp, "Video yang disukai") { browse("VLLL", "Video yang disukai") } }
         }
         item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
+        item {
+            var ask by remember { mutableStateOf(Session.askMode) }
+            MenuRow(Icons.Filled.Settings, "Pilih YouTube/Music saat dibuka: ${if (ask) "Aktif" else "Nonaktif"}") {
+                ask = !ask
+                Session.askMode = ask
+            }
+        }
         item { MenuRow(Icons.Filled.MusicNote, "Buka LumiTube Music", onSwitchMusic) }
         item {
             MenuRow(Icons.Filled.HighQuality, "Kualitas video maks: ${quality}p") {
@@ -670,6 +677,13 @@ fun WatchScreen(
 
     BackHandler { if (full) full = false else onBack() }
 
+    // Putar otomatis: saat video selesai, lanjut ke video terkait pertama.
+    DisposableEffect(info) {
+        val next = info?.related?.firstOrNull { it.type == ItemType.VIDEO }
+        PlaybackManager.onAutoNext = next?.let { n -> { onOpen(n) } }
+        onDispose { PlaybackManager.onAutoNext = null }
+    }
+
     DisposableEffect(full) {
         val activity = context.findActivity()
         val window = activity?.window
@@ -697,26 +711,15 @@ fun WatchScreen(
         Modifier.fillMaxSize().background(if (full) Color.Black else yt.bg)
             .then(if (full) Modifier else Modifier.statusBarsPadding())
     ) {
-        Box(
-            if (full) Modifier.fillMaxSize() else Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-            contentAlignment = Alignment.Center,
-        ) {
-            VideoSurface(Modifier.fillMaxSize(), onFullscreen = { full = it })
-            if (PlaybackManager.loading) CircularProgressIndicator(color = Color.White)
-            PlaybackManager.error?.let { err ->
-                Column(
-                    Modifier.fillMaxSize().background(Color(0xDD000000)).padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(err, color = Color.White, fontSize = 13.sp, maxLines = 3)
-                    Box(
-                        Modifier.padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(Color.White)
-                            .clickable { PlaybackManager.retry() }.padding(horizontal = 16.dp, vertical = 6.dp)
-                    ) { Text("Coba lagi", color = Color.Black) }
-                }
-            }
-        }
+        val nextRelated = info?.related?.firstOrNull { it.type == ItemType.VIDEO }
+        YtVideoPlayer(
+            modifier = if (full) Modifier.fillMaxSize() else Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            full = full,
+            onFullscreen = { full = it },
+            onMinimize = onBack,
+            onSettings = { panel = 2 },
+            onNext = nextRelated?.let { n -> { onOpen(n) } },
+        )
         if (!full) {
             WatchDetails(
                 current, info, onOpen, onChannel, onLogin, onPlayInMusic,
@@ -731,7 +734,7 @@ fun WatchScreen(
             token = info?.commentsToken, count = info?.commentCount, colors = ytPanelColors(),
             onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
         )
-        2 -> VideoSettingsPanel(ytPanelColors()) { panel = 0 }
+        2 -> YtSettingsSheet { panel = 0 }
     }
     }
     downloadItem?.let { DownloadDialog(it) { downloadItem = null } }
@@ -845,7 +848,6 @@ private fun WatchDetails(
                     }
                     item { ActionChip(Icons.Filled.MusicNote, "Putar di Music") { onPlayInMusic(current) } }
                     item { ActionChip(Icons.Filled.Download, "Download") { onDownload() } }
-                    item { ActionChip(Icons.Filled.Settings, "Setelan") { onSettings() } }
                     item { ActionChip(Icons.Filled.Share, "Bagikan") { shareVideo(context, current.id, current.title, false) } }
                 }
             }

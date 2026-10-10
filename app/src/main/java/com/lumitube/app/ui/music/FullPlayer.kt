@@ -122,9 +122,6 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                 Spacer(Modifier.weight(1f))
                 ModeToggle()
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { showDownload = true }) {
-                    Icon(Icons.Filled.Download, "Download", tint = Color.White)
-                }
                 IconButton(onClick = { shareVideo(context, item.id, item.title, true) }) {
                     Icon(Icons.Filled.Share, "Bagikan", tint = Color.White)
                 }
@@ -247,13 +244,13 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                 }
                 BottomTab("KOMENTAR", showComments) { showComments = true }
                 Box(
-                    Modifier.weight(1f).height(52.dp).clickable { onOpenVideo(item) },
+                    Modifier.weight(1f).height(52.dp).clickable { showDownload = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.OndemandVideo, null, tint = MusicColors.sub, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Download, null, tint = MusicColors.sub, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("VIDEO", color = MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("DOWNLOAD", color = MusicColors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }

@@ -65,6 +65,17 @@ object PlaybackManager {
     var loading by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
+    /** true saat ExoPlayer sedang buffering (menunggu data). */
+    var buffering by mutableStateOf(false)
+        private set
+    /** Daftar subtitle untuk video saat ini; -1 = nonaktif. */
+    var captions by mutableStateOf<List<com.lumitube.app.data.Caption>>(emptyList())
+        private set
+    var captionIndex by mutableIntStateOf(-1)
+        private set
+    /** Dipanggil saat video selesai & autoplay aktif (mis. putar video terkait berikutnya). */
+    var onAutoNext: (() -> Unit)? = null
+    private var retried: String? = null
     /** Semua hasil lirik untuk lagu saat ini (terbaik di depan). */
     var lyricsList by mutableStateOf<List<Lyrics>>(emptyList())
         private set
@@ -98,6 +109,12 @@ object PlaybackManager {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            // Mulai putar lebih cepat: cukup 0,7 detik data untuk mulai
+            .setLoadControl(
+                androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(15_000, 60_000, 700, 2_000)
+                    .build()
+            )
             .build()
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -105,15 +122,55 @@ object PlaybackManager {
             }
 
             override fun onPlaybackStateChanged(state: Int) {
+                buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) onEnded()
                 if (state == Player.STATE_READY && !isVideo) loadLyrics()
             }
 
             override fun onPlayerError(e: PlaybackException) {
-                error = "Gagal memutar: ${e.errorCodeName}"
+                // URL kedaluwarsa / ditolak: ambil URL baru sekali, lanjut dari posisi yang sama.
+                val item = current
+                if (item != null && item.localUri == null && retried != item.id) {
+                    retried = item.id
+                    StreamResolver.invalidate(item.id)
+                    load(item, exo.currentPosition.coerceAtLeast(0))
+                } else {
+                    error = "Gagal memutar: ${e.errorCodeName}"
+                }
             }
         })
         player = QueuePlayer(exo)
+        startWatchdog()
+    }
+
+    /**
+     * Penjaga "stuck": jika buffering lebih dari 10 detik tanpa data baru,
+     * muat ulang stream dari posisi saat ini.
+     */
+    private fun startWatchdog() {
+        scope.launch {
+            var lastBuffered = -1L
+            var stuckSince = 0L
+            while (true) {
+                kotlinx.coroutines.delay(2000)
+                val item = current ?: continue
+                if (exo.playbackState == Player.STATE_BUFFERING && exo.playWhenReady && !loading && item.localUri == null) {
+                    val b = exo.bufferedPosition
+                    val now = System.currentTimeMillis()
+                    if (b != lastBuffered) {
+                        lastBuffered = b
+                        stuckSince = now
+                    } else if (stuckSince > 0 && now - stuckSince > 10_000) {
+                        stuckSince = 0
+                        StreamResolver.invalidate(item.id)
+                        load(item, exo.currentPosition.coerceAtLeast(0))
+                    }
+                } else {
+                    lastBuffered = -1
+                    stuckSince = 0
+                }
+            }
+        }
     }
 
     // ---------------- Perintah publik ----------------
@@ -234,6 +291,7 @@ object PlaybackManager {
         val item = current ?: return
         if (!force && (lyricsFor == item.id || lyricsLoading)) return
         lyricsFor = item.id
+        chosenSource = null
         lyricsLoading = true
         lyricsList = emptyList()
         lyricsIndex = 0
@@ -247,8 +305,11 @@ object PlaybackManager {
         )
         scope.launch {
             try {
-                val list = LyricsRepo.fetchAll(q)
-                if (current?.id == item.id) lyricsList = list
+                // Hasil ditampilkan bertahap: begitu ada lirik sinkron, langsung muncul.
+                val list = LyricsRepo.fetchAll(q) { partial ->
+                    scope.launch { if (current?.id == item.id) applyLyrics(partial) }
+                }
+                if (current?.id == item.id) applyLyrics(list)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -258,8 +319,19 @@ object PlaybackManager {
         }
     }
 
+    private var chosenSource: String? = null
+
+    private fun applyLyrics(list: List<Lyrics>) {
+        val keep = chosenSource
+        lyricsList = list
+        lyricsIndex = keep?.let { name -> list.indexOfFirst { it.source == name }.takeIf { it >= 0 } } ?: 0
+    }
+
     fun nextLyricsSource() {
-        if (lyricsList.size > 1) lyricsIndex = (lyricsIndex + 1) % lyricsList.size
+        if (lyricsList.size > 1) {
+            lyricsIndex = (lyricsIndex + 1) % lyricsList.size
+            chosenSource = lyricsList[lyricsIndex].source
+        }
     }
 
     /** Ganti kualitas video dan lanjutkan dari posisi yang sama. */
@@ -269,6 +341,20 @@ object PlaybackManager {
         if (!isVideo || item.localUri != null) return
         val pos = exo.currentPosition
         load(item, pos)
+    }
+
+    /** Pilih subtitle (-1 = nonaktif) lalu muat ulang dari posisi sekarang. */
+    fun setCaption(i: Int) {
+        val item = current ?: return
+        captionIndex = i
+        if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+    }
+
+    fun seekBy(ms: Long) {
+        val d = exo.duration
+        var t = exo.currentPosition + ms
+        if (d > 0) t = t.coerceAtMost(d - 500)
+        exo.seekTo(t.coerceAtLeast(0))
     }
 
     fun setPlaybackSpeed(value: Float) {
@@ -284,12 +370,19 @@ object PlaybackManager {
         if (loop) {
             exo.seekTo(0)
             exo.play()
+        } else if (isVideo && index + 1 >= queue.size && Session.autoplay && onAutoNext != null) {
+            onAutoNext?.invoke()
         } else {
             next()
         }
     }
 
     private fun load(item: Item, startPosition: Long = 0L) {
+        if (current?.id != item.id) {
+            captions = emptyList()
+            captionIndex = -1
+            retried = null
+        }
         loadJob?.cancel()
         current = item
         error = null
@@ -315,6 +408,8 @@ object PlaybackManager {
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly)
                     qualities = stream.qualities
+                    captions = stream.captions
+                    queue.getOrNull(index + 1)?.let { if (it.localUri == null) StreamResolver.prefetch(it.id) }
                     exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
                 }
                 exo.prepare()
@@ -330,11 +425,13 @@ object PlaybackManager {
     }
 
     private fun buildSource(item: Item, s: Stream, audioOnly: Boolean): MediaSource {
-        val http = DefaultHttpDataSource.Factory()
+        val plainHttp = DefaultHttpDataSource.Factory()
             .setUserAgent(s.userAgent)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(20_000)
+            .setReadTimeoutMs(15_000)
+        // Progressive (video/audio terpisah) diunduh per potongan agar tidak macet.
+        val http = ChunkedDataSource.Factory(plainHttp)
         val artist = item.channelName ?: s.author ?: item.subtitle.substringBefore(" • ")
         val meta = MediaMetadata.Builder()
             .setTitle(s.title ?: item.title)
@@ -352,14 +449,30 @@ object PlaybackManager {
         val hls = s.hlsUrl
         return when {
             s.isLive && hls != null ->
-                HlsMediaSource.Factory(http).createMediaSource(mediaItem(hls))
+                HlsMediaSource.Factory(plainHttp).createMediaSource(mediaItem(hls))
             audioOnly && audioUrl != null ->
                 ProgressiveMediaSource.Factory(http).createMediaSource(mediaItem(audioUrl))
-            !audioOnly && videoUrl != null && audioUrl != null -> MergingMediaSource(
-                ProgressiveMediaSource.Factory(http).createMediaSource(mediaItem(videoUrl)),
-                ProgressiveMediaSource.Factory(http).createMediaSource(MediaItem.fromUri(audioUrl)),
-            )
-            hls != null -> HlsMediaSource.Factory(http).createMediaSource(mediaItem(hls))
+            !audioOnly && videoUrl != null && audioUrl != null -> {
+                val sources = mutableListOf<MediaSource>(
+                    ProgressiveMediaSource.Factory(http).createMediaSource(mediaItem(videoUrl)),
+                    ProgressiveMediaSource.Factory(http).createMediaSource(MediaItem.fromUri(audioUrl)),
+                )
+                s.captions.getOrNull(captionIndex)?.let { cap ->
+                    val sub = MediaItem.SubtitleConfiguration.Builder(Uri.parse(cap.url))
+                        .setMimeType(androidx.media3.common.MimeTypes.TEXT_VTT)
+                        .setLanguage(cap.lang)
+                        .setLabel(cap.name)
+                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                        .build()
+                    sources.add(
+                        androidx.media3.exoplayer.source.SingleSampleMediaSource.Factory(plainHttp)
+                            .setTreatLoadErrorsAsEndOfStream(true)
+                            .createMediaSource(sub, C.TIME_UNSET)
+                    )
+                }
+                MergingMediaSource(*sources.toTypedArray())
+            }
+            hls != null -> HlsMediaSource.Factory(plainHttp).createMediaSource(mediaItem(hls))
             else -> throw IllegalStateException("Stream tidak tersedia")
         }
     }
