@@ -47,19 +47,24 @@ class MainActivity : ComponentActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var inPip by mutableStateOf(false)
-    /** Layar pilih YouTube / YouTube Music sudah dilewati untuk kunjungan ini. */
-    private var chooserDone by mutableStateOf(!Session.askMode)
-    private var askOnReturn = false
+    /** Item yang dikirim aplikasi pasangan (YouTube Lumi <-> YT Music Lumi). */
+    private var incoming by mutableStateOf<Item?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        incoming = CrossApp.itemFrom(intent)
         setContent { Root() }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        CrossApp.itemFrom(intent)?.let { incoming = it }
     }
 
     @Composable
     private fun Root() {
-        var mode by rememberSaveable { mutableStateOf(Session.mode) }
+        val mode = CrossApp.mode
         var showLogin by rememberSaveable { mutableStateOf(false) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }
         var pendingPlay by remember { mutableStateOf<Item?>(null) }
@@ -89,49 +94,36 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun switchTo(m: String) {
-            mode = m
-            Session.mode = m
-        }
-
-        LumiTheme(dark = dark || !chooserDone) {
-            if (!chooserDone) {
-                com.lumitube.app.ui.common.ModeChooser { m, keep ->
-                    switchTo(m)
-                    if (keep) Session.askMode = false
-                    chooserDone = true
-                }
-                return@LumiTheme
+        // Item dari aplikasi pasangan: putar di sini.
+        LaunchedEffect(incoming) {
+            val item = incoming ?: return@LaunchedEffect
+            incoming = null
+            if (mode == "music") {
+                pendingPlay = item
+            } else {
+                PlaybackManager.playVideo(item)
+                pendingWatch = item
             }
+        }
+        val context = this@MainActivity
+
+        LumiTheme(dark = dark) {
             Box(Modifier.fillMaxSize()) {
                 run {
                     if (mode == "music") {
                         MusicApp(
                             pendingPlay = pendingPlay,
                             onPendingConsumed = { pendingPlay = null },
-                            onSwitchVideo = { switchTo("video") },
+                            onSwitchVideo = { CrossApp.openOther(context) },
                             onLogin = { showLogin = true },
-                            onOpenVideo = { item ->
-                                val video = item.copy(type = ItemType.VIDEO)
-                                if (PlaybackManager.current?.id == item.id) {
-                                    PlaybackManager.switchMode(video = true)
-                                } else {
-                                    PlaybackManager.playVideo(video)
-                                }
-                                pendingWatch = video
-                                switchTo("video")
-                            },
                         )
                     } else {
                         YouTubeApp(
                             pendingWatch = pendingWatch,
                             onPendingConsumed = { pendingWatch = null },
-                            onSwitchMusic = { switchTo("music") },
+                            onSwitchMusic = { CrossApp.openOther(context) },
                             onLogin = { showLogin = true },
-                            onPlayInMusic = { item ->
-                                pendingPlay = item
-                                switchTo("music")
-                            },
+                            onPlayInMusic = { item -> CrossApp.openOther(context, item) },
                         )
                     }
                     if (showLogin) LoginScreen(onClose = { showLogin = false })
@@ -158,21 +150,12 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
-        // Keluar ke layar utama (bukan rotasi/PiP): saat dibuka lagi, tanya mode lagi.
-        if (!isChangingConfigurations && !(Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode)) askOnReturn = true
         super.onStop()
-    }
-
-    override fun onRestart() {
-        super.onRestart()
-        if (askOnReturn && Session.askMode) chooserDone = false
-        askOnReturn = false
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (!chooserDone) return
-        val musicMode = Session.mode == "music"
+        val musicMode = CrossApp.isMusic
         // YouTube biasa (termasuk Shorts): PiP video. YouTube Music: PiP lirik (walau sedang mode Video).
         val videoPip = !musicMode && PlaybackManager.isVideo && PlaybackManager.isPlaying
         val lyricsPip = musicMode && PlaybackManager.isPlaying && Session.lyricsPip
@@ -196,10 +179,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
             try {
-                enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(ratio).build())
+                enterPictureInPictureMode(pipParams(ratio, videoPip))
             } catch (_: Exception) {
             }
         }
+    }
+
+    /**
+     * Posisi jendela PiP ditentukan sistem Android (tidak bisa dipaksa oleh aplikasi).
+     * sourceRectHint di bagian atas layar membuat animasinya berangkat dari atas, dan
+     * setelah jendela digeser sekali ke kanan atas, Android mengingat posisi itu.
+     */
+    private fun pipParams(ratio: Rational, video: Boolean): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(ratio)
+        val w = window.decorView.width
+        if (w > 0) {
+            val top = androidx.core.view.ViewCompat.getRootWindowInsets(window.decorView)
+                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())?.top ?: 0
+            val h = if (video) (w / ratio.toFloat()).toInt().coerceAtMost(window.decorView.height) else w * 9 / 16
+            b.setSourceRectHint(android.graphics.Rect(0, top, w, top + h))
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) b.setSeamlessResizeEnabled(true)
+        return b.build()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {

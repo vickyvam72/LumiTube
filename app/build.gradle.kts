@@ -12,8 +12,24 @@ android {
         applicationId = "com.lumitube.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.5.0"
+    }
+
+    // Dua aplikasi terpisah dari satu kode: YouTube Lumi & YT Music Lumi.
+    flavorDimensions += "app"
+    productFlavors {
+        create("youtube") {
+            dimension = "app"
+            // Sama dengan LumiTube lama, jadi langsung meng-update aplikasi yang sudah terpasang.
+            applicationId = "com.lumitube.app"
+            buildConfigField("String", "APP_MODE", "\"video\"")
+        }
+        create("music") {
+            dimension = "app"
+            applicationId = "com.lumitube.music"
+            buildConfigField("String", "APP_MODE", "\"music\"")
+        }
     }
 
     // Kunci tetap supaya APK versi baru bisa langsung meng-update versi lama.
@@ -50,6 +66,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     lint {
         abortOnError = false

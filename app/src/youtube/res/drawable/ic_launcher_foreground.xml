@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Layar video (garis) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:pathData="M38,37h32a8,8 0,0 1,8 8v18a8,8 0,0 1,-8 8h-32a8,8 0,0 1,-8 -8v-18a8,8 0,0 1,8 -8z" />
+    <!-- Kaki layar -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M44,76h20a2,2 0,0 1,0 4h-20a2,2 0,0 1,0 -4z" />
+    <!-- Tombol play -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M49,46.5L49,61.5C49,62.7 50.3,63.4 51.3,62.8L63.2,55.3C64.1,54.7 64.1,53.3 63.2,52.7L51.3,45.2C50.3,44.6 49,45.3 49,46.5Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M75,28l1.8,4.9l4.9,1.8l-4.9,1.8l-1.8,4.9l-1.8,-4.9l-4.9,-1.8l4.9,-1.8z" />
+</vector>

@@ -63,12 +63,24 @@ class ChunkedDataSource(
         if (end >= 0) len = min(len, end - position)
         if (len <= 0) return false
         val chunk = base.buildUpon().setPosition(position).setLength(len).build()
-        try {
-            upstream.open(chunk)
-        } catch (e: HttpDataSource.InvalidResponseCodeException) {
-            // 416 = sudah melewati akhir file
-            if (e.responseCode == 416) return false
-            throw e
+        var attempt = 0
+        while (true) {
+            try {
+                upstream.open(chunk)
+                break
+            } catch (e: HttpDataSource.InvalidResponseCodeException) {
+                // 416 = sudah melewati akhir file
+                if (e.responseCode == 416) return false
+                // 403 = URL ditolak: biarkan pemutar mengambil URL baru dari klien lain.
+                if (e.responseCode == 403 || e.responseCode == 404 || ++attempt > 2) throw e
+                try { upstream.close() } catch (_: Exception) {}
+                Thread.sleep(400L * attempt)
+            } catch (e: HttpDataSource.HttpDataSourceException) {
+                // Gangguan jaringan sesaat antar potongan: coba lagi sebentar.
+                if (++attempt > 2) throw e
+                try { upstream.close() } catch (_: Exception) {}
+                Thread.sleep(400L * attempt)
+            }
         }
         requested = len
         readInChunk = 0

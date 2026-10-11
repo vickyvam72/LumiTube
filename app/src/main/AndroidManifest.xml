@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Supaya YouTube Lumi dan YT Music Lumi bisa saling membuka. -->
+    <queries>
+        <package android:name="com.lumitube.app" />
+        <package android:name="com.lumitube.music" />
+    </queries>
+
     <application
         android:name=".LumiApp"
         android:allowBackup="false"

@@ -100,6 +100,7 @@ fun BottomPanel(
     content: @Composable () -> Unit,
 ) {
     BackHandler { onClose() }
+    val drag = rememberSheetDragState(onClose)
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().background(Color(0x66000000))
@@ -107,15 +108,16 @@ fun BottomPanel(
         )
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(heightFraction)
+                .sheetContainer(drag)
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(colors.bg)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .navigationBarsPadding()
         ) {
-            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().sheetHandle(drag).padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))
             }
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().sheetHandle(drag).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, color = colors.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Tutup", tint = colors.text) }
             }
@@ -228,6 +230,7 @@ fun CommentsPanel(
     LaunchedEffect(nearEnd, comments.size) { if (nearEnd) next?.let { load(it) } }
 
     BackHandler { onClose() }
+    val drag = rememberSheetDragState(onClose)
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().background(Color(0x66000000))
@@ -235,15 +238,16 @@ fun CommentsPanel(
         )
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.70f)
+                .sheetContainer(drag)
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(colors.bg)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .then(if (edgeToEdge) Modifier.navigationBarsPadding().imePadding() else Modifier)
         ) {
-            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().sheetHandle(drag).padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))
             }
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().sheetHandle(drag).padding(start = 16.dp, end = 4.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Komentar", color = colors.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 header?.let {
                     Text(

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YouTube Lumi</string>
+    <color name="ic_bg_start">#FFFF1E3C</color>
+    <color name="ic_bg_end">#FFFF7A1A</color>
+</resources>

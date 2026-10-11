@@ -48,6 +48,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import com.lumitube.app.ui.common.SearchSuggestions
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
@@ -218,7 +225,7 @@ fun YouTubeApp(
                 )
                 YtRoute.Downloads -> DownloadsScreen({ stack.removeAt(stack.lastIndex) }) { rec ->
                     val it = rec.toItem()
-                    if (rec.audioOnly) onPlayInMusic(it) else openWatch(it)
+                    if (rec.audioOnly) PlaybackManager.playMusic(listOf(it), 0, radio = false) else openWatch(it)
                 }
                 else -> when (tab) {
                     0 -> HomeTab(home, open, openChannel, openShorts, onSearch = { stack.add(YtRoute.Search) }, onSwitchMusic = onSwitchMusic, onLogin = onLogin)
@@ -232,11 +239,10 @@ fun YouTubeApp(
             YtMiniPlayer(onOpen = {
                 val cur = PlaybackManager.current
                 if (cur != null) {
-                    if (PlaybackManager.isVideo) {
+                    if (!PlaybackManager.isVideo && cur.localUri == null) PlaybackManager.switchMode(video = true)
+                    if (PlaybackManager.isVideo || cur.localUri == null) {
                         stack.removeAll { it is YtRoute.Watch }
-                        stack.add(YtRoute.Watch(cur))
-                    } else {
-                        onPlayInMusic(cur)
+                        stack.add(YtRoute.Watch(cur.copy(type = ItemType.VIDEO)))
                     }
                 }
             })
@@ -491,14 +497,7 @@ private fun YouTab(
             item { MenuRow(Icons.Filled.ThumbUp, "Video yang disukai") { browse("VLLL", "Video yang disukai") } }
         }
         item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
-        item {
-            var ask by remember { mutableStateOf(Session.askMode) }
-            MenuRow(Icons.Filled.Settings, "Pilih YouTube/Music saat dibuka: ${if (ask) "Aktif" else "Nonaktif"}") {
-                ask = !ask
-                Session.askMode = ask
-            }
-        }
-        item { MenuRow(Icons.Filled.MusicNote, "Buka LumiTube Music", onSwitchMusic) }
+        item { MenuRow(Icons.Filled.MusicNote, "Buka YT Music Lumi", onSwitchMusic) }
         item {
             MenuRow(Icons.Filled.HighQuality, "Kualitas video maks: ${quality}p") {
                 val next = when (quality) { 360 -> 480; 480 -> 720; 720 -> 1080; else -> 360 }
@@ -539,12 +538,56 @@ private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 // ---------------------------------------------------------------- Channel / Playlist
 
 @Composable
-private fun BackBar(title: String?, onBack: () -> Unit) {
+private fun BackBar(title: String?, onBack: () -> Unit, actions: @Composable () -> Unit = {}) {
     val yt = LocalYt.current
     Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text) }
-        Text(title ?: "", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            title ?: "", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
+        actions()
     }
+}
+
+/** Kotak cari gaya YouTube (dipakai di halaman cari & cari di channel). */
+@Composable
+private fun YtSearchField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    placeholder: String,
+    onSearch: () -> Unit,
+    onFocus: () -> Unit,
+    focus: FocusRequester,
+    modifier: Modifier = Modifier,
+) {
+    val yt = LocalYt.current
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(placeholder, color = yt.sub) },
+        singleLine = true,
+        shape = RoundedCornerShape(24.dp),
+        trailingIcon = if (value.text.isNotEmpty()) {
+            {
+                IconButton(onClick = { onValueChange(TextFieldValue("")); focus.requestFocus() }) {
+                    Icon(Icons.Filled.Close, "Hapus", tint = yt.text)
+                }
+            }
+        } else null,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = yt.chip,
+            unfocusedContainerColor = yt.chip,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedTextColor = yt.text,
+            unfocusedTextColor = yt.text,
+            cursorColor = YtRed,
+        ),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+        modifier = modifier.height(52.dp).focusRequester(focus).onFocusChanged { if (it.isFocused) onFocus() },
+    )
 }
 
 @Composable
@@ -555,8 +598,80 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     LoadMoreEffect(state, feed)
     val page = feed.page
     val isChannel = id.startsWith("UC")
+    // Cari di dalam channel: null = tidak sedang mencari
+    var searching by rememberSaveable(id) { mutableStateOf(false) }
+    var field by remember(id) { mutableStateOf(TextFieldValue("")) }
+    var query by rememberSaveable(id) { mutableStateOf("") }
+    var editing by remember(id) { mutableStateOf(true) }
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    BackHandler(enabled = searching) {
+        if (editing && query.isNotEmpty()) {
+            editing = false
+            focusManager.clearFocus()
+        } else {
+            searching = false
+            query = ""
+            field = TextFieldValue("")
+        }
+    }
+    if (searching) {
+        fun submit(q: String) {
+            val t = q.trim()
+            if (t.isEmpty()) return
+            field = TextFieldValue(t, TextRange(t.length))
+            query = t
+            editing = false
+            focusManager.clearFocus()
+        }
+        LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { searching = false; query = ""; field = TextFieldValue("") }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text)
+                }
+                YtSearchField(
+                    field, { field = it }, "Telusuri ${page?.title ?: "channel"}",
+                    onSearch = { submit(field.text) }, onFocus = { editing = true }, focus = focus,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (editing && field.text.isNotBlank() && field.text.trim() != query) {
+                // Saran mengikuti teks yang diketik (tanpa histori global).
+                Box(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { submit(field.text) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.Search, null, tint = yt.text)
+                        Text("Cari \"${field.text.trim()}\" di channel ini", color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(start = 18.dp))
+                    }
+                }
+            } else if (query.isNotEmpty()) {
+                val results = rememberFeed(key = "$id|search|$query", more = { Repo.ytMore(it) }) { Repo.ytChannelSearch(id, query) }
+                val rs = rememberLazyListState()
+                LoadMoreEffect(rs, results)
+                LazyColumn(state = rs, modifier = Modifier.fillMaxSize()) {
+                    if (results.loading && results.items.isEmpty()) item { LoadingBox() }
+                    results.error?.let { err -> item { MessageBox("Gagal mencari: $err", yt.sub, "Coba lagi") { results.load() } } }
+                    if (!results.loading && results.error == null && results.items.isEmpty()) {
+                        item { MessageBox("Tidak ada video yang cocok di channel ini.", yt.sub, null) {} }
+                    }
+                    items(results.items, key = { it.key }) { v -> VideoRow(v) { open(v) } }
+                    if (results.continuation != null && results.items.isNotEmpty()) item { LoadingBox() }
+                }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize()) {
-        BackBar(page?.title ?: title, onBack)
+        BackBar(page?.title ?: title, onBack) {
+            if (isChannel) {
+                IconButton(onClick = { searching = true; editing = true }) {
+                    Icon(Icons.Filled.Search, "Cari di channel", tint = yt.text)
+                }
+            }
+        }
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             if (page != null && (page.title != null || page.thumbnail != null)) {
                 item {
@@ -620,34 +735,44 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
 @Composable
 private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: (String) -> Unit) {
     val yt = LocalYt.current
-    var text by rememberSaveable { mutableStateOf("") }
+    var field by remember { mutableStateOf(TextFieldValue("")) }
     var query by rememberSaveable { mutableStateOf("") }
+    var editing by rememberSaveable { mutableStateOf(true) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        if (query.isEmpty()) focus.requestFocus() else field = TextFieldValue(query, TextRange(query.length))
+    }
+    fun submit(q: String) {
+        val t = q.trim()
+        if (t.isEmpty()) return
+        field = TextFieldValue(t, TextRange(t.length))
+        query = t
+        Session.addSearch(t)
+        editing = false
+        focusManager.clearFocus()
+    }
+    BackHandler(enabled = editing && query.isNotEmpty()) {
+        editing = false
+        field = TextFieldValue(query, TextRange(query.length))
+        focusManager.clearFocus()
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text) }
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text("Telusuri YouTube", color = yt.sub) },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = yt.chip,
-                    unfocusedContainerColor = yt.chip,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = yt.text,
-                    unfocusedTextColor = yt.text,
-                    cursorColor = YtRed,
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { if (text.isNotBlank()) query = text.trim() }),
-                modifier = Modifier.weight(1f).height(52.dp).focusRequester(focus),
+            YtSearchField(
+                field, { field = it }, "Telusuri YouTube",
+                onSearch = { submit(field.text) }, onFocus = { editing = true }, focus = focus,
+                modifier = Modifier.weight(1f),
             )
         }
-        if (query.isNotEmpty()) {
+        if (editing || query.isEmpty()) {
+            SearchSuggestions(
+                text = field.text, textColor = yt.text, subColor = yt.sub,
+                onPick = { submit(it) },
+                onFill = { field = TextFieldValue("$it ", TextRange(it.length + 1)); focus.requestFocus() },
+            )
+        } else {
             val feed = rememberFeed(key = query, more = { Repo.ytMore(it, "search") }) { Repo.ytSearch(query) }
             FeedList(feed, open, openChannel)
         }

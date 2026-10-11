@@ -18,6 +18,7 @@ object Session {
     fun init(context: Context) {
         prefs = context.getSharedPreferences("lumitube", Context.MODE_PRIVATE)
         loggedIn = cookie?.contains("SAPISID=") == true
+        loadSearchHistory()
         val name = prefs.getString("acc_name", null)
         if (loggedIn && name != null) {
             account = Account(name, prefs.getString("acc_handle", null), prefs.getString("acc_photo", null))
@@ -85,6 +86,32 @@ object Session {
         set(value) {
             prefs.edit().putBoolean("autoplay", value).apply()
         }
+
+    /** Histori penelusuran (terbaru di depan), disimpan di perangkat. */
+    var searchHistory by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    fun loadSearchHistory() {
+        searchHistory = try {
+            val a = org.json.JSONArray(prefs.getString("search_history", "[]"))
+            (0 until a.length()).map { a.getString(it) }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun addSearch(q: String) {
+        val t = q.trim()
+        if (t.isEmpty()) return
+        saveHistory((listOf(t) + searchHistory.filter { !it.equals(t, ignoreCase = true) }).take(50))
+    }
+
+    fun removeSearch(q: String) = saveHistory(searchHistory.filter { it != q })
+
+    private fun saveHistory(list: List<String>) {
+        searchHistory = list
+        prefs.edit().putString("search_history", org.json.JSONArray(list).toString()).apply()
+    }
 
     /** Tanyakan YouTube / YouTube Music setiap aplikasi dibuka. */
     var askMode: Boolean

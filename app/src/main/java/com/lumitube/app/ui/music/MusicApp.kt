@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.PlayArrow
@@ -55,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -90,7 +92,6 @@ fun MusicApp(
     onPendingConsumed: () -> Unit,
     onSwitchVideo: () -> Unit,
     onLogin: () -> Unit,
-    onOpenVideo: (Item) -> Unit,
 ) {
     val stack = remember { mutableStateListOf<MRoute>() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -125,6 +126,15 @@ fun MusicApp(
         }
     }
     val openBrowse: (String, String?, String?) -> Unit = { id, params, title -> stack.add(MRoute.Browse(id, params, title)) }
+    // Video diputar di pemutar penuh (mode Video), tetap di dalam YT Music Lumi.
+    val onOpenVideo: (Item) -> Unit = { item ->
+        if (PlaybackManager.current?.id == item.id) {
+            PlaybackManager.switchMode(video = true)
+        } else {
+            PlaybackManager.playVideo(item.copy(type = ItemType.VIDEO))
+        }
+        showPlayer = true
+    }
 
     BackHandler(enabled = showPlayer || stack.isNotEmpty() || tab != 0) {
         when {
@@ -176,7 +186,7 @@ fun MusicApp(
             FullPlayer(
                 onClose = { showPlayer = false },
                 onOpenArtist = { id -> showPlayer = false; openBrowse(id, null, null) },
-                onOpenVideo = { item -> showPlayer = false; onOpenVideo(item) },
+                onOpenVideo = onOpenVideo,
             )
         }
         if (showSettings) MusicSettingsPanel { showSettings = false }
@@ -195,7 +205,7 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
         MusicLogo()
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onSwitchVideo) {
-            Icon(Icons.Filled.OndemandVideo, "Buka YouTube", tint = Color.White)
+            Icon(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", tint = Color.White)
         }
         Box {
             Box(Modifier.padding(horizontal = 8.dp)) { Avatar(34) { menu = true } }
@@ -208,7 +218,7 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
                     DropdownMenuItem(text = { Text("Login") }, onClick = { menu = false; onLogin() })
                 }
                 DropdownMenuItem(text = { Text("Setelan") }, onClick = { menu = false; onSettings() })
-                DropdownMenuItem(text = { Text("Buka LumiTube (video)") }, onClick = { menu = false; onSwitchVideo() })
+                DropdownMenuItem(text = { Text("Buka YouTube Lumi") }, onClick = { menu = false; onSwitchVideo() })
             }
         }
     }
@@ -299,17 +309,42 @@ private fun PageTitle(text: String) {
 
 @Composable
 private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
+    var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
     var query by rememberSaveable { mutableStateOf("") }
+    var editing by rememberSaveable { mutableStateOf(true) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(Unit) {
+        if (query.isEmpty()) focus.requestFocus()
+        else field = androidx.compose.ui.text.input.TextFieldValue(query, androidx.compose.ui.text.TextRange(query.length))
+    }
+    fun submit(q: String) {
+        val t = q.trim()
+        if (t.isEmpty()) return
+        field = androidx.compose.ui.text.input.TextFieldValue(t, androidx.compose.ui.text.TextRange(t.length))
+        query = t
+        Session.addSearch(t)
+        editing = false
+        focusManager.clearFocus()
+    }
+    BackHandler(enabled = editing && query.isNotEmpty()) {
+        editing = false
+        focusManager.clearFocus()
+    }
     Column(Modifier.fillMaxSize()) {
         TextField(
-            value = text,
-            onValueChange = { text = it },
+            value = field,
+            onValueChange = { field = it },
             placeholder = { Text("Telusuri lagu, artis, album", color = MusicColors.sub) },
             singleLine = true,
             shape = RoundedCornerShape(10.dp),
+            trailingIcon = if (field.text.isNotEmpty()) {
+                {
+                    IconButton(onClick = { field = androidx.compose.ui.text.input.TextFieldValue(""); focus.requestFocus() }) {
+                        Icon(Icons.Filled.Close, "Hapus", tint = Color.White)
+                    }
+                }
+            } else null,
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = MusicColors.card,
                 unfocusedContainerColor = MusicColors.card,
@@ -320,10 +355,20 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
                 cursorColor = Color.White,
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { if (text.isNotBlank()) query = text.trim() }),
-            modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus),
+            keyboardActions = KeyboardActions(onSearch = { submit(field.text) }),
+            modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus)
+                .onFocusChanged { if (it.isFocused) editing = true },
         )
-        if (query.isNotEmpty()) {
+        if (editing || query.isEmpty()) {
+            com.lumitube.app.ui.common.SearchSuggestions(
+                text = field.text, textColor = Color.White, subColor = MusicColors.sub,
+                onPick = { submit(it) },
+                onFill = {
+                    field = androidx.compose.ui.text.input.TextFieldValue("$it ", androidx.compose.ui.text.TextRange(it.length + 1))
+                    focus.requestFocus()
+                },
+            )
+        } else {
             val feed = rememberFeed(key = query) { Repo.musicSearch(query) }
             ShelfList(feed, onItem)
         }

@@ -1,4 +1,4 @@
-name: Build LumiTube APK
+name: Build YouTube Lumi & YT Music Lumi
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       - name: Build release APK
         run: |
           set -o pipefail
-          gradle :app:assembleRelease --no-daemon 2>&1 | tee build.log
+          gradle :app:assembleYoutubeRelease :app:assembleMusicRelease --no-daemon 2>&1 | tee build.log
 
       - name: Report compile errors
         if: failure()
@@ -38,18 +38,24 @@ jobs:
           done
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk LumiTube.apk
+        run: |
+          cp app/build/outputs/apk/youtube/release/app-youtube-release.apk YouTubeLumi.apk
+          cp app/build/outputs/apk/music/release/app-music-release.apk YTMusicLumi.apk
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LumiTube-apk
-          path: LumiTube.apk
+          name: Lumi-apks
+          path: |
+            YouTubeLumi.apk
+            YTMusicLumi.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: LumiTube build ${{ github.run_number }}
-          files: LumiTube.apk
+          name: Lumi build ${{ github.run_number }}
+          files: |
+            YouTubeLumi.apk
+            YTMusicLumi.apk
           make_latest: "true"

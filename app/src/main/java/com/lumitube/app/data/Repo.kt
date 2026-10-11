@@ -39,6 +39,45 @@ object Repo {
         return header.copy(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
+    /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */
+    suspend fun ytChannelSearch(channelId: String, query: String): Page {
+        val body = org.json.JSONObject()
+            .put("browseId", channelId)
+            .put("params", "EgZzZWFyY2jyBgQKAloA")
+            .put("query", query)
+        val r = InnerTube.post(Client.WEB, "browse", body)
+        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    }
+
+    /** Saran penelusuran saat mengetik (sama dengan kotak cari YouTube, cara NewPipe). */
+    suspend fun searchSuggestions(query: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+        val q = java.net.URLEncoder.encode(query, "UTF-8")
+        val urls = listOf(
+            "https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&xhr=t&hl=${InnerTube.hl}&gl=${InnerTube.gl}&q=$q",
+            "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&hl=${InnerTube.hl}&q=$q",
+        )
+        for (url in urls) {
+            try {
+                val req = okhttp3.Request.Builder().url(url).header("User-Agent", "Mozilla/5.0").build()
+                val list = InnerTube.http.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use emptyList<String>()
+                    val text = resp.body?.string() ?: return@use emptyList<String>()
+                    // Bisa berupa JSON murni atau dibungkus window.google.ac.h(...)
+                    val json = text.substring(text.indexOf('[').coerceAtLeast(0), text.lastIndexOf(']') + 1)
+                    val arr = org.json.JSONArray(json).optJSONArray(1) ?: return@use emptyList<String>()
+                    (0 until arr.length()).mapNotNull { k ->
+                        val e = arr.opt(k)
+                        (if (e is org.json.JSONArray) e.optString(0) else e as? String)?.takeIf { it.isNotBlank() }
+                    }
+                }
+                if (list.isNotEmpty()) return@withContext list.take(12)
+            } catch (_: Exception) {
+            }
+        }
+        emptyList()
+    }
+
     suspend fun ytSubscriptionChannels(): List<Item> {
         val r = InnerTube.browse(Client.WEB, "FEchannels")
         return Parser.items(r, false).filter { it.type == ItemType.CHANNEL }

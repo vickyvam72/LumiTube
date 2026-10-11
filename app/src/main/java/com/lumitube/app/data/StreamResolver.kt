@@ -45,6 +45,8 @@ data class Stream(
     val captions: List<Caption> = emptyList(),
     /** Bahasa terjemahan otomatis yang didukung YouTube (kode, nama). */
     val translations: List<Pair<String, String>> = emptyList(),
+    /** Nama klien /player yang menghasilkan URL ini. */
+    val client: String = "",
 ) {
     /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
     val qualities: List<Int>
@@ -126,6 +128,31 @@ object StreamResolver {
         )
 
     private val cache = ConcurrentHashMap<String, Pair<Long, Stream>>()
+    /** Klien yang URL-nya ditolak googlevideo (403) untuk video tertentu. */
+    private val rejected = ConcurrentHashMap<String, MutableSet<String>>()
+    /** Jumlah penolakan per klien: klien yang sering ditolak dicoba belakangan. */
+    private val failures = ConcurrentHashMap<String, Int>()
+
+    private fun key(c: PlayerClient) = "${c.name}/${c.version}"
+
+    /**
+     * URL dari klien ini ditolak di tengah pemutaran (biasanya HTTP 403 karena
+     * butuh PO token). Ambil ulang dengan klien lain.
+     * @return false bila semua klien sudah dicoba untuk video ini.
+     */
+    fun markRejected(videoId: String, client: String): Boolean {
+        cache.remove(videoId)
+        if (client.isEmpty()) return true
+        failures[client] = (failures[client] ?: 0) + 1
+        val set = rejected.getOrPut(videoId) { java.util.Collections.synchronizedSet(mutableSetOf()) }
+        set.add(client)
+        return set.size < clients.size
+    }
+
+    /** Lupakan penolakan untuk video ini (mis. saat diputar ulang dari awal). */
+    fun resetRejected(videoId: String) {
+        rejected.remove(videoId)
+    }
     private val visitors = ConcurrentHashMap<String, String>()
 
     private fun nonce(len: Int) = buildString { repeat(len) { append(NONCE_ALPHABET[Random.nextInt(NONCE_ALPHABET.length)]) } }
@@ -166,7 +193,14 @@ object StreamResolver {
         val job = inFlight.getOrPut(videoId) {
             prefetchScope.async {
                 var lastError: Exception? = null
-                for (c in clients) {
+                val bad = rejected[videoId]?.toSet() ?: emptySet()
+                val ordered = clients.withIndex()
+                    .sortedWith(compareBy<IndexedValue<PlayerClient>> { if (key(it.value) in bad) 1 else 0 }
+                        .thenBy { minOf(failures[key(it.value)] ?: 0, 3) }
+                        .thenBy { it.index })
+                    .map { it.value }
+                for (c in ordered) {
+                    if (key(c) in bad && ordered.any { key(it) !in bad }) continue
                     try {
                         val st = request(c, videoId)
                         cache[videoId] = System.currentTimeMillis() to st
@@ -317,6 +351,7 @@ object StreamResolver {
                     code to (text(t.obj("languageName")) ?: code)
                 } ?: emptyList(),
             userAgent = c.userAgent,
+            client = key(c),
             isLive = isLive,
             title = json.str("videoDetails", "title"),
             author = json.str("videoDetails", "author"),

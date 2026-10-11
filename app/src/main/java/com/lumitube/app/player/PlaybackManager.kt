@@ -93,7 +93,9 @@ object PlaybackManager {
     var onAutoNext: (() -> Unit)? = null
     /** Video terkait berikutnya (untuk tombol next & putar otomatis). */
     var relatedNext by mutableStateOf<Item?>(null)
-    private var retried: String? = null
+    /** Jumlah percobaan ulang (ganti klien) untuk item saat ini. */
+    private var retries = 0
+    private var currentClient = ""
     /** Semua hasil lirik untuk lagu saat ini (terbaik di depan). */
     var lyricsList by mutableStateOf<List<Lyrics>>(emptyList())
         private set
@@ -154,11 +156,18 @@ object PlaybackManager {
             }
 
             override fun onPlayerError(e: PlaybackException) {
-                // URL kedaluwarsa / ditolak: ambil URL baru sekali, lanjut dari posisi yang sama.
+                // URL kedaluwarsa / ditolak (HTTP 403 di tengah lagu): ambil URL baru
+                // dari klien lain dan lanjutkan dari posisi yang sama, sampai beberapa kali.
                 val item = current
-                if (item != null && item.localUri == null && retried != item.id) {
-                    retried = item.id
-                    StreamResolver.invalidate(item.id)
+                if (item != null && item.localUri == null && retries < 5) {
+                    retries++
+                    val code = ((e.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode)
+                    val rejected = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS || code == 403
+                    if (rejected || retries > 1) {
+                        if (!StreamResolver.markRejected(item.id, currentClient)) StreamResolver.resetRejected(item.id)
+                    } else {
+                        StreamResolver.invalidate(item.id)
+                    }
                     load(item, exo.currentPosition.coerceAtLeast(0))
                 } else {
                     error = "Gagal memutar: ${e.errorCodeName}"
@@ -502,7 +511,7 @@ object PlaybackManager {
             captionIndex = -1
             captionTranslate = null
             captionFile = null
-            retried = null
+            retries = 0
         }
         loadJob?.cancel()
         current = item
@@ -529,6 +538,7 @@ object PlaybackManager {
                     )
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly)
+                    currentClient = stream.client
                     qualities = stream.qualities
                     captions = stream.captions
                     translations = stream.translations

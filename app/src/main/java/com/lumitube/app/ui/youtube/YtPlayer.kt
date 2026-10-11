@@ -1,6 +1,8 @@
 package com.lumitube.app.ui.youtube
 
 import androidx.activity.compose.BackHandler
+import com.lumitube.app.ui.common.sheetContainer
+import com.lumitube.app.ui.common.sheetHandle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -412,6 +414,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
     var page by remember { mutableIntStateOf(0) }
     var loop by remember { mutableStateOf(Session.loopVideo) }
     BackHandler { if (page != 0) page = 0 else onClose() }
+    val drag = com.lumitube.app.ui.common.rememberSheetDragState(onClose)
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().background(Color(0x88000000))
@@ -420,7 +423,9 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
                 .padding(horizontal = 10.dp, vertical = 10.dp)
-                .clip(RoundedCornerShape(20.dp)).background(if (yt.bg == Color.White) Color.White else Color(0xFF282828))
+                .sheetContainer(drag)
+                .clip(RoundedCornerShape(20.dp))
+                .sheetHandle(drag).background(if (yt.bg == Color.White) Color.White else Color(0xFF282828))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(bottom = 8.dp)
         ) {
@@ -447,7 +452,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
                         arrow = true,
                     ) { if (PlaybackManager.captions.isNotEmpty()) page = 3 }
                     if (onListenMusic != null) {
-                        SettingRow(Icons.Outlined.MusicNote, "Dengarkan di YouTube Music", "", arrow = true) { onListenMusic() }
+                        SettingRow(Icons.Outlined.MusicNote, "Dengarkan di YT Music Lumi", "", arrow = true) { onListenMusic() }
                     }
                     Row(
                         Modifier.fillMaxWidth().clickable {
