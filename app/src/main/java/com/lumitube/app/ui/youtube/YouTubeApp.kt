@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.outlined.Download
@@ -994,6 +995,7 @@ fun WatchScreen(
                 onComments = { panel = if (info?.liveChatToken != null) 3 else 1 },
                 onSettings = { panel = 2 },
                 onDownload = { downloadItem = current },
+                onSave = { panel = 4 },
             )
         }
     }
@@ -1003,6 +1005,7 @@ fun WatchScreen(
             onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
         )
         2 -> YtSettingsSheet(onListenMusic = { panel = 0; onPlayInMusic(current) }) { panel = 0 }
+        4 -> com.lumitube.app.ui.common.AddToPlaylistSheet(current.id, false, ytPanelColors()) { panel = 0 }
         3 -> if (!full) info?.liveChatToken?.let { t ->
             com.lumitube.app.ui.common.LiveChatPanel(t, current.id, ytPanelColors()) { panel = 0 }
         }
@@ -1022,6 +1025,7 @@ private fun WatchDetails(
     onComments: () -> Unit,
     onSettings: () -> Unit,
     onDownload: () -> Unit,
+    onSave: () -> Unit,
 ) {
     val yt = LocalYt.current
     val context = LocalContext.current
@@ -1161,6 +1165,9 @@ private fun WatchDetails(
                     }
                     WatchIcon(Icons.AutoMirrored.Outlined.Reply, "Bagikan", mirror = true) {
                         shareVideo(context, current.id, current.title, false)
+                    }
+                    WatchIcon(Icons.AutoMirrored.Filled.PlaylistAdd, "Simpan") {
+                        if (Session.loggedIn) onSave() else onLogin()
                     }
                     WatchIcon(Icons.Outlined.Download, "Unduh") { onDownload() }
                 }

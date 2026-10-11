@@ -660,4 +660,6 @@ object Parser {
     }
 
     fun findFirstPublic(root: Any?, key: String): JSONObject? = findFirst(root, key)
+
+    fun findAllPublic(root: Any?, key: String): List<JSONObject> = findAll(root, key)
 }

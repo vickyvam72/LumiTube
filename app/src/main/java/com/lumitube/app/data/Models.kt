@@ -124,3 +124,13 @@ data class CommentPage(
 )
 
 data class MusicQueue(val items: List<Item>, val lyricsBrowseId: String?)
+
+/** Playlist milik akun untuk dialog "Simpan ke playlist". */
+data class PlaylistOption(
+    val id: String,
+    val title: String,
+    val count: String?,
+    val thumbnail: String?,
+    /** Video ini sudah ada di playlist tersebut. */
+    val contains: Boolean,
+)

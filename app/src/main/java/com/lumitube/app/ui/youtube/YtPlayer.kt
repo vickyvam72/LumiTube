@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -436,6 +437,8 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
     val yt = LocalYt.current
     var page by remember { mutableIntStateOf(0) }
     var loop by remember { mutableStateOf(Session.loopVideo) }
+    var showSleep by remember { mutableStateOf(false) }
+    if (showSleep) com.lumitube.app.ui.common.SleepTimerDialog { showSleep = false }
     BackHandler { if (page != 0) page = 0 else onClose() }
     val drag = com.lumitube.app.ui.common.rememberSheetDragState(onClose)
     Box(Modifier.fillMaxSize()) {
@@ -461,6 +464,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
                     val actual = PlaybackManager.qualities.firstOrNull { it <= q }
                     SettingRow(Icons.Outlined.Tune, "Kualitas video", if (actual != null) "${actual}p" else "Otomatis", arrow = true) { page = 1 }
                     SettingRow(Icons.Outlined.Speed, "Kecepatan pemutaran", speedLabel(PlaybackManager.speed), arrow = true) { page = 2 }
+                    SettingRow(Icons.Outlined.Bedtime, "Timer tidur", com.lumitube.app.ui.common.sleepTimerLabel(), arrow = true) { showSleep = true }
                     val cap = PlaybackManager.captions.getOrNull(PlaybackManager.captionIndex)
                     val tl = PlaybackManager.captionTranslate?.let { code ->
                         PlaybackManager.translations.firstOrNull { it.first == code }?.second ?: code

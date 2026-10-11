@@ -90,6 +90,52 @@ object PlaybackManager {
     var captionError by mutableStateOf<String?>(null)
     private var captionFile: java.io.File? = null
     /** Subtitle digambar sendiri di atas video, jadi menyalakan/mematikan CC tidak memuat ulang video. */
+    // ---------------- Timer tidur ----------------
+
+    /** Waktu (epoch ms) aplikasi akan ditutup, atau null. */
+    var sleepAt by mutableStateOf<Long?>(null)
+        private set
+    /** Tutup setelah video/lagu yang sedang diputar selesai. */
+    var sleepEndOfItem by mutableStateOf(false)
+        private set
+    /** Bertambah saat timer habis; MainActivity menutup aplikasi. */
+    var closeRequested by mutableIntStateOf(0)
+        private set
+    private var sleepJob: Job? = null
+
+    fun setSleepMinutes(minutes: Int) = setSleepAtTime(System.currentTimeMillis() + minutes * 60_000L)
+
+    fun setSleepAtTime(at: Long) {
+        cancelSleep()
+        sleepAt = at
+        sleepJob = scope.launch {
+            while (true) {
+                val left = at - System.currentTimeMillis()
+                if (left <= 0) break
+                kotlinx.coroutines.delay(minOf(left, 15_000L))
+            }
+            sleepNow()
+        }
+    }
+
+    fun setSleepEndOfItem() {
+        cancelSleep()
+        sleepEndOfItem = true
+    }
+
+    fun cancelSleep() {
+        sleepJob?.cancel()
+        sleepJob = null
+        sleepAt = null
+        sleepEndOfItem = false
+    }
+
+    private fun sleepNow() {
+        cancelSleep()
+        stop()
+        closeRequested++
+    }
+
     /** Video yang diputar adalah siaran langsung. */
     var isLiveStream by mutableStateOf(false)
         private set
@@ -585,6 +631,10 @@ object PlaybackManager {
     // ---------------- Internal ----------------
 
     private fun onEnded() {
+        if (sleepEndOfItem) {
+            sleepNow()
+            return
+        }
         val loop = repeat == RepeatMode.ONE ||
             (isVideo && (Session.loopVideo || current?.type == ItemType.SHORT))
         if (loop) {

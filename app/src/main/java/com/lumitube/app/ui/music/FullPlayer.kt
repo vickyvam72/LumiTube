@@ -23,6 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.Pause
@@ -82,6 +85,9 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
     val item = PlaybackManager.current ?: return
     val context = LocalContext.current
     var panel by remember { mutableIntStateOf(0) } // 0 = tidak ada, 1 = berikutnya, 2 = lirik
+    var showAddPlaylist by remember { mutableStateOf(false) }
+    var showSleep by remember { mutableStateOf(false) }
+    if (showSleep) com.lumitube.app.ui.common.SleepTimerDialog("Sampai lagu selesai") { showSleep = false }
     var showDownload by remember { mutableStateOf(false) }
     var showComments by remember { mutableStateOf(false) }
     val commentsInfo by produceState<WatchInfo?>(null, item.id, showComments) {
@@ -122,8 +128,28 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                 Spacer(Modifier.weight(1f))
                 ModeToggle()
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { shareVideo(context, item.id, item.title, true) }) {
-                    Icon(Icons.Filled.Share, "Bagikan", tint = Color.White)
+                Box {
+                    var menu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menu = true }) {
+                        Icon(Icons.Filled.MoreVert, "Lainnya", tint = Color.White)
+                    }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Simpan ke playlist") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) },
+                            onClick = { menu = false; showAddPlaylist = true },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Timer tidur • ${com.lumitube.app.ui.common.sleepTimerLabel()}") },
+                            leadingIcon = { Icon(Icons.Outlined.Bedtime, null) },
+                            onClick = { menu = false; showSleep = true },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Bagikan") },
+                            leadingIcon = { Icon(Icons.Filled.Share, null) },
+                            onClick = { menu = false; shareVideo(context, item.id, item.title, true) },
+                        )
+                    }
                 }
             }
 
@@ -265,6 +291,9 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                 )
             }
         }
+    }
+    if (showAddPlaylist) {
+        com.lumitube.app.ui.common.AddToPlaylistSheet(item.id, true, com.lumitube.app.ui.common.MusicPanelColors) { showAddPlaylist = false }
     }
     if (showDownload) DownloadDialog(item) { showDownload = false }
 }

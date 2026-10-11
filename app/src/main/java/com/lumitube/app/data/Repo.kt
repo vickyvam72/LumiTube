@@ -127,6 +127,53 @@ object Repo {
         )
     }
 
+    /** Daftar playlist akun + apakah video sudah ada di dalamnya. */
+    suspend fun addToPlaylistOptions(videoId: String, music: Boolean): List<PlaylistOption> {
+        val r = InnerTube.post(
+            Client.WEB, "playlist/get_add_to_playlist",
+            org.json.JSONObject().put("videoIds", org.json.JSONArray().put(videoId)).put("excludeWatchLater", true)
+        )
+        // Thumbnail & jumlah dari halaman koleksi (dialog bawaan YouTube tidak menyertakan gambar).
+        val lib: List<Item> = try {
+            if (music) musicBrowse("FEmusic_liked_playlists").let { p -> p.items + p.shelves.flatMap { sh -> sh.items } }
+            else ytBrowse("FEplaylist_aggregation").items
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return Parser.findAllPublic(r, "playlistAddToOptionRenderer").mapNotNull { o ->
+            val id = o.str("playlistId") ?: return@mapNotNull null
+            val match = lib.firstOrNull { m -> m.id == "VL$id" || m.playlistId == id || m.id == id }
+            PlaylistOption(
+                id = id,
+                title = text(o.obj("title")) ?: match?.title ?: id,
+                count = match?.subtitle?.split(" • ")?.lastOrNull { p -> p.any { it.isDigit() } },
+                thumbnail = match?.thumbnail,
+                contains = o.str("containsSelectedVideos") == "ALL",
+            )
+        }
+    }
+
+    suspend fun setInPlaylist(playlistId: String, videoId: String, add: Boolean) {
+        val action = if (add) {
+            org.json.JSONObject().put("addedVideoId", videoId).put("action", "ACTION_ADD_VIDEO")
+        } else {
+            org.json.JSONObject().put("removedVideoId", videoId).put("action", "ACTION_REMOVE_VIDEO_BY_VIDEO_ID")
+        }
+        InnerTube.post(
+            Client.WEB, "browse/edit_playlist",
+            org.json.JSONObject().put("playlistId", playlistId).put("actions", org.json.JSONArray().put(action))
+        )
+    }
+
+    /** Buat playlist baru langsung berisi video ini. privacy: PRIVATE / UNLISTED / PUBLIC. */
+    suspend fun createPlaylist(title: String, privacy: String, videoId: String) {
+        InnerTube.post(
+            Client.WEB, "playlist/create",
+            org.json.JSONObject().put("title", title).put("privacyStatus", privacy)
+                .put("videoIds", org.json.JSONArray().put(videoId))
+        )
+    }
+
     /** Hapus dari "Tonton nanti". */
     suspend fun removeWatchLater(videoId: String) {
         InnerTube.post(
