@@ -244,7 +244,10 @@ object StreamResolver {
                 val jobs = list.mapIndexed { i, c ->
                     launch {
                         var waited = 0L
-                        while (waited < i * 2500L && finished.get() < i && !result.isCompleted) {
+                        // Baru buka aplikasi (mesin cipher web belum siap): klien yang tidak butuh
+                        // cipher langsung ikut balapan, jadi lagu/video pertama tidak menunggu WebView.
+                        val wait = if (c.kind != Kind.EMBED && !Cipher.isReady) 0L else i * 2500L
+                        while (waited < wait && finished.get() < i && !result.isCompleted) {
                             kotlinx.coroutines.delay(100)
                             waited += 100
                         }
@@ -254,6 +257,7 @@ object StreamResolver {
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: Exception) {
+                            if (c.kind == Kind.EMBED) Cipher.dropEmbed()
                             errors.add(e)
                         } finally {
                             if (finished.incrementAndGet() == list.size && !result.isCompleted) {
@@ -537,7 +541,8 @@ object StreamResolver {
             title = json.str("videoDetails", "title"),
             author = json.str("videoDetails", "author"),
         )
-        if (!isLive && probeMedia) probe(stream)
+        // Klien web dengan cipher tidak kena batas 1 MB; uji hanya klien lain (hemat satu permintaan).
+        if (!isLive && probeMedia && c.kind != Kind.EMBED) probe(stream)
         return stream
     }
 

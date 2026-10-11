@@ -269,6 +269,12 @@ private fun MusicHome(
 ) {
     val state = rememberLazyListState()
     val shelves = feed.page?.shelves ?: emptyList()
+    // Siapkan stream beberapa lagu teratas (Pilihan cepat dll.) supaya langsung bisa diputar.
+    LaunchedEffect(shelves.firstOrNull()?.items?.firstOrNull()?.id) {
+        kotlinx.coroutines.delay(300)
+        shelves.take(2).flatMap { sh -> sh.items.filter { it.type == ItemType.SONG }.take(2) }
+            .forEach { com.lumitube.app.data.StreamResolver.prefetch(it.id) }
+    }
     val nearEnd by remember {
         derivedStateOf {
             val info = state.layoutInfo

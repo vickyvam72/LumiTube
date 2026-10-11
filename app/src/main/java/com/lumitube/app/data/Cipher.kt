@@ -70,7 +70,18 @@ object Cipher {
     private fun unescape(s: String) = s.replace("\\/", "/").replace("\\u0026", "&")
 
     /** Halaman embed: URL pemutar, visitorData, encryptedHostFlags, signatureTimestamp. */
-    suspend fun embedPage(videoId: String, cookie: String? = null): EmbedPage = withContext(Dispatchers.IO) {
+    /** Isi halaman embed tidak bergantung pada video: simpan 30 menit (hemat satu permintaan per video). */
+    private val embedCache = java.util.concurrent.ConcurrentHashMap<Boolean, Pair<Long, EmbedPage>>()
+
+    /** Mesin cipher sudah siap (skrip pemutar sudah dimuat di WebView). */
+    val isReady: Boolean get() = loadedHash != null
+
+    suspend fun embedPage(videoId: String, cookie: String? = null): EmbedPage {
+        embedCache[cookie != null]?.let { (t, p) -> if (System.currentTimeMillis() - t < 30 * 60 * 1000L) return p }
+        return fetchEmbedPage(videoId, cookie).also { embedCache[cookie != null] = System.currentTimeMillis() to it }
+    }
+
+    private suspend fun fetchEmbedPage(videoId: String, cookie: String? = null): EmbedPage = withContext(Dispatchers.IO) {
         val html = get(
             "https://www.youtube.com/embed/$videoId?html5=1&hl=${InnerTube.hl}",
             mapOf(
@@ -225,7 +236,12 @@ object Cipher {
             val page = embedPage("jNQXAC9IVRw")
             val cfg = config(page.playerUrl) ?: return
             prepare(cfg)
+            // Halaman embed versi akun juga disiapkan supaya pemutaran pertama tidak menunggu.
+            Session.cookie?.takeIf { Session.loggedIn }?.let { embedPage("jNQXAC9IVRw", it) }
         } catch (_: Exception) {
         }
     }
+
+    /** Halaman embed bermasalah (mis. kedaluwarsa): ambil ulang pada permintaan berikutnya. */
+    fun dropEmbed() = embedCache.clear()
 }

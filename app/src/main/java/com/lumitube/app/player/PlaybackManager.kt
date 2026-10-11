@@ -367,7 +367,7 @@ object PlaybackManager {
         com.lumitube.app.data.Cipher.cacheDir = appContext.cacheDir
         com.lumitube.app.data.Cipher.runner = WebJsRunner(appContext)
         scope.launch {
-            kotlinx.coroutines.delay(1500)
+            kotlinx.coroutines.delay(200)
             com.lumitube.app.data.Cipher.prewarm()
         }
     }
