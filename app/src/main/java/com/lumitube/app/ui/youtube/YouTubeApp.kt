@@ -985,6 +985,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         }
                     }
                 }
+            }
             items(if (historyDays.isNotEmpty()) emptyList() else own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
