@@ -647,6 +647,14 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     LoadMoreEffect(state, feed)
     val page = feed.page
     val isChannel = id.startsWith("UC")
+    // Playlist: jumlah video asli dari header ("3 video"). Item setelahnya adalah saran YouTube.
+    val plCount = if (id.startsWith("VL")) {
+        Regex("(\\d[\\d.,]*)\\s*(?:video|lagu|videos|songs)", RegexOption.IGNORE_CASE).find(page?.subtitle ?: "")
+            ?.groupValues?.get(1)?.replace(Regex("[.,]"), "")?.toIntOrNull()
+    } else null
+    val own = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
+    val extra = (if (plCount != null && plCount < feed.items.size) feed.items.drop(plCount) else emptyList()) +
+        (page?.suggestions ?: emptyList())
     // Cari di dalam channel: null = tidak sedang mencari
     var searching by rememberSaveable(id) { mutableStateOf(false) }
     var field by remember(id) { mutableStateOf(TextFieldValue("")) }
@@ -740,7 +748,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         page.description?.takeIf { it.isNotBlank() }?.let {
                             Text(it, color = yt.sub, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))
                         }
-                        val videos = feed.items.filter { it.type == ItemType.VIDEO }
+                        val videos = own.filter { it.type == ItemType.VIDEO }
                         if (!isChannel && videos.isNotEmpty()) {
                             Box(
                                 Modifier.padding(top = 14.dp).fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp))
@@ -755,18 +763,18 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     Text("Putar semua", color = yt.bg, fontWeight = FontWeight.Medium)
                                 }
                             }
-                            PlaylistOfflineRow(feed, videos, open)
+                            PlaylistOfflineRow(feed, videos, open, plCount)
                         }
                     }
                 }
             }
             if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
-            items(feed.items, key = { it.key }) { item ->
+            items(own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
                     else -> VideoRow(item) {
-                        val videos = feed.items.filter { it.type == ItemType.VIDEO }
+                        val videos = own.filter { it.type == ItemType.VIDEO }
                         val idx = videos.indexOfFirst { it.id == item.id }
                         if (!isChannel && idx >= 0) {
                             PlaybackManager.playVideos(videos, idx)
@@ -775,8 +783,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     }
                 }
             }
-            val sugg = page?.suggestions ?: emptyList()
-            if (feed.continuation == null && sugg.isNotEmpty()) {
+            val sugg = extra.distinctBy { it.key }.filter { s -> own.none { it.key == s.key } }
+            if (sugg.isNotEmpty()) {
                 item {
                     Text(
                         "Saran", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
@@ -792,7 +800,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
 
 /** Tombol "Download semua" dan "Putar offline" untuk playlist. */
 @Composable
-private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item) -> Unit) {
+private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item) -> Unit, limit: Int?) {
     val yt = LocalYt.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -803,16 +811,18 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
             Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(yt.chip).clickable {
                 scope.launch {
                     // Ambil semua isi playlist (bukan hanya yang sudah tampil), lalu download satu per satu.
-                    val all = feed.items.filter { it.type == ItemType.VIDEO }.toMutableList()
-                    var c = feed.continuation
+                    val all = feed.items.toMutableList()
+                    var c = if (limit != null && all.size >= limit) null else feed.continuation
                     try {
                         while (c != null) {
                             val p = Repo.ytMore(c)
-                            all += p.items.filter { it.type == ItemType.VIDEO }
-                            c = p.continuation
+                            all += p.items
+                            c = if (limit != null && all.size >= limit) null else p.continuation
                         }
                     } catch (_: Exception) {
                     }
+                    val list = (if (limit != null) all.take(limit) else all).filter { it.type == ItemType.VIDEO }
+                    all.clear(); all.addAll(list)
                     val todo = all.distinctBy { it.id }.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, false) }
                     com.lumitube.app.data.Downloader.downloadAll(all, audioOnly = false)
                     android.widget.Toast.makeText(

@@ -131,6 +131,24 @@ object Downloader {
         scope.launch { perform(item, option) }
     }
 
+    /**
+     * Lengkapi lirik untuk download lama yang belum punya lirik tersimpan
+     * (dijalankan diam-diam saat ada internet).
+     */
+    fun backfillLyrics() {
+        val fetch = lyricsFetcher ?: return
+        scope.launch {
+            for (rec in records.toList()) {
+                if (com.lumitube.app.data.lyrics.LyricsStore.has(rec.videoId)) continue
+                try {
+                    val item = Item(ItemType.SONG, rec.videoId, rec.title, rec.author, rec.thumbnail, channelName = rec.author)
+                    fetch(item)?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
     /** Sudah pernah di-download (video atau audio)? */
     fun isDownloaded(videoId: String, audioOnly: Boolean) = records.any { it.videoId == videoId && it.audioOnly == audioOnly }
 
@@ -207,8 +225,8 @@ object Downloader {
                     size = finalFile.length(),
                     time = System.currentTimeMillis(),
                 )
-                // Lagu: simpan juga liriknya supaya tampil saat offline.
-                if (option.audioOnly && !com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
+                // Lagu (YT Music Lumi): simpan juga liriknya supaya tampil saat offline.
+                if (!com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
                     try {
                         lyricsFetcher?.invoke(item)?.let { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, it) }
                     } catch (_: Exception) {

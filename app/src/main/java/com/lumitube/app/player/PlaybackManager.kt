@@ -231,9 +231,16 @@ object PlaybackManager {
         player = QueuePlayer(exo)
         startWatchdog()
         // Saat lagu di-download, lirik terbaik ikut disimpan (untuk diputar offline).
-        com.lumitube.app.data.Downloader.lyricsFetcher = { item ->
-            val dur = try { StreamResolver.resolve(item.id, true).lengthSeconds.toInt() } catch (_: Exception) { 0 }
-            com.lumitube.app.data.lyrics.LyricsRepo.fetchAll(songQuery(item, dur)).firstOrNull()
+        if (com.lumitube.app.CrossApp.isMusic) {
+            com.lumitube.app.data.Downloader.lyricsFetcher = { item ->
+                val dur = try { StreamResolver.resolve(item.id, true).lengthSeconds.toInt() } catch (_: Exception) { 0 }
+                com.lumitube.app.data.lyrics.LyricsRepo.fetchAll(songQuery(item, dur)).firstOrNull { it.lines.isNotEmpty() }
+            }
+            // Download lama (sebelum fitur ini) dilengkapi liriknya di latar belakang.
+            scope.launch {
+                kotlinx.coroutines.delay(15_000)
+                com.lumitube.app.data.Downloader.backfillLyrics()
+            }
         }
         // Mesin cipher (WebView) untuk klien web, disiapkan di latar belakang.
         com.lumitube.app.data.Cipher.cacheDir = appContext.cacheDir
@@ -451,6 +458,11 @@ object PlaybackManager {
                     scope.launch { if (current?.id == item.id) applyLyrics(partial) }
                 }
                 if (current?.id == item.id) applyLyrics(list)
+                // Lagu yang sudah di-download: simpan lirik terbaik untuk diputar offline.
+                val best = list.firstOrNull { it.lines.isNotEmpty() }
+                if (best != null && com.lumitube.app.data.Downloader.records.any { it.videoId == item.id }) {
+                    kotlinx.coroutines.withContext(Dispatchers.IO) { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, best) }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
