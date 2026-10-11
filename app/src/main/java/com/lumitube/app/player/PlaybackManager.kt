@@ -544,7 +544,10 @@ object PlaybackManager {
     /** Ambil lirik dari semua penyedia (sekali per lagu). */
     fun loadLyrics(force: Boolean = false) {
         val item = current ?: return
-        if (!force && (lyricsFor == item.id || lyricsLoading)) return
+        // Pencarian yang masih berjalan untuk lagu LAIN tidak boleh menahan lagu ini.
+        if (!force && lyricsFor == item.id) return
+        lyricsJob?.cancel()
+        lyricsLoading = false
         val durMs = exo.duration.takeIf { it > 0 } ?: 0L
         // Lagu yang sama diputar ulang (atau versi lain dengan durasi sama): pakai lirik yang ada.
         if (!force && lyricsList.isNotEmpty() && lyricsSong == songKey(item.title) &&
@@ -570,14 +573,20 @@ object PlaybackManager {
         lyricsList = emptyList()
         lyricsIndex = 0
         val dur = (exo.duration.takeIf { it > 0 } ?: 0L) / 1000
-        scope.launch {
+        val gen = ++lyricsGen
+        lyricsJob = scope.launch {
             try {
                 val q = songQuery(item, dur.toInt())
                 // Hasil ditampilkan bertahap: begitu ada lirik sinkron, langsung muncul.
-                val list = LyricsRepo.fetchAll(q) { partial ->
-                    scope.launch { if (current?.id == item.id) applyLyrics(partial) }
-                }
-                if (current?.id == item.id) applyLyrics(list)
+                // Batas waktu: penyedia yang macet tidak boleh membuat "Mencari lirik…" berputar terus.
+                var partialSeen: List<Lyrics> = emptyList()
+                val list = kotlinx.coroutines.withTimeoutOrNull(30_000) {
+                    LyricsRepo.fetchAll(q) { partial ->
+                        partialSeen = partial
+                        scope.launch { if (gen == lyricsGen && current?.id == item.id) applyLyrics(partial) }
+                    }
+                } ?: partialSeen
+                if (gen == lyricsGen && current?.id == item.id && list.isNotEmpty()) applyLyrics(list)
                 // Lagu yang sudah di-download: simpan lirik terbaik untuk diputar offline.
                 val best = list.firstOrNull { it.lines.isNotEmpty() }
                 if (best != null && com.lumitube.app.data.Downloader.records.any { it.videoId == item.id }) {
@@ -587,10 +596,15 @@ object PlaybackManager {
                 throw e
             } catch (_: Exception) {
             } finally {
-                if (current?.id == item.id) lyricsLoading = false
+                if (gen == lyricsGen) {
+                    lyricsLoading = false
+                }
             }
         }
     }
+
+    private var lyricsJob: kotlinx.coroutines.Job? = null
+    private var lyricsGen = 0
 
     private var chosenSource: String? = null
 
@@ -743,6 +757,12 @@ object PlaybackManager {
         if (lyricsFor != item.id && lyricsSong != songKey(item.title)) {
             lyricsList = emptyList()
             lyricsIndex = 0
+        }
+        if (lyricsFor != item.id) {
+            // Hentikan pencarian lirik lagu sebelumnya.
+            lyricsJob?.cancel()
+            lyricsGen++
+            lyricsLoading = false
         }
         loading = true
         if (firstFrameFor == item.id && startPosition == 0L) firstFrameFor = null
