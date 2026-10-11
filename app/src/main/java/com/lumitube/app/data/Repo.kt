@@ -178,6 +178,12 @@ object Repo {
         return out
     }
 
+    /** "Telusuri histori tontonan". */
+    suspend fun ytHistorySearch(query: String): Page {
+        val r = InnerTube.post(Client.WEB, "browse", org.json.JSONObject().put("browseId", "FEhistory").put("query", query))
+        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    }
+
     /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */
     suspend fun ytChannelSearch(channelId: String, query: String): Page {
         val body = org.json.JSONObject()
