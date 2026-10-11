@@ -53,7 +53,8 @@ object CrossApp {
      * youtube.com/watch?v=, youtu.be/, /shorts/, /live/, /embed/, music.youtube.com, playlist (list=).
      */
     fun itemFromLink(intent: Intent?): Item? {
-        val text = intent?.dataString ?: intent?.getStringExtra(Intent.EXTRA_TEXT) ?: return null
+        if (intent == null) return null
+        val text = intent.dataString ?: intent.getStringExtra(Intent.EXTRA_TEXT) ?: return null
         val url = Regex("https?://\\S+").find(text)?.value ?: text
         if (!url.contains("youtu")) return null
         val video = Regex("[?&]v=([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
