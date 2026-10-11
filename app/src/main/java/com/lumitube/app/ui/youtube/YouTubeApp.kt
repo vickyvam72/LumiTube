@@ -947,8 +947,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                 historyDays.forEachIndexed { di, (day, groups) ->
                     // Shorts dari rak YouTube didahulukan (urutan terbaru), lalu Shorts di daftar biasa.
                     val all = groups.filter { it.first }.flatMap { it.second } + groups.filter { !it.first }.flatMap { it.second }
-                    val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT || groups.any { g -> g.first && it in g.second } }
-                    val dayVideos = if (histFilter == 2) emptyList() else all.filter { it.type != ItemType.SHORT }
+                    val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT || groups.any { g -> g.first && it in g.second } }.distinctBy { it.id }
+                    val dayVideos = if (histFilter == 2) emptyList() else all.filter { it !in dayShorts && it.type != ItemType.SHORT }.distinctBy { it.id }
                     if (dayShorts.isNotEmpty() || dayVideos.isNotEmpty()) {
                         if (day.isNotBlank()) {
                             item(key = "hd$di") {
