@@ -690,8 +690,11 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.addAll(list)
             else out.add(sh.title to list.toMutableList())
         }
+        if (out.isEmpty() && feed.items.isNotEmpty()) out.add("" to feed.items.toMutableList())
         out
     } else emptyList()
+    // Filter Histori seperti aplikasi YouTube: Semua / Video / Shorts.
+    var histFilter by rememberSaveable(id) { mutableIntStateOf(0) }
     val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { it.second }
         else if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
     // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
@@ -768,7 +771,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text)
                 }
                 YtSearchField(
-                    field, { field = it }, "Telusuri ${page?.title ?: "channel"}",
+                    field, { field = it }, if (isHistory) "Telusuri histori tontonan" else "Telusuri ${page?.title ?: "channel"}",
                     onSearch = { submit(field.text) }, onFocus = { editing = true }, focus = focus,
                     modifier = Modifier.weight(1f),
                 )
@@ -781,18 +784,18 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Filled.Search, null, tint = yt.text)
-                        Text("Cari \"${field.text.trim()}\" di channel ini", color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(start = 18.dp))
+                        Text(if (isHistory) "Cari \"${field.text.trim()}\" di histori" else "Cari \"${field.text.trim()}\" di channel ini", color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(start = 18.dp))
                     }
                 }
             } else if (query.isNotEmpty()) {
-                val results = rememberFeed(key = "$id|search|$query", more = { Repo.ytMore(it) }) { Repo.ytChannelSearch(id, query) }
+                val results = rememberFeed(key = "$id|search|$query", more = { Repo.ytMore(it) }) { if (isHistory) Repo.ytHistorySearch(query) else Repo.ytChannelSearch(id, query) }
                 val rs = rememberLazyListState()
                 LoadMoreEffect(rs, results)
                 LazyColumn(state = rs, modifier = Modifier.fillMaxSize()) {
                     if (results.loading && results.items.isEmpty()) item { LoadingBox() }
                     results.error?.let { err -> item { MessageBox("Gagal mencari: $err", yt.sub, "Coba lagi") { results.load() } } }
                     if (!results.loading && results.error == null && results.items.isEmpty()) {
-                        item { MessageBox("Tidak ada video yang cocok di channel ini.", yt.sub, null) {} }
+                        item { MessageBox(if (isHistory) "Tidak ada video yang cocok di histori." else "Tidak ada video yang cocok di channel ini.", yt.sub, null) {} }
                     }
                     items(results.items, key = { it.key }) { v -> VideoRow(v) { open(v) } }
                     if (results.continuation != null && results.items.isNotEmpty()) item { LoadingBox() }
@@ -802,8 +805,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         return
     }
     Column(Modifier.fillMaxSize()) {
-        BackBar(page?.title ?: title, onBack) {
-            if (isChannel) {
+        BackBar(if (isHistory) "" else page?.title ?: title, onBack) {
+            if (isChannel || isHistory) {
                 IconButton(onClick = { searching = true; editing = true }) {
                     Icon(Icons.Filled.Search, "Cari di channel", tint = yt.text)
                 }
@@ -836,7 +839,30 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             )
         }
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            if (page != null && (page.title != null || page.thumbnail != null)) {
+            if (isHistory) {
+                item(key = "histhead") {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("Histori", color = yt.text, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp))
+                        Row(
+                            Modifier.fillMaxWidth().background(yt.chip).clickable { searching = true; editing = true }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Search, null, tint = yt.sub)
+                            Text("Telusuri histori tontonan", color = yt.sub, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp))
+                        }
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Semua", "Video", "Shorts").forEachIndexed { i, label ->
+                                val on = histFilter == i
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) yt.text else yt.chip)
+                                        .clickable { histFilter = i }.padding(horizontal = 14.dp, vertical = 7.dp),
+                                ) { Text(label, color = if (on) yt.bg else yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                            }
+                        }
+                    }
+                }
+            } else if (page != null && (page.title != null || page.thumbnail != null)) {
                 item {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         if (isChannel) {
@@ -878,14 +904,19 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, dayItems) ->
-                    if (day.isNotBlank()) {
+                    val visible = when (histFilter) {
+                        1 -> dayItems.any { it.type != ItemType.SHORT }
+                        2 -> dayItems.any { it.type == ItemType.SHORT }
+                        else -> true
+                    }
+                    if (day.isNotBlank() && visible) {
                         item(key = "hd$di") {
                             Text(day, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
                         }
                     }
-                    val shorts = dayItems.filter { it.type == ItemType.SHORT }
-                    if (shorts.isNotEmpty()) item(key = "hs$di") { ShortsShelf(shorts) { s -> open(s) } }
-                    items(dayItems.filter { it.type != ItemType.SHORT }, key = { "h$di" + it.key }) { v ->
+                    val shorts = if (histFilter == 1) emptyList() else dayItems.filter { it.type == ItemType.SHORT }
+                    if (shorts.isNotEmpty()) item(key = "hs$di") { HistoryShorts(shorts) { s -> open(s) } }
+                    items(if (histFilter == 2) emptyList() else dayItems.filter { it.type != ItemType.SHORT }, key = { "h$di" + it.key }) { v ->
                         if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
                     }
                 }
@@ -1389,5 +1420,34 @@ private fun ActionChip(icon: ImageVector, label: String, onClick: () -> Unit) {
     ) {
         Icon(icon, null, tint = yt.text, modifier = Modifier.size(20.dp))
         Text(label, color = yt.text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Rak Shorts di Histori: kartu tegak dengan judul & jumlah tayangan di atas gambar. */
+@Composable
+private fun HistoryShorts(items: List<Item>, onClick: (Item) -> Unit) {
+    androidx.compose.foundation.lazy.LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(bottom = 12.dp),
+    ) {
+        items(items, key = { it.key }) { s ->
+            Box(
+                Modifier.width(135.dp).aspectRatio(9f / 13.5f).clip(RoundedCornerShape(10.dp)).clickable { onClick(s) }
+            ) {
+                Img(s.thumbnail ?: "https://i.ytimg.com/vi/${s.id}/oar2.jpg", Modifier.fillMaxSize())
+                Box(
+                    Modifier.fillMaxSize().background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0.55f to Color.Transparent, 1f to Color(0xCC000000)
+                        )
+                    )
+                )
+                Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
+                    Text(s.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp)
+                    if (s.subtitle.isNotBlank()) Text(s.subtitle, color = Color(0xDDFFFFFF), fontSize = 12.sp, maxLines = 1)
+                }
+            }
+        }
     }
 }

@@ -97,6 +97,8 @@ object Parser {
                 channelId = channelId,
                 channelThumb = chThumb,
                 live = live,
+                progress = findFirst(v.arr("thumbnailOverlays"), "thumbnailOverlayResumePlaybackRenderer")
+                    ?.optInt("percentDurationWatched", -1)?.takeIf { it >= 0 },
             )
         }
     }
@@ -131,6 +133,8 @@ object Parser {
                 channelId = channelId,
                 channelThumb = avatar,
                 live = live,
+                progress = findFirst(image, "thumbnailOverlayProgressBarViewModel")
+                    ?.optInt("startPercent", -1)?.takeIf { it >= 0 },
             )
             type.contains("PLAYLIST") || type.contains("ALBUM") || type.contains("PODCAST") -> {
                 if (id.startsWith("RD")) return null

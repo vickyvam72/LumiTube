@@ -241,8 +241,14 @@ fun VideoRow(item: Item, menu: List<Pair<String, () -> Unit>>? = null, onClick: 
                     }
                 }
             } else {
-                if (item.live) LiveBadge(Modifier.align(Alignment.BottomEnd).padding(4.dp))
-                else item.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp)) }
+                if (item.live) LiveBadge(Modifier.align(Alignment.BottomEnd).padding(4.dp, 4.dp, 4.dp, if (item.progress != null) 7.dp else 4.dp))
+                else item.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp, 4.dp, 4.dp, if (item.progress != null) 7.dp else 4.dp)) }
+            }
+            // Garis merah: sudah ditonton sampai mana (seperti di Histori YouTube).
+            item.progress?.let { pct ->
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(Color(0x66FFFFFF))) {
+                    Box(Modifier.fillMaxWidth(pct.coerceIn(2, 100) / 100f).fillMaxHeight().background(YtRed))
+                }
             }
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {

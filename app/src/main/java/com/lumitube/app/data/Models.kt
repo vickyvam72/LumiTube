@@ -21,6 +21,8 @@ data class Item(
     val localUri: String? = null,
     /** Siaran langsung yang sedang berlangsung. */
     val live: Boolean = false,
+    /** Bagian yang sudah ditonton (0..100), dari Histori / lanjutkan menonton. */
+    val progress: Int? = null,
     /** ID item di dalam playlist (setVideoId), untuk mengubah urutan. */
     val setVideoId: String? = null,
 ) {
