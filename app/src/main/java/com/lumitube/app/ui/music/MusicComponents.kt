@@ -218,7 +218,13 @@ fun MusicCard(item: Item, onClick: () -> Unit) {
 }
 
 @Composable
-fun SongRow(item: Item, index: Int? = null, fallbackThumb: String? = null, onClick: () -> Unit) {
+fun SongRow(
+    item: Item,
+    index: Int? = null,
+    fallbackThumb: String? = null,
+    menu: List<Pair<String, () -> Unit>>? = null,
+    onClick: () -> Unit,
+) {
     val playing = PlaybackManager.current?.id == item.id
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -241,7 +247,11 @@ fun SongRow(item: Item, index: Int? = null, fallbackThumb: String? = null, onCli
                 Text(item.subtitle, color = MusicColors.sub, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Icon(Icons.Outlined.MoreVert, null, tint = MusicColors.sub, modifier = Modifier.size(20.dp))
+        if (menu != null) {
+            com.lumitube.app.ui.common.ItemMenu(menu, MusicColors.sub)
+        } else {
+            Icon(Icons.Outlined.MoreVert, null, tint = MusicColors.sub, modifier = Modifier.size(20.dp))
+        }
     }
 }
 

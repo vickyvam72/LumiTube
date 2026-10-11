@@ -223,7 +223,7 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
 
 /** Baris video kecil (thumbnail kiri) untuk daftar playlist / riwayat. */
 @Composable
-fun VideoRow(item: Item, onClick: () -> Unit) {
+fun VideoRow(item: Item, menu: List<Pair<String, () -> Unit>>? = null, onClick: () -> Unit) {
     val yt = LocalYt.current
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp)
@@ -249,6 +249,7 @@ fun VideoRow(item: Item, onClick: () -> Unit) {
             Text(item.title, color = yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(item.subtitle, color = yt.sub, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
         }
+        if (menu != null) com.lumitube.app.ui.common.ItemMenu(menu, yt.text)
     }
 }
 

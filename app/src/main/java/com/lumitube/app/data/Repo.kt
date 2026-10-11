@@ -165,6 +165,11 @@ object Repo {
         )
     }
 
+    /** Hapus playlist milik akun. [playlistId] tanpa awalan "VL". */
+    suspend fun deletePlaylist(playlistId: String) {
+        InnerTube.post(Client.WEB, "playlist/delete", org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")))
+    }
+
     /** Buat playlist baru langsung berisi video ini. privacy: PRIVATE / UNLISTED / PUBLIC. */
     suspend fun createPlaylist(title: String, privacy: String, videoId: String) {
         InnerTube.post(

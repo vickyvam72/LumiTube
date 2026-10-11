@@ -497,6 +497,26 @@ private fun MusicBrowseScreen(
         .distinctBy { it.id }
     val isArtist = route.id.startsWith("UC") || route.id.startsWith("MPAD")
     val isAlbum = route.id.startsWith("MPRE")
+    // Playlist milik akun: bisa dihapus dan lagunya dihapus satu per satu.
+    val editable = route.id.startsWith("VL") && route.id != "VLLM" && Session.loggedIn
+    val removed = remember(route.id) { androidx.compose.runtime.mutableStateListOf<String>() }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val editScope = rememberCoroutineScope()
+    fun removeMenu(item: Item): List<Pair<String, () -> Unit>>? = if (!editable || item.type != ItemType.SONG) null else listOf(
+        "Hapus dari playlist" to {
+            removed.add(item.id)
+            editScope.launch {
+                try {
+                    Repo.setInPlaylist(route.id.removePrefix("VL"), item.id, false)
+                    android.widget.Toast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    removed.remove(item.id)
+                    android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        },
+    )
 
     fun playFrom(item: Item) {
         val idx = allSongs.indexOfFirst { it.id == item.id }
@@ -510,6 +530,30 @@ private fun MusicBrowseScreen(
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            Spacer(Modifier.weight(1f))
+            if (editable) com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), Color.White)
+        }
+        if (confirmDelete) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                title = { Text("Hapus playlist?") },
+                text = { Text("\"${page?.title ?: route.title ?: "Playlist"}\" akan dihapus permanen dari akunmu.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmDelete = false
+                        editScope.launch {
+                            try {
+                                Repo.deletePlaylist(route.id)
+                                android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                onBack()
+                            } catch (_: Exception) {
+                                android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }) { Text("Hapus") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+            )
         }
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             if (page != null) {
@@ -592,8 +636,8 @@ private fun MusicBrowseScreen(
                             Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
                         }
                     }
-                    itemsIndexed(shelf.items, key = { _, it -> "r$si" + it.key }) { i, item ->
-                        SongRow(item, index = if (isAlbum) i + 1 else null, fallbackThumb = if (isAlbum) null else page?.thumbnail) {
+                    itemsIndexed(shelf.items.filter { it.id !in removed }, key = { _, it -> "r$si" + it.key }) { i, item ->
+                        SongRow(item, index = if (isAlbum) i + 1 else null, fallbackThumb = if (isAlbum) null else page?.thumbnail, menu = removeMenu(item)) {
                             if (item.type == ItemType.SONG) playFrom(item) else onItem(item, shelf.items)
                         }
                     }
@@ -603,7 +647,9 @@ private fun MusicBrowseScreen(
                     }
                 }
             }
-            items(feed.items, key = { "m" + it.key }) { item -> SongRow(item, fallbackThumb = page?.thumbnail) { playFrom(item) } }
+            items(feed.items.filter { it.id !in removed }, key = { "m" + it.key }) { item ->
+                SongRow(item, fallbackThumb = page?.thumbnail, menu = removeMenu(item)) { playFrom(item) }
+            }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }

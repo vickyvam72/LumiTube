@@ -653,7 +653,14 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         Regex("(\\d[\\d.,]*)\\s*(?:video|lagu|videos|songs)", RegexOption.IGNORE_CASE).find(page?.subtitle ?: "")
             ?.groupValues?.get(1)?.replace(Regex("[.,]"), "")?.toIntOrNull()
     } else null
-    val own = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
+    // Playlist milik akun: bisa dihapus, dan isinya bisa dihapus satu per satu.
+    val editable = id.startsWith("VL") && id != "VLLL" && Session.loggedIn
+    val removed = remember(id) { androidx.compose.runtime.mutableStateListOf<String>() }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    val editScope = rememberCoroutineScope()
+    val ownAll = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
+    val own = ownAll.filter { it.id !in removed }
     val extra = (if (plCount != null && plCount < feed.items.size) feed.items.drop(plCount) else emptyList()) +
         (page?.suggestions ?: emptyList())
     // Cari di dalam channel: null = tidak sedang mencari
@@ -729,6 +736,31 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     Icon(Icons.Filled.Search, "Cari di channel", tint = yt.text)
                 }
             }
+            if (editable && id != "VLWL") {
+                com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), yt.text)
+            }
+        }
+        if (confirmDelete) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                title = { Text("Hapus playlist?") },
+                text = { Text("\"${page?.title ?: title ?: "Playlist"}\" akan dihapus permanen dari akunmu.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmDelete = false
+                        editScope.launch {
+                            try {
+                                Repo.deletePlaylist(id)
+                                android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                onBack()
+                            } catch (_: Exception) {
+                                android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }) { Text("Hapus") }
+                },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+            )
         }
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             if (page != null && (page.title != null || page.thumbnail != null)) {
@@ -774,7 +806,23 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             items(own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
-                    else -> VideoRow(item) {
+                    else -> VideoRow(
+                        item,
+                        menu = if (editable) listOf(
+                            "Hapus dari playlist" to {
+                                removed.add(item.id)
+                                editScope.launch {
+                                    try {
+                                        Repo.setInPlaylist(id.removePrefix("VL"), item.id, false)
+                                        android.widget.Toast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
+                                    } catch (_: Exception) {
+                                        removed.remove(item.id)
+                                        android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                        ) else null,
+                    ) {
                         val videos = own.filter { it.type == ItemType.VIDEO }
                         val idx = videos.indexOfFirst { it.id == item.id }
                         if (!isChannel && idx >= 0) {
