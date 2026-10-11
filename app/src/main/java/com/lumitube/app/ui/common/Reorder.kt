@@ -40,11 +40,13 @@ class ReorderState(
 
     /** Posisi baru yang ditunggu setelah tukar (tata letak belum diperbarui). */
     private var pendingIndex: Int? = null
+    private var moved = false
 
     fun start(key: Any) {
         dragging = key
         offset = 0f
         pendingIndex = null
+        moved = false
     }
 
     fun drag(dy: Float) {
@@ -78,6 +80,7 @@ class ReorderState(
         // Item yang diseret pindah ke posisi target: koreksi geseran supaya tetap di bawah jari.
         val newOffset = if (target.offset > cur.offset) target.offset + target.size - cur.size else target.offset
         onMove(key, target.key)
+        moved = true
         offset -= (newOffset - cur.offset).toFloat()
         pendingIndex = target.index
     }
@@ -87,7 +90,9 @@ class ReorderState(
         dragging = null
         offset = 0f
         pendingIndex = null
-        onEnd(key)
+        // Hanya simpan bila posisinya benar-benar berubah.
+        if (moved) onEnd(key)
+        moved = false
     }
 }
 

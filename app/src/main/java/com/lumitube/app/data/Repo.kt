@@ -1,5 +1,7 @@
 package com.lumitube.app.data
 
+import kotlinx.coroutines.sync.withLock
+
 import com.lumitube.app.data.InnerTube.Client
 
 /** Fungsi tingkat tinggi yang dipakai UI. */
@@ -165,22 +167,43 @@ object Repo {
         )
     }
 
+    private val moveMutex = kotlinx.coroutines.sync.Mutex()
+
     /**
-     * Pindahkan item playlist: diletakkan setelah [afterSetVideoId], atau ke paling atas
-     * (sebelum [beforeSetVideoId]) bila [afterSetVideoId] null.
+     * Pindahkan item playlist ke antara [afterSetVideoId] dan [beforeSetVideoId].
+     * Permintaan dijalankan berurutan (seret cepat beberapa kali tidak bertabrakan) dan
+     * dicoba dengan beberapa bentuk aksi/klien, karena YouTube kadang menolak salah satunya.
      */
     suspend fun movePlaylistItem(playlistId: String, setVideoId: String, afterSetVideoId: String?, beforeSetVideoId: String?) {
-        val action = org.json.JSONObject().put("setVideoId", setVideoId)
-        if (afterSetVideoId != null) {
-            action.put("action", "ACTION_MOVE_VIDEO_AFTER").put("movedSetVideoIdPredecessor", afterSetVideoId)
-        } else {
-            action.put("action", "ACTION_MOVE_VIDEO_BEFORE")
-            beforeSetVideoId?.let { action.put("movedSetVideoIdSuccessor", it) }
+        val pid = playlistId.removePrefix("VL")
+        val forms = ArrayList<org.json.JSONObject>()
+        fun a() = org.json.JSONObject().put("setVideoId", setVideoId)
+        // Bentuk yang dipakai ytmusicapi: pindah ke sebelum item berikutnya.
+        if (beforeSetVideoId != null) forms += a().put("action", "ACTION_MOVE_VIDEO_BEFORE").put("movedSetVideoIdSuccessor", beforeSetVideoId)
+        // Bentuk yang dipakai youtube.com: pindah ke setelah item sebelumnya (tanpa pendahulu = paling atas).
+        if (afterSetVideoId != null) forms += a().put("action", "ACTION_MOVE_VIDEO_AFTER").put("movedSetVideoIdPredecessor", afterSetVideoId)
+        else forms += a().put("action", "ACTION_MOVE_VIDEO_AFTER")
+        val clients = if (com.lumitube.app.CrossApp.isMusic) listOf(Client.MUSIC, Client.WEB) else listOf(Client.WEB, Client.MUSIC)
+        moveMutex.withLock {
+            var last: Exception? = null
+            for (form in forms) for (c in clients) for (attempt in 0..1) {
+                try {
+                    val r = InnerTube.post(
+                        c, "browse/edit_playlist",
+                        org.json.JSONObject().put("playlistId", pid).put("actions", org.json.JSONArray().put(form))
+                    )
+                    if (r.optString("status") == "STATUS_FAILED") throw java.io.IOException("Ditolak YouTube")
+                    return@withLock
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    last = e
+                    // Galat HTTP 4xx = bentuk/klien ini ditolak, langsung coba yang lain; galat jaringan diulang sekali.
+                    if (e.message?.startsWith("HTTP 4") == true || e.message == "Ditolak YouTube") break
+                    kotlinx.coroutines.delay(600)
+                }
+            }
+            throw last ?: java.io.IOException("Gagal")
         }
-        InnerTube.post(
-            Client.WEB, "browse/edit_playlist",
-            org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")).put("actions", org.json.JSONArray().put(action))
-        )
     }
 
     /** Hapus playlist milik akun. [playlistId] tanpa awalan "VL". */

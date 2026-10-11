@@ -661,7 +661,9 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     val ctx = LocalContext.current
     val editScope = rememberCoroutineScope()
     val ownAll = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
-    val baseOwn = ownAll.filter { it.id !in removed }
+    // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
+    val plDeleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
+    val baseOwn = ownAll.filter { it.id !in removed && it.id !in plDeleter.deleted }
     // Urutan lokal setelah diseret (kunci item); kosong = urutan dari YouTube.
     val order = remember(id) { androidx.compose.runtime.mutableStateListOf<String>() }
     val own = if (order.isEmpty()) baseOwn else {
@@ -686,8 +688,10 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     try {
                         Repo.movePlaylistItem(id, sv, list.getOrNull(i - 1)?.setVideoId, list.getOrNull(i + 1)?.setVideoId)
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(ctx, "Gagal mengubah urutan (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(ctx, "Gagal menyimpan urutan, memuat ulang playlist…", android.widget.Toast.LENGTH_SHORT).show()
+                        // Muat ulang supaya urutan di layar sama dengan yang tersimpan di YouTube.
                         order.clear()
+                        feed.load()
                     }
                 }
             }
@@ -861,7 +865,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     }
                                 }
                             },
-                        ) else null,
+                        ) else if (id == "FEplaylist_aggregation") plDeleter.menu(item) else null,
                     ) {
                         val videos = own.filter { it.type == ItemType.VIDEO }
                         val idx = videos.indexOfFirst { it.id == item.id }

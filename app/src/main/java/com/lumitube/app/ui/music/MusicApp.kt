@@ -408,7 +408,12 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
 
 /** Daftar shelf vertikal (hasil pencarian / koleksi). */
 @Composable
-private fun ShelfList(feed: FeedLoader, onItem: (Item, List<Item>) -> Unit, header: @Composable () -> Unit = {}) {
+private fun ShelfList(
+    feed: FeedLoader,
+    onItem: (Item, List<Item>) -> Unit,
+    header: @Composable () -> Unit = {},
+    deleter: com.lumitube.app.ui.common.PlaylistDeleter? = null,
+) {
     val shelves = feed.page?.shelves ?: emptyList()
     LazyColumn(Modifier.fillMaxSize()) {
         item { header() }
@@ -423,9 +428,13 @@ private fun ShelfList(feed: FeedLoader, onItem: (Item, List<Item>) -> Unit, head
                     Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
                 }
             }
-            items(shelf.items, key = { "s$si" + it.key }) { item -> SongRow(item) { onItem(item, shelf.items) } }
+            items(shelf.items.filter { deleter == null || it.id !in deleter.deleted }, key = { "s$si" + it.key }) { item ->
+                SongRow(item, menu = deleter?.menu(item)) { onItem(item, shelf.items) }
+            }
         }
-        items(feed.items, key = { "x" + it.key }) { item -> SongRow(item) { onItem(item, feed.items) } }
+        items(feed.items.filter { deleter == null || it.id !in deleter.deleted }, key = { "x" + it.key }) { item ->
+            SongRow(item, menu = deleter?.menu(item)) { onItem(item, feed.items) }
+        }
         item { Spacer(Modifier.height(24.dp)) }
     }
 }
@@ -465,7 +474,8 @@ private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Uni
         }
         else -> {
             val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
-            ShelfList(feed, onItem, chips)
+            val deleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
+            ShelfList(feed, onItem, chips, deleter = if (browseId == "FEmusic_liked_playlists") deleter else null)
         }
     }
 }
@@ -531,8 +541,10 @@ private fun MusicBrowseScreen(
                     try {
                         Repo.movePlaylistItem(route.id, sv, list.getOrNull(i - 1)?.setVideoId, list.getOrNull(i + 1)?.setVideoId)
                     } catch (_: Exception) {
-                        android.widget.Toast.makeText(ctx, "Gagal mengubah urutan (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(ctx, "Gagal menyimpan urutan, memuat ulang playlist…", android.widget.Toast.LENGTH_SHORT).show()
+                        // Muat ulang supaya urutan di layar sama dengan yang tersimpan di YouTube.
                         order.clear()
+                        feed.load()
                     }
                 }
             }
