@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.SkipNext
@@ -84,7 +85,7 @@ fun LumiLogo(textColor: Color, label: String = "Premium") {
 }
 
 @Composable
-fun YtTopBar(onSearch: () -> Unit, onSwitchMusic: () -> Unit) {
+fun YtTopBar(onSearch: () -> Unit, onSwitchMusic: () -> Unit, onOffline: (() -> Unit)? = null) {
     val yt = LocalYt.current
     Row(
         Modifier.fillMaxWidth().height(52.dp).padding(start = 14.dp, end = 4.dp),
@@ -92,6 +93,11 @@ fun YtTopBar(onSearch: () -> Unit, onSwitchMusic: () -> Unit) {
     ) {
         LumiLogo(yt.text)
         Spacer(Modifier.weight(1f))
+        if (onOffline != null) {
+            IconButton(onClick = onOffline) {
+                Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = yt.text)
+            }
+        }
         IconButton(onClick = onSwitchMusic) {
             Icon(Icons.Filled.MusicNote, "Buka Music", tint = yt.text)
         }

@@ -37,6 +37,9 @@ data class DownloadOption(
     val mime: String,
     val size: Long,
     val userAgent: String = "",
+    val headers: Map<String, String> = emptyMap(),
+    /** Ukuran potongan maksimum (0 = 9 MB). */
+    val chunk: Long = 0,
 ) {
     val audioOnly: Boolean get() = video == null
 }
@@ -115,7 +118,7 @@ object Downloader {
         audios.filter { it.isMp4 && it != m4a }.sortedByDescending { it.bitrate }.forEach { a ->
             out.add(DownloadOption("Audio ${a.bitrate / 1000} kbps", "M4A hemat", null, a, "m4a", "audio/mp4", a.contentLength))
         }
-        return out.map { it.copy(userAgent = s.userAgent) }
+        return out.map { it.copy(userAgent = s.userAgent, headers = s.headers, chunk = s.chunk) }
     }
 
     // ---------------- Proses download ----------------
@@ -140,10 +143,10 @@ object Downloader {
                     notify(id, item.title, option.label, (p * 100).toInt(), false)
                 }
                 option.video?.let { v ->
-                    fetch(v.url, userAgent, v.contentLength, vFile) { report(it) }
+                    fetch(v.url, option, v.contentLength, vFile) { report(it) }
                     doneVideo = v.contentLength
                 }
-                fetch(option.audio.url, userAgent, option.audio.contentLength, aFile) { report(doneVideo + it) }
+                fetch(option.audio.url, option, option.audio.contentLength, aFile) { report(doneVideo + it) }
                 val finalFile = if (option.video != null) {
                     active[key] = ActiveDownload(key, item.title, option.label, 1f, "Menggabungkan…")
                     mux(vFile, aFile, outFile)
@@ -182,13 +185,18 @@ object Downloader {
     }
 
     /** Unduh per potongan 9 MB (YouTube memperlambat unduhan sekaligus tanpa Range). */
-    private fun fetch(url: String, ua: String, total: Long, out: File, progress: (Long) -> Unit) {
-        val chunk = 9L * 1024 * 1024
+    private fun fetch(url: String, opt: DownloadOption, total: Long, out: File, progress: (Long) -> Unit) {
+        val chunk = if (opt.chunk > 0) opt.chunk else 9L * 1024 * 1024
+        fun Request.Builder.media(): Request.Builder {
+            if (opt.userAgent.isNotEmpty()) header("User-Agent", opt.userAgent)
+            opt.headers.forEach { (k, v) -> header(k, v) }
+            return this
+        }
         out.outputStream().use { os ->
             var pos = 0L
             val buf = ByteArray(64 * 1024)
             if (total <= 0) {
-                val req = Request.Builder().url(url).header("User-Agent", ua).build()
+                val req = Request.Builder().url(url).media().build()
                 InnerTube.http.newCall(req).execute().use { r ->
                     if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
                     val input = r.body?.byteStream() ?: throw IOException("Kosong")
@@ -205,8 +213,7 @@ object Downloader {
             var lastReport = 0L
             while (pos < total) {
                 val end = min(pos + chunk, total) - 1
-                val req = Request.Builder().url(url)
-                    .header("User-Agent", ua)
+                val req = Request.Builder().url(url).media()
                     .header("Range", "bytes=$pos-$end")
                     .build()
                 InnerTube.http.newCall(req).execute().use { r ->

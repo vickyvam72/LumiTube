@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OndemandVideo
@@ -83,6 +84,24 @@ import com.lumitube.app.ui.common.toItem
 
 sealed interface MRoute {
     data class Browse(val id: String, val params: String?, val title: String?) : MRoute
+    data object Downloads : MRoute
+}
+
+/** Putar download tanpa internet (semua jadi satu antrean). */
+private val playOffline: (List<com.lumitube.app.data.DownloadRecord>, Int) -> Unit = { recs, start ->
+    val items = recs.map { it.toItem().copy(type = ItemType.SONG) }
+    PlaybackManager.playMusic(items, start.coerceIn(0, items.lastIndex), radio = false)
+}
+
+@Composable
+private fun OfflineScreen(onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            Text("Download (offline)", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        DownloadsList(MusicPanelColors, playOffline) { }
+    }
 }
 
 /** Aplikasi "YouTube Music" di dalam LumiTube. */
@@ -167,8 +186,9 @@ fun MusicApp(
             Box(Modifier.weight(1f).fillMaxWidth().statusBarsPadding()) {
                 when (val top = stack.lastOrNull()) {
                     is MRoute.Browse -> MusicBrowseScreen(top, { stack.removeAt(stack.lastIndex) }, onItem, openBrowse)
+                    MRoute.Downloads -> OfflineScreen { stack.removeAt(stack.lastIndex) }
                     null -> when (tab) {
-                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin) { showSettings = true }
+                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
                         2 -> MusicSearchScreen(onItem)
                         else -> LibraryScreen(onItem, onLogin, onOpenVideo)
@@ -196,7 +216,7 @@ fun MusicApp(
 // ---------------------------------------------------------------- Beranda
 
 @Composable
-private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettings: () -> Unit) {
+private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettings: () -> Unit, onOffline: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().height(60.dp).padding(start = 16.dp, end = 8.dp),
@@ -204,6 +224,9 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
     ) {
         MusicLogo()
         Spacer(Modifier.weight(1f))
+        IconButton(onClick = onOffline) {
+            Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = Color.White)
+        }
         IconButton(onClick = onSwitchVideo) {
             Icon(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", tint = Color.White)
         }
@@ -234,6 +257,7 @@ private fun MusicHome(
     openBrowse: (String, String?, String?) -> Unit,
     onSwitchVideo: () -> Unit,
     onLogin: () -> Unit,
+    onOffline: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val state = rememberLazyListState()
@@ -248,7 +272,10 @@ private fun MusicHome(
     LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) feed.loadMore() }
 
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-        item { MusicTopBar(onSwitchVideo, onLogin, onSettings) }
+        item { MusicTopBar(onSwitchVideo, onLogin, onSettings, onOffline) }
+        if (feed.error != null && shelves.isEmpty() && com.lumitube.app.data.Downloader.records.isNotEmpty()) {
+            item { MessageBox("Sedang offline? Putar lagu yang sudah kamu download.", MusicColors.sub, "Buka Download", onOffline) }
+        }
         if (chips.isNotEmpty()) item { MoodChips(chips, chipIndex, onChip) }
         if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = Color.White) }
         feed.error?.let { err ->
@@ -423,7 +450,7 @@ private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Uni
     when {
         browseId.isEmpty() -> Column {
             chips()
-            DownloadsList(MusicPanelColors) { rec ->
+            DownloadsList(MusicPanelColors, playOffline) { rec ->
                 val it = rec.toItem()
                 if (rec.audioOnly) PlaybackManager.playMusic(listOf(it), 0, radio = false) else onOpenVideo(it)
             }

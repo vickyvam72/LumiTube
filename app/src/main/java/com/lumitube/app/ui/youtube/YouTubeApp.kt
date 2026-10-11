@@ -223,12 +223,24 @@ fun YouTubeApp(
                     onChannel = openChannel, onLogin = onLogin,
                     onBack = { stack.removeAt(stack.lastIndex) },
                 )
-                YtRoute.Downloads -> DownloadsScreen({ stack.removeAt(stack.lastIndex) }) { rec ->
+                YtRoute.Downloads -> DownloadsScreen(
+                    { stack.removeAt(stack.lastIndex) },
+                    onPlayAll = { recs, start ->
+                        // Putar offline: semua download jadi satu antrean.
+                        val items = recs.map { it.toItem().copy(type = ItemType.VIDEO) }
+                        PlaybackManager.playVideos(items, start)
+                        stack.removeAll { it is YtRoute.Watch }
+                        stack.add(YtRoute.Watch(items[start.coerceIn(0, items.lastIndex)]))
+                    },
+                ) { rec ->
                     val it = rec.toItem()
                     if (rec.audioOnly) PlaybackManager.playMusic(listOf(it), 0, radio = false) else openWatch(it)
                 }
                 else -> when (tab) {
-                    0 -> HomeTab(home, open, openChannel, openShorts, onSearch = { stack.add(YtRoute.Search) }, onSwitchMusic = onSwitchMusic, onLogin = onLogin)
+                    0 -> HomeTab(
+                        home, open, openChannel, openShorts, onSearch = { stack.add(YtRoute.Search) },
+                        onSwitchMusic = onSwitchMusic, onLogin = onLogin, onOffline = { stack.add(YtRoute.Downloads) },
+                    )
                     1 -> ShortsTabPlayer(shorts, openChannel, onLogin)
                     2 -> SubscriptionsTab(subs, open, openChannel, onLogin)
                     else -> YouTab(open, { id, title -> stack.add(YtRoute.Browse(id, title)) }, onLogin, onSwitchMusic) { stack.add(YtRoute.Downloads) }
@@ -257,10 +269,14 @@ fun YouTubeApp(
 }
 
 @Composable
-private fun DownloadsScreen(onBack: () -> Unit, onPlay: (com.lumitube.app.data.DownloadRecord) -> Unit) {
+private fun DownloadsScreen(
+    onBack: () -> Unit,
+    onPlayAll: (List<com.lumitube.app.data.DownloadRecord>, Int) -> Unit,
+    onPlay: (com.lumitube.app.data.DownloadRecord) -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
-        BackBar("Download", onBack)
-        com.lumitube.app.ui.common.DownloadsList(com.lumitube.app.ui.common.ytPanelColors(), onPlay)
+        BackBar("Download (offline)", onBack)
+        com.lumitube.app.ui.common.DownloadsList(com.lumitube.app.ui.common.ytPanelColors(), onPlayAll, onPlay)
     }
 }
 
@@ -337,6 +353,7 @@ private fun HomeTab(
     onSearch: () -> Unit,
     onSwitchMusic: () -> Unit,
     onLogin: () -> Unit,
+    onOffline: () -> Unit,
 ) {
     val yt = LocalYt.current
     var selected by remember(feed) { mutableIntStateOf(0) }
@@ -348,7 +365,10 @@ private fun HomeTab(
         feed, open, openChannel, openShorts,
         header = {
             Column {
-                YtTopBar(onSearch, onSwitchMusic)
+                YtTopBar(onSearch, onSwitchMusic, onOffline)
+                if (feed.error != null && feed.items.isEmpty() && com.lumitube.app.data.Downloader.records.isNotEmpty()) {
+                    MessageBox("Sedang offline? Putar video yang sudah kamu download.", yt.sub, "Buka Download", onOffline)
+                }
                 ChipRow(chips, selected, onExplore = onSearch) { i ->
                     selected = i
                     val token = chips[i].continuation
@@ -849,7 +869,9 @@ fun WatchScreen(
             onFullscreen = { full = it },
             onMinimize = onBack,
             onSettings = { panel = 2 },
-            onNext = if (nextRelated != null) ({ PlaybackManager.nextVideo() }) else null,
+            onNext = if (nextRelated != null || PlaybackManager.index + 1 < PlaybackManager.queue.size) {
+                { PlaybackManager.nextVideo() }
+            } else null,
         )
         if (!full) {
             WatchDetails(

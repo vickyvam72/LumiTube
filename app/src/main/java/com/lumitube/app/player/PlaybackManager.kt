@@ -103,6 +103,18 @@ object PlaybackManager {
     var lyricsLoading by mutableStateOf(false)
         private set
     private var lyricsFor: String? = null
+    /** Judul (dinormalkan) & durasi lagu pemilik lirik saat ini. */
+    private var lyricsSong: String? = null
+    private var lyricsDuration = 0L
+
+    /** "Opalite (Official Music Video)" == "Opalite" -> versi lain dari lagu yang sama. */
+    private fun songKey(title: String): String {
+        val k = title.lowercase()
+            .replace(Regex("[(\\[][^)\\]]*[)\\]]"), " ")
+            .replace(Regex("\\b(official|music video|lyric video|lyrics?|audio|video|visualizer|mv)\\b"), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), "")
+        return k.ifEmpty { title.lowercase().trim() }
+    }
     val lyrics: Lyrics? get() = lyricsList.getOrNull(lyricsIndex)
 
     /** Resolusi video yang tersedia untuk video saat ini. */
@@ -161,9 +173,11 @@ object PlaybackManager {
                 val item = current
                 if (item != null && item.localUri == null && retries < 5) {
                     retries++
-                    val code = ((e.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode)
-                    val rejected = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS || code == 403
-                    if (rejected || retries > 1) {
+                    // Gangguan koneksi: coba lagi klien yang sama. Selain itu (403, data rusak/
+                    // bukan media, dsb.) URL dari klien ini bermasalah -> ganti klien.
+                    val network = e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                    if (!network || retries > 2) {
                         if (!StreamResolver.markRejected(item.id, currentClient)) StreamResolver.resetRejected(item.id)
                     } else {
                         StreamResolver.invalidate(item.id)
@@ -178,6 +192,13 @@ object PlaybackManager {
         exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
         player = QueuePlayer(exo)
         startWatchdog()
+        // Mesin cipher (WebView) untuk klien web, disiapkan di latar belakang.
+        com.lumitube.app.data.Cipher.cacheDir = appContext.cacheDir
+        com.lumitube.app.data.Cipher.runner = WebJsRunner(appContext)
+        scope.launch {
+            kotlinx.coroutines.delay(1500)
+            com.lumitube.app.data.Cipher.prewarm()
+        }
     }
 
     /**
@@ -249,7 +270,10 @@ object PlaybackManager {
                 try {
                     val q = Repo.musicQueue(item.id, item.playlistId)
                     if (current?.id == item.id) {
-                        val rest = q.items.filter { it.id != item.id }
+                        // Radio YT Music sering memuat versi lain dari lagu yang sama (mis. video
+                        // klip) -> lagu seolah "mulai ulang" setelah selesai. Buang duplikat itu.
+                        val key = songKey(item.title)
+                        val rest = q.items.filter { it.id != item.id && songKey(it.title) != key }
                         queue.clear()
                         queue.add(item)
                         queue.addAll(rest)
@@ -350,7 +374,17 @@ object PlaybackManager {
     fun loadLyrics(force: Boolean = false) {
         val item = current ?: return
         if (!force && (lyricsFor == item.id || lyricsLoading)) return
+        val durMs = exo.duration.takeIf { it > 0 } ?: 0L
+        // Lagu yang sama diputar ulang (atau versi lain dengan durasi sama): pakai lirik yang ada.
+        if (!force && lyricsList.isNotEmpty() && lyricsSong == songKey(item.title) &&
+            (durMs == 0L || lyricsDuration == 0L || kotlin.math.abs(durMs - lyricsDuration) <= 3000)
+        ) {
+            lyricsFor = item.id
+            return
+        }
         lyricsFor = item.id
+        lyricsSong = songKey(item.title)
+        lyricsDuration = durMs
         chosenSource = null
         lyricsLoading = true
         lyricsList = emptyList()
@@ -516,7 +550,7 @@ object PlaybackManager {
         loadJob?.cancel()
         current = item
         error = null
-        if (lyricsFor != item.id) {
+        if (lyricsFor != item.id && lyricsSong != songKey(item.title)) {
             lyricsList = emptyList()
             lyricsIndex = 0
         }
@@ -586,9 +620,10 @@ object PlaybackManager {
     private fun buildSource(item: Item, s: Stream, audioOnly: Boolean): MediaSource {
         // OkHttp: koneksi dipakai ulang antar potongan (tanpa handshake TLS berulang), mendukung HTTP/2.
         val plainHttp = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
-            .setUserAgent(s.userAgent)
+            .setUserAgent(s.userAgent.ifEmpty { null })
+            .setDefaultRequestProperties(s.headers)
         // Progressive (video/audio terpisah) diunduh per potongan agar tidak macet.
-        val http = ChunkedDataSource.Factory(plainHttp)
+        val http = ChunkedDataSource.Factory(plainHttp, s.chunk)
         val artist = item.channelName ?: s.author ?: item.subtitle.substringBefore(" • ")
         val meta = MediaMetadata.Builder()
             .setTitle(s.title ?: item.title)

@@ -119,7 +119,10 @@ class ChunkedDataSource(
         }
     }
 
-    class Factory(private val upstream: DataSource.Factory) : DataSource.Factory {
-        override fun createDataSource(): DataSource = ChunkedDataSource(upstream.createDataSource())
+    /** [fixedChunk] > 0: setiap permintaan maksimal sebesar itu (wajib untuk klien Android VR). */
+    class Factory(private val upstream: DataSource.Factory, private val fixedChunk: Long = 0) : DataSource.Factory {
+        override fun createDataSource(): DataSource =
+            if (fixedChunk > 0) ChunkedDataSource(upstream.createDataSource(), fixedChunk, fixedChunk)
+            else ChunkedDataSource(upstream.createDataSource())
     }
 }

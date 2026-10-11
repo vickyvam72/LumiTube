@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -604,9 +606,58 @@ fun DownloadDialog(item: Item, onDismiss: () -> Unit) {
 
 /** Daftar download aktif & selesai. Ketuk untuk memutar offline. */
 @Composable
-fun DownloadsList(colors: PanelColors, onPlay: (DownloadRecord) -> Unit) {
+fun DownloadsList(
+    colors: PanelColors,
+    onPlayAll: ((List<DownloadRecord>, Int) -> Unit)? = null,
+    onPlay: (DownloadRecord) -> Unit,
+) {
     var confirm by remember { mutableStateOf<DownloadRecord?>(null) }
+    var filter by remember { mutableStateOf(0) } // 0 semua, 1 video, 2 musik
+    val shown = when (filter) {
+        1 -> Downloader.records.filter { !it.audioOnly }
+        2 -> Downloader.records.filter { it.audioOnly }
+        else -> Downloader.records.toList()
+    }
     LazyColumn(Modifier.fillMaxSize()) {
+        if (Downloader.records.isNotEmpty()) {
+            item(key = "offline-head") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Semua", "Video", "Musik").forEachIndexed { i, label ->
+                            val sel = i == filter
+                            Box(
+                                Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) colors.text else colors.chip)
+                                    .clickable { filter = i }.padding(horizontal = 14.dp, vertical = 7.dp)
+                            ) { Text(label, color = if (sel) colors.bg else colors.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                        }
+                    }
+                    if (onPlayAll != null && shown.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.text)
+                                    .clickable { onPlayAll(shown, 0) },
+                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, null, tint = colors.bg)
+                                Text("Putar semua", color = colors.bg, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                            }
+                            Row(
+                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.chip)
+                                    .clickable { onPlayAll(shown.shuffled(), 0) },
+                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.Shuffle, null, tint = colors.text)
+                                Text("Acak", color = colors.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                            }
+                        }
+                        Text(
+                            "Bisa diputar tanpa internet",
+                            color = colors.sub, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+            }
+        }
         val active = Downloader.active.values.toList()
         items(active, key = { "a" + it.key }) { a ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -627,9 +678,11 @@ fun DownloadsList(colors: PanelColors, onPlay: (DownloadRecord) -> Unit) {
                 )
             }
         }
-        items(Downloader.records, key = { it.id }) { r ->
+        items(shown, key = { it.id }) { r ->
             Row(
-                Modifier.fillMaxWidth().clickable { onPlay(r) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().clickable {
+                    if (onPlayAll != null) onPlayAll(shown, shown.indexOf(r)) else onPlay(r)
+                }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Img(

@@ -47,6 +47,10 @@ data class Stream(
     val translations: List<Pair<String, String>> = emptyList(),
     /** Nama klien /player yang menghasilkan URL ini. */
     val client: String = "",
+    /** Header wajib saat mengambil media (Referer/Origin untuk klien web). */
+    val headers: Map<String, String> = emptyMap(),
+    /** Ukuran potongan Range tetap (0 = adaptif). Klien Android VR maksimal 512 KB. */
+    val chunk: Long = 0,
 ) {
     /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
     val qualities: List<Int>
@@ -56,16 +60,21 @@ data class Stream(
 /**
  * Mengambil URL stream lewat endpoint /player.
  *
- * Browsing memakai klien WEB (dengan login), sedangkan stream diambil lewat klien
- * yang memberi URL langsung tanpa PO token / dekripsi signature.
- * Klien utama VISIONOS mengikuti cara NewPipe (Agustus 2026); ANDROID_VR dan IOS sebagai cadangan.
- * Jika YouTube mengubah aturannya, cukup perbarui daftar [clients] di bawah.
+ * Urutan klien mengikuti InnerTubeX/Metrolist (Oktober 2026):
+ * 1. WEB_EMBEDDED_PLAYER: URL dengan signatureCipher + parameter n yang dipecahkan lewat
+ *    skrip pemutar asli (lihat [Cipher]). Klien ini tidak kena batas 1 MB.
+ * 2. VISIONOS lewat endpoint music.youtube.com.
+ * 3. VISIONOS & ANDROID_VR lama sebagai cadangan. URL Android VR sekarang sering ditolak
+ *    (HTTP 403) setelah 1 MB, jadi setiap URL diuji dulu di atas 1 MB sebelum dipakai.
  */
 object StreamResolver {
 
     private const val GAPIS = "https://youtubei.googleapis.com/youtubei/v1/"
     private const val WWW = "https://www.youtube.com/youtubei/v1/"
+    private const val MUSIC = "https://music.youtube.com/youtubei/v1/"
     private const val NONCE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+    private enum class Kind { NATIVE, MUSIC_VISION, EMBED }
 
     private class PlayerClient(
         val name: String,
@@ -76,6 +85,11 @@ object StreamResolver {
         /** Klien ini butuh visitorData miliknya sendiri (diambil dari endpoint visitor_id). */
         val ownVisitor: Boolean,
         val headers: Map<String, String>,
+        val kind: Kind = Kind.NATIVE,
+        /** User-Agent untuk mengambil media; null = bawaan OkHttp (seperti InnerTubeX). */
+        val mediaUa: String? = null,
+        val mediaHeaders: Map<String, String> = emptyMap(),
+        val chunk: Long = 0,
         val extra: (JSONObject) -> Unit,
     )
 
@@ -85,6 +99,27 @@ object StreamResolver {
     private val clients: List<PlayerClient>
         get() = listOf(
             PlayerClient(
+                "WEB_EMBEDDED_PLAYER", 56, "2.20260708.00.00", Cipher.WEB_UA, WWW, false,
+                mapOf("Origin" to "https://www.youtube.com", "X-Origin" to "https://www.youtube.com", "Referer" to "https://www.reddit.com/"),
+                kind = Kind.EMBED,
+                mediaUa = Cipher.WEB_UA,
+                mediaHeaders = mapOf("Referer" to "https://www.youtube.com/", "Origin" to "https://www.youtube.com", "Accept" to "*/*"),
+            ) { },
+            PlayerClient(
+                "VISIONOS", 101, "1.02",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+                MUSIC, false,
+                mapOf(
+                    "X-Goog-Api-Format-Version" to "1",
+                    "Origin" to "https://music.youtube.com", "X-Origin" to "https://music.youtube.com",
+                    "Referer" to "https://music.youtube.com/",
+                ),
+                kind = Kind.MUSIC_VISION,
+            ) {
+                it.put("deviceMake", "Apple").put("deviceModel", "RealityDevice17,1")
+                    .put("osName", "visionOS").put("osVersion", "26.5.23O471")
+            },
+            PlayerClient(
                 "VISIONOS", 101, "1.04", visionUa, GAPIS, true,
                 mapOf("X-Goog-Api-Format-Version" to "2"),
             ) {
@@ -92,38 +127,21 @@ object StreamResolver {
                     .put("deviceMake", "Apple").put("deviceModel", "RealityDevice17,1")
                     .put("osName", "visionOS").put("osVersion", "26.6.0.23O770")
             },
-            // Klien dari Morphe (ClientType.ANDROID_VR_DASH / ANDROID_XR_DASH)
-            PlayerClient(
-                "ANDROID_VR", 28, "1.64.34",
-                "com.google.android.apps.youtube.vr.pico/1.64.34 (Linux; U; Android 10; en_US; A8110 Build/5.13.7)",
-                WWW, false, emptyMap(),
-            ) {
-                it.put("deviceMake", "Pico").put("deviceModel", "A8110")
-                    .put("androidSdkVersion", 29).put("osName", "Android").put("osVersion", "10")
-            },
-            PlayerClient(
-                "ANDROID_VR", 28, "1.69.27",
-                "com.google.android.apps.youtube.xr/1.69.27 (Linux; U; Android 14; en_US; SM-I610 Build/UML1.250710.002.A1)",
-                WWW, false, emptyMap(),
-            ) {
-                it.put("deviceMake", "Samsung").put("deviceModel", "SM-I610")
-                    .put("androidSdkVersion", 34).put("osName", "Android").put("osVersion", "14")
-            },
             PlayerClient(
                 "ANDROID_VR", 28, "1.65.10",
                 "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-                WWW, false, emptyMap(),
+                WWW, false, emptyMap(), chunk = 512L * 1024,
             ) {
                 it.put("deviceMake", "Oculus").put("deviceModel", "Quest 3")
                     .put("androidSdkVersion", 32).put("osName", "Android").put("osVersion", "12L")
             },
             PlayerClient(
-                "IOS", 5, "20.10.4",
-                "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
-                WWW, false, emptyMap(),
+                "ANDROID_VR", 28, "1.64.34",
+                "com.google.android.apps.youtube.vr.pico/1.64.34 (Linux; U; Android 10; en_US; A8110 Build/5.13.7)",
+                WWW, false, emptyMap(), chunk = 512L * 1024,
             ) {
-                it.put("deviceMake", "Apple").put("deviceModel", "iPhone16,2")
-                    .put("osName", "iPhone").put("osVersion", "18.3.2.22D82")
+                it.put("deviceMake", "Pico").put("deviceModel", "A8110")
+                    .put("androidSdkVersion", 29).put("osName", "Android").put("osVersion", "10")
             },
         )
 
@@ -243,10 +261,10 @@ object StreamResolver {
         return raw.copy(videoUrl = if (audioOnly) null else video, audioUrl = audio)
     }
 
-    private fun context(c: PlayerClient, visitor: String?): JSONObject {
+    private fun context(c: PlayerClient, visitor: String?, version: String = c.version): JSONObject {
         val client = JSONObject()
             .put("clientName", c.name)
-            .put("clientVersion", c.version)
+            .put("clientVersion", version)
         c.extra(client)
         if (visitor != null) client.put("visitorData", visitor)
         client.put("hl", InnerTube.hl).put("gl", InnerTube.gl).put("utcOffsetMinutes", 0)
@@ -256,7 +274,13 @@ object StreamResolver {
             .put("user", JSONObject().put("lockedSafetyMode", false))
     }
 
-    private fun call(c: PlayerClient, url: String, body: JSONObject): JSONObject {
+    private fun call(
+        c: PlayerClient,
+        url: String,
+        body: JSONObject,
+        version: String = c.version,
+        headers: Map<String, String> = c.headers,
+    ): JSONObject {
         val req = Request.Builder()
             .url(url)
             .post(body.toString().toRequestBody("application/json".toMediaType()))
@@ -264,11 +288,11 @@ object StreamResolver {
             .apply {
                 if (c.base != GAPIS) {
                     header("X-YouTube-Client-Name", c.id.toString())
-                    header("X-YouTube-Client-Version", c.version)
+                    header("X-YouTube-Client-Version", version)
                 }
             }
             .header("Accept-Language", "${InnerTube.hl}-${InnerTube.gl}, ${InnerTube.hl};q=0.9")
-            .apply { c.headers.forEach { (k, v) -> header(k, v) } }
+            .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
         return InnerTube.http.newCall(req).execute().use { resp ->
             val s = resp.body?.string() ?: ""
@@ -286,20 +310,45 @@ object StreamResolver {
         return v
     }
 
-    private fun request(c: PlayerClient, videoId: String): Stream {
+    private suspend fun request(c: PlayerClient, videoId: String): Stream {
         val cpn = nonce(16)
+        var embed: EmbedPage? = null
+        var cipherCfg: Cipher.PlayerConfig? = null
+        val visitor: String? = when (c.kind) {
+            Kind.EMBED -> {
+                val page = Cipher.embedPage(videoId)
+                embed = page
+                cipherCfg = Cipher.config(page.playerUrl) ?: throw IOException("Versi pemutar belum dikenal")
+                page.visitorData
+            }
+            Kind.MUSIC_VISION -> Cipher.recentVisitor ?: Session.visitorData
+            Kind.NATIVE -> visitorFor(c)
+        }
+        val version = if (c.kind == Kind.EMBED) embed?.clientVersion ?: c.version else c.version
+        val ctx = context(c, visitor, version)
         val body = JSONObject()
-            .put("context", context(c, visitorFor(c)))
+            .put("context", ctx)
             .put("videoId", videoId)
             .put("cpn", cpn)
             .put("contentCheckOk", true)
             .put("racyCheckOk", true)
+        if (c.kind == Kind.EMBED) {
+            ctx.put("thirdParty", JSONObject().put("embedUrl", "https://www.reddit.com/"))
+            val cpc = JSONObject().put("html5Preference", "HTML5_PREF_WANTS")
+                .put("signatureTimestamp", embed?.sts ?: cipherCfg?.sts)
+            embed?.hostFlags?.let { cpc.put("encryptedHostFlags", it) }
+            body.put("playbackContext", JSONObject().put("contentPlaybackContext", cpc))
+                .put("thirdParty", JSONObject().put("embedUrl", "https://www.youtube.com/embed/$videoId"))
+                .put("videoCheckOk", true)
+        }
         val url = if (c.base == GAPIS) {
             "${c.base}player?prettyPrint=false&t=${nonce(12)}&id=$videoId"
         } else {
             "${c.base}player?prettyPrint=false"
         }
-        val json = call(c, url, body)
+        val headers = HashMap(c.headers)
+        if (c.kind != Kind.NATIVE && visitor != null) headers["X-Goog-Visitor-Id"] = visitor
+        val json = call(c, url, body, version, headers)
         val status = json.str("playabilityStatus", "status")
         if (status != "OK") {
             val reason = json.str("playabilityStatus", "reason") ?: status ?: "Tidak bisa diputar"
@@ -308,15 +357,53 @@ object StreamResolver {
         val sd = json.obj("streamingData") ?: throw IOException("Tidak ada data stream")
         val isLive = json.obj("videoDetails")?.optBoolean("isLive", false) == true
         val hls = sd.str("hlsManifestUrl")
-        val adaptive = sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null } ?: emptyList()
-        if (adaptive.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
+        val raw = sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null || it.str("signatureCipher") != null } ?: emptyList()
+        if (raw.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
             throw IOException("Format stream tidak tersedia")
         }
 
-        fun withCpn(u: String?) = u?.let { if (it.contains("cpn=")) it else "$it&cpn=$cpn" }
+        // URL dasar + tanda tangan terenkripsi (klien web) -> pecahkan sekaligus.
+        data class Pending(val f: JSONObject, val base: String, val s: String?, val sp: String)
+        val pending = raw.mapNotNull { f ->
+            val direct = f.str("url")
+            if (direct != null) return@mapNotNull Pending(f, direct, null, "sig")
+            val q = parseQuery(f.str("signatureCipher") ?: return@mapNotNull null)
+            val u = q["url"] ?: return@mapNotNull null
+            Pending(f, u, q["s"], q["sp"] ?: "sig")
+        }
+        val nOf = { u: String -> Regex("[?&]n=([^&]+)").find(u)?.groupValues?.get(1) }
+        var sigMap = emptyMap<String, String>()
+        var nMap = emptyMap<String, String>()
+        val cfg = cipherCfg
+        if (cfg != null) {
+            val sigs = pending.mapNotNull { it.s }
+            val ns = pending.mapNotNull { nOf(it.base) }
+            if (sigs.isNotEmpty() || ns.isNotEmpty()) {
+                val solved = Cipher.solve(cfg, sigs, ns)
+                sigMap = solved.first
+                nMap = solved.second
+                if (sigs.isNotEmpty() && sigMap.isEmpty()) throw IOException("Tanda tangan gagal dipecahkan")
+            }
+        } else if (pending.any { it.s != null }) {
+            throw IOException("Butuh dekripsi tanda tangan")
+        }
 
-        val formats = adaptive.mapNotNull { f ->
-            val u = withCpn(f.str("url")) ?: return@mapNotNull null
+        fun finalUrl(p: Pending): String? {
+            var u = p.base
+            if (p.s != null) {
+                val sig = sigMap[p.s] ?: return null
+                u += "&${p.sp}=" + java.net.URLEncoder.encode(sig, "UTF-8")
+            }
+            val n = nOf(u)
+            val nn = n?.let { nMap[it] }
+            if (n != null && nn != null) u = u.replace("n=$n", "n=$nn")
+            if (!u.contains("cpn=")) u += "&cpn=$cpn"
+            return u
+        }
+
+        val formats = pending.mapNotNull { p ->
+            val f = p.f
+            val u = finalUrl(p) ?: return@mapNotNull null
             val mime = f.str("mimeType") ?: return@mapNotNull null
             Format(
                 itag = f.optInt("itag"),
@@ -329,7 +416,7 @@ object StreamResolver {
                 isAudio = mime.startsWith("audio/"),
             )
         }
-        return Stream(
+        val stream = Stream(
             formats = formats,
             lengthSeconds = json.str("videoDetails", "lengthSeconds")?.toLongOrNull() ?: 0L,
             videoUrl = null,
@@ -350,11 +437,43 @@ object StreamResolver {
                     val code = t.str("languageCode") ?: return@mapNotNull null
                     code to (text(t.obj("languageName")) ?: code)
                 } ?: emptyList(),
-            userAgent = c.userAgent,
+            userAgent = c.mediaUa ?: "",
             client = key(c),
+            headers = c.mediaHeaders,
+            chunk = c.chunk,
             isLive = isLive,
             title = json.str("videoDetails", "title"),
             author = json.str("videoDetails", "author"),
         )
+        if (!isLive) probe(stream)
+        return stream
     }
+
+    /**
+     * Uji URL audio di atas 1 MB. Sejak 2026 YouTube menolak (403) sebagian klien setelah
+     * 1 MB pertama — inilah penyebab lagu berhenti di 0:30. Klien seperti itu dilewati.
+     */
+    private fun probe(s: Stream) {
+        val audio = s.formats.filter { it.isAudio }.maxByOrNull { it.bitrate } ?: return
+        val len = audio.contentLength
+        val start = if (len > 1_300_000) 1_100_000L else 0L
+        val req = Request.Builder().url(audio.url)
+            .apply {
+                if (s.userAgent.isNotEmpty()) header("User-Agent", s.userAgent)
+                s.headers.forEach { (k, v) -> header(k, v) }
+            }
+            .header("Range", "bytes=$start-${start + 2047}")
+            .build()
+        val code = try {
+            InnerTube.http.newCall(req).execute().use { it.code }
+        } catch (_: Exception) {
+            return // gangguan jaringan: jangan langsung salahkan kliennya
+        }
+        if (code == 403 || code == 401 || code == 404 || code == 410) throw IOException("Stream ditolak (HTTP $code)")
+    }
+
+    private fun parseQuery(q: String): Map<String, String> = q.split("&").mapNotNull {
+        val k = it.substringBefore("=", "")
+        if (k.isEmpty()) null else k to java.net.URLDecoder.decode(it.substringAfter("="), "UTF-8")
+    }.toMap()
 }
