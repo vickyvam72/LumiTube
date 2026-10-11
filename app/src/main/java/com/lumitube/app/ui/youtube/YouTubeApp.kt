@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -890,16 +891,28 @@ fun WatchScreen(
             .then(if (full) Modifier else Modifier.statusBarsPadding())
     ) {
         val nextRelated = info?.related?.firstOrNull { it.type == ItemType.VIDEO }
-        YtVideoPlayer(
-            modifier = if (full) Modifier.fillMaxSize() else Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-            full = full,
-            onFullscreen = { full = it },
-            onMinimize = onBack,
-            onSettings = { panel = 2 },
-            onNext = if (nextRelated != null || PlaybackManager.index + 1 < PlaybackManager.queue.size) {
-                { PlaybackManager.nextVideo() }
-            } else null,
-        )
+        val chatToken = info?.liveChatToken
+        // Layar penuh + live chat terbuka: video di kiri, live chat di kanan (seperti YouTube).
+        val chatSide = full && panel == 3 && chatToken != null
+        Row(if (full) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
+            YtVideoPlayer(
+                modifier = if (full) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                full = full,
+                onFullscreen = { full = it },
+                onMinimize = onBack,
+                onSettings = { panel = 2 },
+                onNext = if (nextRelated != null || PlaybackManager.index + 1 < PlaybackManager.queue.size) {
+                    { PlaybackManager.nextVideo() }
+                } else null,
+                onLiveChat = if (full && chatToken != null && panel != 3) ({ panel = 3 }) else null,
+            )
+            if (chatSide && chatToken != null) {
+                com.lumitube.app.ui.common.LiveChatPanel(
+                    chatToken, current.id, ytPanelColors(), side = true,
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth(0.38f),
+                ) { panel = 0 }
+            }
+        }
         if (!full) {
             WatchDetails(
                 current, info, onOpen, onChannel, onLogin, onPlayInMusic,
@@ -915,7 +928,7 @@ fun WatchScreen(
             onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
         )
         2 -> YtSettingsSheet(onListenMusic = { panel = 0; onPlayInMusic(current) }) { panel = 0 }
-        3 -> info?.liveChatToken?.let { t ->
+        3 -> if (!full) info?.liveChatToken?.let { t ->
             com.lumitube.app.ui.common.LiveChatPanel(t, current.id, ytPanelColors()) { panel = 0 }
         }
     }

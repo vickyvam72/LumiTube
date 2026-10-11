@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
@@ -100,6 +101,8 @@ fun YtVideoPlayer(
     onMinimize: () -> Unit,
     onSettings: () -> Unit,
     onNext: (() -> Unit)?,
+    /** Layar penuh tanpa panel chat: tombol untuk membuka live chat di samping. */
+    onLiveChat: (() -> Unit)? = null,
 ) {
     var show by remember { mutableStateOf(true) }
     var touch by remember { mutableLongStateOf(0L) }
@@ -266,6 +269,11 @@ fun YtVideoPlayer(
                         )
                     }
                     Spacer(Modifier.weight(1f))
+                    if (onLiveChat != null) {
+                        IconButton(onClick = { touch = System.currentTimeMillis(); onLiveChat() }) {
+                            Icon(Icons.Outlined.ChatBubbleOutline, "Live chat", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
+                    }
                     IconButton(onClick = { onFullscreen(!full) }) {
                         Icon(if (full) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen, "Layar penuh", tint = Color.White, modifier = Modifier.size(28.dp))
                     }

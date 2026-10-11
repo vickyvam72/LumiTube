@@ -84,7 +84,15 @@ private fun chatHint(): String =
  * diperbarui terus selama panel terbuka. Video tetap tampil di atasnya.
  */
 @Composable
-fun LiveChatPanel(token: String, videoId: String, colors: PanelColors, onClose: () -> Unit) {
+fun LiveChatPanel(
+    token: String,
+    videoId: String,
+    colors: PanelColors,
+    /** true = panel samping (layar penuh, video di kiri). */
+    side: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClose: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val messages = remember(token) { mutableStateListOf<ChatMessage>() }
@@ -172,19 +180,31 @@ fun LiveChatPanel(token: String, videoId: String, colors: PanelColors, onClose: 
 
     BackHandler { onClose() }
     val drag = rememberSheetDragState(onClose)
-    Box(Modifier.fillMaxSize()) {
+    Box(if (side) modifier else Modifier.fillMaxSize()) {
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.68f)
-                .sheetContainer(drag)
-                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            (
+                if (side) {
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                } else {
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.68f)
+                        .sheetContainer(drag)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                }
+                )
                 .background(colors.bg)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .navigationBarsPadding().imePadding()
         ) {
-            Box(Modifier.fillMaxWidth().sheetHandle(drag).padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))
+            if (!side) {
+                Box(Modifier.fillMaxWidth().sheetHandle(drag).padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(colors.sub.copy(alpha = 0.4f)))
+                }
             }
-            Row(Modifier.fillMaxWidth().sheetHandle(drag).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().then(if (side) Modifier.padding(top = 10.dp) else Modifier.sheetHandle(drag))
+                    .padding(start = 16.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text("Live chat", color = colors.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text("Pesan terpopuler", color = colors.sub, fontSize = 13.sp)
