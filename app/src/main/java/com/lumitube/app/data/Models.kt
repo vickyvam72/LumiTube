@@ -68,6 +68,8 @@ data class WatchInfo(
     val liked: Boolean = false,
     val commentsToken: String? = null,
     val commentCount: String? = null,
+    /** Tautan di deskripsi: (awal, panjang, target). Target "http..", "t:<detik>", atau "c:<browseId>". */
+    val descriptionLinks: List<Triple<Int, Int, String>> = emptyList(),
 )
 
 data class Comment(

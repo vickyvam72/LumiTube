@@ -935,7 +935,29 @@ private fun WatchDetails(
                     if (expanded) {
                         i?.description?.let {
                             Box(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(yt.surface).padding(12.dp)) {
-                                Text(it, color = yt.text, fontSize = 13.sp)
+                                val dl = i?.descriptionLinks ?: emptyList()
+                                val desc = remember(it, dl) {
+                                    com.lumitube.app.ui.common.descriptionText(it, dl) { target ->
+                                        when {
+                                            target.startsWith("t:") -> target.substring(2).toLongOrNull()?.let { ms ->
+                                                PlaybackManager.exo.seekTo(ms)
+                                            }
+                                            target.startsWith("c:") -> {
+                                                val id = target.substring(2)
+                                                if (id.startsWith("UC")) onChannel(id)
+                                            }
+                                            target.startsWith("v:") -> onOpen(Item(ItemType.VIDEO, target.substring(2), ""))
+                                            else -> try {
+                                                context.startActivity(
+                                                    android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(target))
+                                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            } catch (_: Exception) {
+                                            }
+                                        }
+                                    }
+                                }
+                                Text(desc, color = yt.text, fontSize = 13.sp)
                             }
                         }
                     }
@@ -1026,17 +1048,22 @@ private fun WatchDetails(
                     WatchIcon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, "Simpan") {
                         if (!Session.loggedIn) {
                             onLogin()
-                        } else if (!saved) {
-                            saved = true
-                            scope.launch {
-                                try {
-                                    Repo.saveWatchLater(current.id)
-                                    android.widget.Toast.makeText(context, "Disimpan ke Tonton nanti", android.widget.Toast.LENGTH_SHORT).show()
-                                } catch (_: Exception) {
-                                    saved = false
-                                }
-                            }
+                        } else {
+                    val target = !saved
+                    saved = target
+                    scope.launch {
+                        try {
+                            if (target) Repo.saveWatchLater(current.id) else Repo.removeWatchLater(current.id)
+                            android.widget.Toast.makeText(
+                                context,
+                                if (target) "Disimpan ke Tonton nanti" else "Dihapus dari Tonton nanti",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        } catch (_: Exception) {
+                            saved = !target
                         }
+                    }
+                }
                     }
                     WatchIcon(Icons.Outlined.Download, "Unduh") { onDownload() }
                 }

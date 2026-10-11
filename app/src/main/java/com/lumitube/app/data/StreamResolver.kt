@@ -310,7 +310,22 @@ object StreamResolver {
         return v
     }
 
-    private suspend fun request(c: PlayerClient, videoId: String): Stream {
+    /**
+     * Daftar subtitle dari klien Android (URL-nya tidak butuh PO token, berbeda dengan
+     * klien web yang subtitle-nya sering kosong).
+     */
+    suspend fun altCaptions(videoId: String): List<Caption> = withContext(Dispatchers.IO) {
+        for (c in clients.filter { it.kind == Kind.NATIVE }) {
+            try {
+                val st = request(c, videoId, probeMedia = false)
+                if (st.captions.isNotEmpty()) return@withContext st.captions
+            } catch (_: Exception) {
+            }
+        }
+        emptyList()
+    }
+
+    private suspend fun request(c: PlayerClient, videoId: String, probeMedia: Boolean = true): Stream {
         val cpn = nonce(16)
         var embed: EmbedPage? = null
         var cipherCfg: Cipher.PlayerConfig? = null
@@ -362,9 +377,27 @@ object StreamResolver {
             throw IOException("Format stream tidak tersedia")
         }
 
+        // Video dengan banyak trek audio (sulih suara otomatis/AI): ambil suara asli saja.
+        fun isAudio(f: JSONObject) = f.str("mimeType")?.startsWith("audio/") == true
+        fun tags(f: JSONObject) = (f.str("xtags") ?: "") + " " + java.net.URLDecoder.decode(
+            f.str("url") ?: f.str("signatureCipher") ?: "", "UTF-8",
+        )
+        fun isDrc(f: JSONObject) = f.optBoolean("isDrc") || tags(f).contains("drc=1")
+        val tracked = raw.filter { isAudio(it) && it.obj("audioTrack") != null }
+        val original = tracked.filter { f ->
+            val t = f.obj("audioTrack")
+            tags(f).contains("acont=original") ||
+                t?.optBoolean("audioIsDefault") == true ||
+                t?.str("displayName")?.contains("original", ignoreCase = true) == true
+        }
+        var audios = raw.filter { isAudio(it) }
+        if (tracked.isNotEmpty() && original.isNotEmpty()) audios = audios.filter { it in original || it.obj("audioTrack") == null }
+        if (audios.any { !isDrc(it) }) audios = audios.filter { !isDrc(it) }
+        val usable = raw.filter { !isAudio(it) } + audios.ifEmpty { raw.filter { isAudio(it) } }
+
         // URL dasar + tanda tangan terenkripsi (klien web) -> pecahkan sekaligus.
         data class Pending(val f: JSONObject, val base: String, val s: String?, val sp: String)
-        val pending = raw.mapNotNull { f ->
+        val pending = usable.mapNotNull { f ->
             val direct = f.str("url")
             if (direct != null) return@mapNotNull Pending(f, direct, null, "sig")
             val q = parseQuery(f.str("signatureCipher") ?: return@mapNotNull null)
@@ -445,7 +478,7 @@ object StreamResolver {
             title = json.str("videoDetails", "title"),
             author = json.str("videoDetails", "author"),
         )
-        if (!isLive) probe(stream)
+        if (!isLive && probeMedia) probe(stream)
         return stream
     }
 

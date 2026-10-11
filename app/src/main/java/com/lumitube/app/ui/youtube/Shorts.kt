@@ -229,14 +229,19 @@ private fun ShortPage(
             SideButton(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, "Simpan") {
                 if (!Session.loggedIn) {
                     onLogin()
-                } else if (!saved) {
-                    saved = true
+                } else {
+                    val target = !saved
+                    saved = target
                     scope.launch {
                         try {
-                            Repo.saveWatchLater(item.id)
-                            Toast.makeText(context, "Disimpan ke Tonton nanti", Toast.LENGTH_SHORT).show()
+                            if (target) Repo.saveWatchLater(item.id) else Repo.removeWatchLater(item.id)
+                            Toast.makeText(
+                                context,
+                                if (target) "Disimpan ke Tonton nanti" else "Dihapus dari Tonton nanti",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         } catch (_: Exception) {
-                            saved = false
+                            saved = !target
                         }
                     }
                 }

@@ -143,6 +143,52 @@ private fun timestampMs(t: String): Long {
     }
 }
 
+private val urlRegex = Regex("(?:https?://|www\\.)[^\\s]+|\\b[a-z0-9-]+\\.(?:me|link|com|ru|id|io|co|ly|gg|tv)/[^\\s]+", RegexOption.IGNORE_CASE)
+
+/**
+ * Deskripsi video dengan tautan yang bisa dipencet: link web, timestamp (lompat di video),
+ * channel/hashtag, dan link video YouTube (dibuka di aplikasi).
+ * [onTarget] menerima "http..", "t:<ms>", "c:<browseId>", atau "v:<videoId>".
+ */
+fun descriptionText(
+    text: String,
+    links: List<Triple<Int, Int, String>>,
+    onTarget: (String) -> Unit,
+) = androidx.compose.ui.text.buildAnnotatedString {
+    data class Span(val start: Int, val end: Int, val target: String)
+    val spans = mutableListOf<Span>()
+    for ((st, len, t) in links) {
+        val e = (st + len).coerceAtMost(text.length)
+        if (st in text.indices && e > st) spans.add(Span(st, e, if (t.startsWith("t:")) "t:" + (t.substring(2).toLongOrNull() ?: 0) * 1000 else t))
+    }
+    fun free(a: Int, b: Int) = spans.none { a < it.end && b > it.start }
+    for (m in urlRegex.findAll(text)) {
+        val v = m.value.trimEnd('.', ',', ')', '!', '?')
+        val e = m.range.first + v.length
+        if (free(m.range.first, e)) spans.add(Span(m.range.first, e, if (v.startsWith("http", true)) v else "https://$v"))
+    }
+    for (m in timestampRegex.findAll(text)) {
+        if (free(m.range.first, m.range.last + 1)) spans.add(Span(m.range.first, m.range.last + 1, "t:" + timestampMs(m.value)))
+    }
+    spans.sortBy { it.start }
+    var last = 0
+    for (sp in spans) {
+        if (sp.start < last) continue
+        append(text.substring(last, sp.start))
+        var target = sp.target
+        Regex("(?:youtube\\.com/(?:watch\\?v=|shorts/)|youtu\\.be/)([A-Za-z0-9_-]{11})").find(target)?.let { target = "v:" + it.groupValues[1] }
+        withLink(
+            androidx.compose.ui.text.LinkAnnotation.Clickable(
+                tag = "link",
+                styles = androidx.compose.ui.text.TextLinkStyles(androidx.compose.ui.text.SpanStyle(color = LinkBlue)),
+                linkInteractionListener = { onTarget(target) },
+            )
+        ) { append(text.substring(sp.start, sp.end)) }
+        last = sp.end
+    }
+    append(text.substring(last))
+}
+
 /** Teks komentar dengan timestamp (mis. 4:19) yang bisa diklik untuk lompat di video. */
 private fun commentText(text: String, onSeek: (Long) -> Unit) = androidx.compose.ui.text.buildAnnotatedString {
     var last = 0

@@ -502,6 +502,7 @@ object Parser {
             liked = likeStatus == "LIKE",
             commentsToken = commentsToken,
             commentCount = commentCount,
+            descriptionLinks = descriptionLinks(secondary.obj("attributedDescription")),
         )
     }
 
@@ -583,5 +584,25 @@ object Parser {
         val h = findFirst(root, "activeAccountHeaderRenderer") ?: return null
         val name = text(h.obj("accountName")) ?: return null
         return Account(name, text(h.obj("channelHandle")), bestThumb(h.obj("accountPhoto")))
+    }
+
+    /** Ambil tautan asli dari attributedDescription.commandRuns (teks yang tampil sering terpotong "..."). */
+    private fun descriptionLinks(desc: JSONObject?): List<Triple<Int, Int, String>> {
+        val runs = desc?.arr("commandRuns")?.objects() ?: return emptyList()
+        return runs.mapNotNull { r ->
+            val start = r.optInt("startIndex", -1)
+            val len = r.optInt("length", 0)
+            if (start < 0 || len <= 0) return@mapNotNull null
+            val cmd = r.obj("onTap", "innertubeCommand") ?: return@mapNotNull null
+            val target = cmd.str("urlEndpoint", "url")?.let { u ->
+                if (u.contains("youtube.com/redirect")) {
+                    Regex("[?&]q=([^&]+)").find(u)?.groupValues?.get(1)?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: u
+                } else if (u.startsWith("/")) "https://www.youtube.com$u" else u
+            }
+                ?: cmd.obj("watchEndpoint")?.let { w -> if (w.has("startTimeSeconds")) "t:" + w.optInt("startTimeSeconds") else "https://www.youtube.com/watch?v=" + w.optString("videoId") }
+                ?: cmd.str("browseEndpoint", "browseId")?.let { "c:$it" }
+                ?: return@mapNotNull null
+            Triple(start, len, target)
+        }
     }
 }

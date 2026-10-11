@@ -487,10 +487,7 @@ object PlaybackManager {
         scope.launch {
             try {
                 val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                    val url = cap.url + (translate?.let { "&tlang=$it" } ?: "")
-                    val req = okhttp3.Request.Builder().url(url).header("User-Agent", InnerTube.DESKTOP_UA).build()
-                    val body = InnerTube.http.newCall(req).execute().use { r -> if (r.isSuccessful) r.body?.string() else null }
-                    if (body.isNullOrBlank() || !body.contains("-->")) throw java.io.IOException("Subtitle kosong")
+                    val body = com.lumitube.app.data.Subtitles.load(item.id, cap, translate)
                     java.io.File(appContext.cacheDir, "cap_${item.id}_${cap.lang}_${translate ?: "o"}.vtt").apply { writeText(body) }
                 }
                 if (current?.id != item.id) return@launch

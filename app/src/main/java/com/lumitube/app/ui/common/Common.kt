@@ -268,6 +268,23 @@ fun VideoSurface(
                 setShowNextButton(false)
                 setShowPreviousButton(false)
                 setKeepScreenOn(true)
+                // Subtitle selalu di tengah bawah dengan gaya YouTube (abaikan posisi dari file).
+                subtitleView?.apply {
+                    setApplyEmbeddedStyles(false)
+                    setApplyEmbeddedFontSizes(false)
+                    setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 1.05f)
+                    setBottomPaddingFraction(0.06f)
+                    setStyle(
+                        androidx.media3.ui.CaptionStyleCompat(
+                            android.graphics.Color.WHITE,
+                            0xB3000000.toInt(),
+                            android.graphics.Color.TRANSPARENT,
+                            androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE,
+                            android.graphics.Color.TRANSPARENT,
+                            null,
+                        )
+                    )
+                }
                 if (onFullscreen != null) {
                     setFullscreenButtonClickListener { full -> onFullscreen(full) }
                 }

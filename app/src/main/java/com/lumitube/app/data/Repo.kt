@@ -97,6 +97,21 @@ object Repo {
         )
     }
 
+    /** Hapus dari "Tonton nanti". */
+    suspend fun removeWatchLater(videoId: String) {
+        InnerTube.post(
+            Client.WEB, "browse/edit_playlist",
+            org.json.JSONObject()
+                .put("playlistId", "WL")
+                .put(
+                    "actions",
+                    org.json.JSONArray().put(
+                        org.json.JSONObject().put("removedVideoId", videoId).put("action", "ACTION_REMOVE_VIDEO_BY_VIDEO_ID")
+                    )
+                )
+        )
+    }
+
     /** Simpan ke "Tonton nanti". */
     suspend fun saveWatchLater(videoId: String) {
         InnerTube.post(
