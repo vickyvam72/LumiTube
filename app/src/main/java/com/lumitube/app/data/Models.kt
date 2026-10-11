@@ -51,6 +51,8 @@ data class Page(
     val shelves: List<Shelf> = emptyList(),
     val items: List<Item> = emptyList(),
     val continuation: String? = null,
+    /** Video saran di bawah playlist (bukan isi playlist). */
+    val suggestions: List<Item> = emptyList(),
 )
 
 data class Account(val name: String, val handle: String?, val photo: String?)

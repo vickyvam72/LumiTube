@@ -76,6 +76,7 @@ object Downloader {
     val records = mutableStateListOf<DownloadRecord>()
 
     fun init(context: Context) {
+        com.lumitube.app.data.lyrics.LyricsStore.dir = context.filesDir
         ctx = context.applicationContext
         prefs = ctx.getSharedPreferences("downloads", Context.MODE_PRIVATE)
         records.clear()
@@ -123,13 +124,51 @@ object Downloader {
 
     // ---------------- Proses download ----------------
 
+    /** Pengambil lirik terbaik untuk lagu (diisi PlaybackManager). Disimpan bersama download audio. */
+    var lyricsFetcher: (suspend (Item) -> com.lumitube.app.data.lyrics.Lyrics?)? = null
+
     fun start(item: Item, option: DownloadOption) {
-        val userAgent = option.userAgent
+        scope.launch { perform(item, option) }
+    }
+
+    /** Sudah pernah di-download (video atau audio)? */
+    fun isDownloaded(videoId: String, audioOnly: Boolean) = records.any { it.videoId == videoId && it.audioOnly == audioOnly }
+
+    /**
+     * Download semua isi playlist satu per satu. Video memakai kualitas setelan (MP4),
+     * lagu memakai audio M4A terbaik (beserta liriknya). Yang sudah ada dilewati.
+     */
+    fun downloadAll(items: List<Item>, audioOnly: Boolean) {
+        val todo = items.filter { !isDownloaded(it.id, audioOnly) }.distinctBy { it.id }
+        if (todo.isEmpty()) return
+        scope.launch {
+            todo.forEachIndexed { n, item ->
+                val waitKey = "batch:${item.id}"
+                active[waitKey] = ActiveDownload(waitKey, item.title, "${n + 1}/${todo.size}", 0f, "Menyiapkan…")
+                try {
+                    val opts = options(item.id)
+                    val opt = if (audioOnly) {
+                        opts.firstOrNull { it.audioOnly && it.ext == "m4a" } ?: opts.firstOrNull { it.audioOnly }
+                    } else {
+                        val max = Session.maxQuality
+                        opts.filter { it.video != null }.firstOrNull { (it.video?.quality ?: 0) <= max }
+                            ?: opts.lastOrNull { it.video != null }
+                    }
+                    active.remove(waitKey)
+                    if (opt != null) perform(item, opt)
+                } catch (_: Exception) {
+                    active.remove(waitKey)
+                }
+            }
+        }
+    }
+
+    private suspend fun perform(item: Item, option: DownloadOption) {
         val key = "${item.id}:${option.label}:${option.detail}"
         if (active.containsKey(key)) return
         val id = notifId++
         active[key] = ActiveDownload(key, item.title, option.label, 0f, "Menyiapkan…")
-        scope.launch {
+        run {
             val tmpDir = File(ctx.cacheDir, "dl").apply { mkdirs() }
             val vFile = File(tmpDir, "$id.v")
             val aFile = File(tmpDir, "$id.a")
@@ -168,6 +207,13 @@ object Downloader {
                     size = finalFile.length(),
                     time = System.currentTimeMillis(),
                 )
+                // Lagu: simpan juga liriknya supaya tampil saat offline.
+                if (option.audioOnly && !com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
+                    try {
+                        lyricsFetcher?.invoke(item)?.let { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, it) }
+                    } catch (_: Exception) {
+                    }
+                }
                 withContext(Dispatchers.Main) {
                     records.add(0, rec)
                     save()

@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -754,6 +755,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     Text("Putar semua", color = yt.bg, fontWeight = FontWeight.Medium)
                                 }
                             }
+                            PlaylistOfflineRow(feed, videos, open)
                         }
                     }
                 }
@@ -773,7 +775,70 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     }
                 }
             }
+            val sugg = page?.suggestions ?: emptyList()
+            if (feed.continuation == null && sugg.isNotEmpty()) {
+                item {
+                    Text(
+                        "Saran", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 6.dp),
+                    )
+                }
+                items(sugg, key = { "s" + it.key }) { v -> VideoRow(v) { open(v) } }
+            }
             if (feed.continuation != null && feed.items.isNotEmpty()) item { LoadingBox() }
+        }
+    }
+}
+
+/** Tombol "Download semua" dan "Putar offline" untuk playlist. */
+@Composable
+private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item) -> Unit) {
+    val yt = LocalYt.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val ids = videos.map { it.id }
+    val offline = ids.mapNotNull { id -> com.lumitube.app.data.Downloader.records.firstOrNull { it.videoId == id && !it.audioOnly } }
+    Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(yt.chip).clickable {
+                scope.launch {
+                    // Ambil semua isi playlist (bukan hanya yang sudah tampil), lalu download satu per satu.
+                    val all = feed.items.filter { it.type == ItemType.VIDEO }.toMutableList()
+                    var c = feed.continuation
+                    try {
+                        while (c != null) {
+                            val p = Repo.ytMore(c)
+                            all += p.items.filter { it.type == ItemType.VIDEO }
+                            c = p.continuation
+                        }
+                    } catch (_: Exception) {
+                    }
+                    val todo = all.distinctBy { it.id }.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, false) }
+                    com.lumitube.app.data.Downloader.downloadAll(all, audioOnly = false)
+                    android.widget.Toast.makeText(
+                        context,
+                        if (todo == 0) "Semua video sudah di-download" else "Mendownload $todo video… (lihat di Download)",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Download, null, tint = yt.text, modifier = Modifier.size(20.dp))
+            Text("Download semua", color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+        }
+        if (offline.isNotEmpty()) {
+            Row(
+                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(yt.chip).clickable {
+                    val items = offline.map { it.toItem().copy(type = ItemType.VIDEO) }
+                    PlaybackManager.playVideos(items, 0)
+                    open(items[0])
+                },
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.DownloadForOffline, null, tint = yt.text, modifier = Modifier.size(20.dp))
+                Text("Putar offline (${offline.size})", color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            }
         }
     }
 }

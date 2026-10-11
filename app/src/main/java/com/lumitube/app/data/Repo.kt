@@ -36,6 +36,16 @@ object Repo {
         val p = params ?: if (browseId.startsWith("UC")) "EgZ2aWRlb3PyBgQKAjoA" else null
         val r = InnerTube.browse(Client.WEB, browseId, p)
         val header = Parser.ytHeader(r)
+        if (browseId.startsWith("VL")) {
+            // Isi playlist ada di playlistVideoListRenderer; sisanya adalah video saran.
+            val list = Parser.findFirstPublic(r, "playlistVideoListRenderer")
+            if (list != null) {
+                val own = Parser.items(list, false)
+                val keys = own.map { it.key }.toHashSet()
+                val rest = Parser.items(r, false).filter { it.key !in keys }
+                return header.copy(items = own, continuation = Parser.continuation(list) ?: Parser.continuation(r), suggestions = rest)
+            }
+        }
         return header.copy(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 

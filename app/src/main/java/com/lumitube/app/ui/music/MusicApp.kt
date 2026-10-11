@@ -29,6 +29,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -534,6 +537,45 @@ private fun MusicBrowseScreen(
                                 }
                                 PillButton(Icons.Filled.Shuffle, "Acak", false) {
                                     PlaybackManager.playMusic(allSongs.shuffled(), 0, radio = false)
+                                }
+                            }
+                            if (!isArtist) {
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                val scope = rememberCoroutineScope()
+                                val offline = allSongs.mapNotNull { s ->
+                                    com.lumitube.app.data.Downloader.records.firstOrNull { it.videoId == s.id && it.audioOnly }
+                                }
+                                Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    PillButton(Icons.Filled.Download, "Download semua", false) {
+                                        scope.launch {
+                                            // Semua lagu (termasuk halaman berikutnya), beserta liriknya.
+                                            val all = allSongs.toMutableList()
+                                            var c = feed.continuation
+                                            try {
+                                                while (c != null) {
+                                                    val p = Repo.musicMore(c)
+                                                    all += p.items.filter { it.type == ItemType.SONG } +
+                                                        p.shelves.flatMap { sh -> sh.items.filter { it.type == ItemType.SONG } }
+                                                    c = p.continuation
+                                                }
+                                            } catch (_: Exception) {
+                                            }
+                                            val songs = all.distinctBy { it.id }.map { it.copy(thumbnail = it.thumbnail ?: page.thumbnail) }
+                                            val todo = songs.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, true) }
+                                            com.lumitube.app.data.Downloader.downloadAll(songs, audioOnly = true)
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                if (todo == 0) "Semua lagu sudah di-download" else "Mendownload $todo lagu + lirik…",
+                                                android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                    if (offline.isNotEmpty()) {
+                                        PillButton(Icons.Filled.DownloadForOffline, "Offline (${offline.size})", false) {
+                                            val items = offline.map { it.toItem().copy(type = ItemType.SONG) }
+                                            PlaybackManager.playMusic(items, 0, radio = false)
+                                        }
+                                    }
                                 }
                             }
                         }

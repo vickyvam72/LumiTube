@@ -230,6 +230,11 @@ object PlaybackManager {
         exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
         player = QueuePlayer(exo)
         startWatchdog()
+        // Saat lagu di-download, lirik terbaik ikut disimpan (untuk diputar offline).
+        com.lumitube.app.data.Downloader.lyricsFetcher = { item ->
+            val dur = try { StreamResolver.resolve(item.id, true).lengthSeconds.toInt() } catch (_: Exception) { 0 }
+            com.lumitube.app.data.lyrics.LyricsRepo.fetchAll(songQuery(item, dur)).firstOrNull()
+        }
         // Mesin cipher (WebView) untuk klien web, disiapkan di latar belakang.
         com.lumitube.app.data.Cipher.cacheDir = appContext.cacheDir
         com.lumitube.app.data.Cipher.runner = WebJsRunner(appContext)
@@ -424,6 +429,15 @@ object PlaybackManager {
         lyricsFor = item.id
         lyricsSong = songKey(item.title)
         lyricsDuration = durMs
+        // Lirik yang tersimpan bersama download (bisa tampil tanpa internet).
+        if (!force) {
+            com.lumitube.app.data.lyrics.LyricsStore.load(item.id)?.let { stored ->
+                chosenSource = null
+                lyricsList = listOf(stored)
+                lyricsIndex = 0
+                return
+            }
+        }
         chosenSource = null
         lyricsLoading = true
         lyricsList = emptyList()

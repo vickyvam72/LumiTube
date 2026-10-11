@@ -658,4 +658,6 @@ object Parser {
             notice = panel?.obj("liveChatRestrictedParticipationRenderer")?.let { text(it.obj("message")) },
         )
     }
+
+    fun findFirstPublic(root: Any?, key: String): JSONObject? = findFirst(root, key)
 }
