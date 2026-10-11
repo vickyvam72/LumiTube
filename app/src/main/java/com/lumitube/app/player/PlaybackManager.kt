@@ -664,7 +664,13 @@ object PlaybackManager {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: "Gagal memutar"
+                val msg = e.message ?: "Gagal memutar"
+                error = if (msg.contains("bot", ignoreCase = true)) {
+                    // Identitas pengunjung kemungkinan ditandai: pakai yang baru saat mencoba lagi.
+                    StreamResolver.resetIdentity()
+                    if (Session.loggedIn) "YouTube sedang membatasi pemutaran. Coba lagi sebentar lagi."
+                    else "YouTube meminta konfirmasi bukan bot. Login di tab Anda supaya video bisa diputar."
+                } else msg
             } finally {
                 if (current?.id == item.id) loading = false
             }

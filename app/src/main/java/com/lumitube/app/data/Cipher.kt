@@ -70,14 +70,14 @@ object Cipher {
     private fun unescape(s: String) = s.replace("\\/", "/").replace("\\u0026", "&")
 
     /** Halaman embed: URL pemutar, visitorData, encryptedHostFlags, signatureTimestamp. */
-    suspend fun embedPage(videoId: String): EmbedPage = withContext(Dispatchers.IO) {
+    suspend fun embedPage(videoId: String, cookie: String? = null): EmbedPage = withContext(Dispatchers.IO) {
         val html = get(
             "https://www.youtube.com/embed/$videoId?html5=1&hl=${InnerTube.hl}",
             mapOf(
                 "Referer" to "https://www.reddit.com/",
                 "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language" to "${InnerTube.hl}-${InnerTube.gl},${InnerTube.hl};q=0.9",
-                "Cookie" to "SOCS=CAE=; PREF=hl=${InnerTube.hl}&gl=${InnerTube.gl}",
+                "Cookie" to (cookie ?: "SOCS=CAE=; PREF=hl=${InnerTube.hl}&gl=${InnerTube.gl}"),
             ),
         )
         val player = Regex("\"(?:PLAYER_JS_URL|jsUrl)\":\"([^\"]+)\"").find(html)?.groupValues?.get(1)?.let(::unescape)
@@ -91,7 +91,7 @@ object Cipher {
             sts = Regex("(?:signatureTimestamp|sts)\"?\\s*:\\s*([0-9]{5})").find(html)?.groupValues?.get(1)?.toIntOrNull()
                 ?: Regex("\"STS\":\\s*([0-9]{5})").find(html)?.groupValues?.get(1)?.toIntOrNull(),
         )
-        lastEmbed = System.currentTimeMillis() to page
+        if (cookie == null) lastEmbed = System.currentTimeMillis() to page
         page
     }
 

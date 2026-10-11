@@ -90,21 +90,29 @@ object StreamResolver {
         val mediaUa: String? = null,
         val mediaHeaders: Map<String, String> = emptyMap(),
         val chunk: Long = 0,
+        /** Pakai cookie akun (lolos "konfirmasi bukan bot"). */
+        val auth: Boolean = false,
         val extra: (JSONObject) -> Unit,
     )
 
     private val visionUa: String
         get() = "com.google.visionos.youtube/1.04(RealityDevice17,1; U; CPU visionOS 26_6_0 like Mac OS X; ${InnerTube.gl.uppercase()})"
 
+    private fun embedClient(auth: Boolean) = PlayerClient(
+        "WEB_EMBEDDED_PLAYER", 56, "2.20260708.00.00", Cipher.WEB_UA, WWW, false,
+        mapOf("Origin" to "https://www.youtube.com", "X-Origin" to "https://www.youtube.com", "Referer" to "https://www.reddit.com/"),
+        kind = Kind.EMBED,
+        mediaUa = Cipher.WEB_UA,
+        mediaHeaders = mapOf("Referer" to "https://www.youtube.com/", "Origin" to "https://www.youtube.com", "Accept" to "*/*"),
+        auth = auth,
+    ) { }
+
     private val clients: List<PlayerClient>
-        get() = listOf(
-            PlayerClient(
-                "WEB_EMBEDDED_PLAYER", 56, "2.20260708.00.00", Cipher.WEB_UA, WWW, false,
-                mapOf("Origin" to "https://www.youtube.com", "X-Origin" to "https://www.youtube.com", "Referer" to "https://www.reddit.com/"),
-                kind = Kind.EMBED,
-                mediaUa = Cipher.WEB_UA,
-                mediaHeaders = mapOf("Referer" to "https://www.youtube.com/", "Origin" to "https://www.youtube.com", "Accept" to "*/*"),
-            ) { },
+        get() = listOfNotNull(
+            // Sudah login: minta stream sebagai akun sendiri dulu (seperti web YouTube),
+            // jadi tidak kena "Login untuk mengonfirmasi bahwa Anda bukan bot".
+            if (Session.loggedIn) embedClient(auth = true) else null,
+            embedClient(auth = false),
             PlayerClient(
                 "VISIONOS", 101, "1.02",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
@@ -151,7 +159,7 @@ object StreamResolver {
     /** Jumlah penolakan per klien: klien yang sering ditolak dicoba belakangan. */
     private val failures = ConcurrentHashMap<String, Int>()
 
-    private fun key(c: PlayerClient) = "${c.name}/${c.version}"
+    private fun key(c: PlayerClient) = "${c.name}/${c.version}" + if (c.auth) "/auth" else ""
 
     /**
      * URL dari klien ini ditolak di tengah pemutaran (biasanya HTTP 403 karena
@@ -165,6 +173,12 @@ object StreamResolver {
         val set = rejected.getOrPut(videoId) { java.util.Collections.synchronizedSet(mutableSetOf()) }
         set.add(client)
         return set.size < clients.size
+    }
+
+    /** Buang visitorData yang mungkin sudah ditandai bot oleh YouTube. */
+    fun resetIdentity() {
+        visitors.clear()
+        cache.clear()
     }
 
     /** Lupakan penolakan untuk video ini (mis. saat diputar ulang dari awal). */
@@ -331,7 +345,7 @@ object StreamResolver {
         var cipherCfg: Cipher.PlayerConfig? = null
         val visitor: String? = when (c.kind) {
             Kind.EMBED -> {
-                val page = Cipher.embedPage(videoId)
+                val page = Cipher.embedPage(videoId, if (c.auth) Session.cookie else null)
                 embed = page
                 cipherCfg = Cipher.config(page.playerUrl) ?: throw IOException("Versi pemutar belum dikenal")
                 page.visitorData
@@ -363,6 +377,14 @@ object StreamResolver {
         }
         val headers = HashMap(c.headers)
         if (c.kind != Kind.NATIVE && visitor != null) headers["X-Goog-Visitor-Id"] = visitor
+        if (c.auth) {
+            val cookie = Session.cookie?.takeIf { Session.loggedIn } ?: throw IOException("Belum login")
+            headers["Cookie"] = cookie
+            InnerTube.authHeader(cookie, "https://www.youtube.com")?.let {
+                headers["Authorization"] = it
+                headers["X-Goog-AuthUser"] = "0"
+            }
+        }
         val json = call(c, url, body, version, headers)
         val status = json.str("playabilityStatus", "status")
         if (status != "OK") {

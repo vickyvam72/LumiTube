@@ -106,6 +106,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         val context = this@MainActivity
+        // Mode PiP: layar tetap menyala selama video/lagu diputar (meski timeout layar pendek).
+        LaunchedEffect(inPip, PlaybackManager.isPlaying) {
+            if (inPip && PlaybackManager.isPlaying) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
 
         LumiTheme(dark = dark) {
             Box(Modifier.fillMaxSize()) {
