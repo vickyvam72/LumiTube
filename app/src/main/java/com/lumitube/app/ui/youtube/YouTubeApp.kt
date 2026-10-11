@@ -191,6 +191,14 @@ fun YouTubeApp(
     val loggedIn = Session.loggedIn
     val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
     val shorts = rememberFeed(key = "shorts", more = { Repo.ytMore(it, "search") }) { Repo.ytShorts() }
+    // Tiap kali tab Shorts dibuka lagi, ambil Shorts baru (seperti aplikasi asli).
+    var shortsSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(tab) {
+        if (tab == 1) {
+            if (shortsSeen) shorts.refresh()
+            shortsSeen = true
+        }
+    }
     val subs = rememberFeed(key = "subs$loggedIn", more = { Repo.ytMore(it) }) {
         if (Session.loggedIn) Repo.ytBrowse("FEsubscriptions") else Page()
     }
@@ -315,6 +323,7 @@ private fun groupRows(items: List<Item>): List<FeedRow> {
     return rows
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedList(
     feed: FeedLoader,
@@ -341,6 +350,22 @@ private fun FeedList(
                     .forEach { com.lumitube.app.data.StreamResolver.prefetch(it.id) }
             }
     }
+    // Tarik ke bawah untuk memuat video baru (seperti aplikasi YouTube).
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(feed.loading) {
+        if (!feed.loading && refreshing) {
+            refreshing = false
+            state.scrollToItem(0)
+        }
+    }
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            feed.load()
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
         item { header() }
         if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
@@ -364,6 +389,7 @@ private fun FeedList(
             }
         }
         if (feed.continuation != null && feed.items.isNotEmpty()) item { LoadingBox() }
+    }
     }
 }
 
@@ -416,11 +442,14 @@ private fun HomeTab(
 private fun ShortsTabPlayer(feed: FeedLoader, openChannel: (String) -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
     when {
-        feed.items.isNotEmpty() -> ShortsPlayer(
-            items = feed.items.toList(), startIndex = 0, onLoadMore = { feed.loadMore() },
-            onChannel = openChannel, onLogin = onLogin, onBack = null,
-        )
-        feed.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingBox(color = Color.White) }
+        // Kumpulan Shorts baru = mulai lagi dari Short pertama.
+        feed.items.isNotEmpty() -> androidx.compose.runtime.key(feed.items.first().id) {
+            ShortsPlayer(
+                items = feed.items.toList(), startIndex = 0, onLoadMore = { feed.loadMore() },
+                onChannel = openChannel, onLogin = onLogin, onBack = null,
+            )
+        }
+        feed.loading -> Box(Modifier.fillMaxSize().background(Color.Black))
         else -> MessageBox("Gagal memuat Shorts: ${feed.error ?: "kosong"}", yt.sub, "Coba lagi") { feed.load() }
     }
 }
@@ -499,9 +528,7 @@ private fun YouTab(
         if (Session.loggedIn) {
             val p = Repo.ytBrowse("FEhistory")
             // Kartu Histori di halaman Anda: per hari, video dulu lalu Shorts.
-            if (p.shelves.isEmpty()) p else p.copy(items = p.shelves.flatMap { sh ->
-                sh.items.filter { it.type != ItemType.SHORT } + sh.items.filter { it.type == ItemType.SHORT }
-            }.distinctBy { it.key })
+            if (p.shelves.isEmpty()) p else p.copy(items = p.shelves.flatMap { it.items }.distinctBy { it.key })
         } else Page()
     }
     var quality by remember { mutableIntStateOf(Session.maxQuality) }
@@ -681,21 +708,27 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     val ctx = LocalContext.current
     val editScope = com.lumitube.app.ui.common.EditScope.scope
     val appCtx = ctx.applicationContext
-    // Histori: kumpulkan hari yang sama (bisa terbelah oleh halaman lanjutan).
+    // Histori: per hari, berisi kelompok berurutan (rak Shorts atau baris video), seperti aplikasi asli.
     val historyDays = if (isHistory) {
-        val out = mutableListOf<Pair<String, MutableList<Item>>>()
+        val out = mutableListOf<Pair<String, MutableList<Pair<Boolean, List<Item>>>>>()
         val seenKeys = HashSet<String>()
         for (sh in page?.shelves ?: emptyList()) {
             val list = sh.items.filter { seenKeys.add(it.key) }
-            if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.addAll(list)
-            else out.add(sh.title to list.toMutableList())
+            if (list.isEmpty()) continue
+            val group = (sh.strapline == "reel") to list
+            if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.add(group)
+            else out.add(sh.title to mutableListOf(group))
         }
-        if (out.isEmpty() && feed.items.isNotEmpty()) out.add("" to feed.items.toMutableList())
+        val extra = feed.items.filter { seenKeys.add(it.key) }
+        if (extra.isNotEmpty()) {
+            if (out.isEmpty()) out.add("" to mutableListOf())
+            out.last().second.add(false to extra)
+        }
         out
     } else emptyList()
     // Filter Histori seperti aplikasi YouTube: Semua / Video / Shorts.
     var histFilter by rememberSaveable(id) { mutableIntStateOf(0) }
-    val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { it.second }
+    val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { d -> d.second.flatMap { it.second } }
         else if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
     // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
     val plDeleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
@@ -903,21 +936,31 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
-                historyDays.forEachIndexed { di, (day, dayItems) ->
-                    val visible = when (histFilter) {
-                        1 -> dayItems.any { it.type != ItemType.SHORT }
-                        2 -> dayItems.any { it.type == ItemType.SHORT }
-                        else -> true
-                    }
-                    if (day.isNotBlank() && visible) {
-                        item(key = "hd$di") {
-                            Text(day, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
+                historyDays.forEachIndexed { di, (day, groups) ->
+                    // Filter: Video = bukan Shorts; Shorts = rak Shorts + Shorts di baris.
+                    val shown = groups.mapNotNull { (reel, list) ->
+                        val l = when (histFilter) {
+                            1 -> list.filter { it.type != ItemType.SHORT }
+                            2 -> list.filter { it.type == ItemType.SHORT }
+                            else -> list
                         }
+                        if (l.isEmpty()) null else (reel || (histFilter == 2)) to l
                     }
-                    val shorts = if (histFilter == 1) emptyList() else dayItems.filter { it.type == ItemType.SHORT }
-                    if (shorts.isNotEmpty()) item(key = "hs$di") { HistoryShorts(shorts) { s -> open(s) } }
-                    items(if (histFilter == 2) emptyList() else dayItems.filter { it.type != ItemType.SHORT }, key = { "h$di" + it.key }) { v ->
-                        if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                    if (shown.isNotEmpty()) {
+                        if (day.isNotBlank()) {
+                            item(key = "hd$di") {
+                                Text(day, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 10.dp))
+                            }
+                        }
+                        shown.forEachIndexed { gi, (reel, list) ->
+                            if (reel) {
+                                item(key = "hs$di-$gi") { HistoryShorts(list) { s -> open(s) } }
+                            } else {
+                                items(list, key = { "h$di-$gi" + it.key }) { v ->
+                                    if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                                }
+                            }
+                        }
                     }
                 }
             }

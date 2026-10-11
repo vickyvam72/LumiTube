@@ -148,6 +148,14 @@ class FeedLoader(
         load()
     }
 
+    /** Kosongkan lalu muat ulang dari awal (mis. Shorts baru setiap tab dibuka). */
+    fun refresh() {
+        items.clear()
+        page = null
+        continuation = null
+        load()
+    }
+
     fun load() {
         scope.launch {
             loading = true

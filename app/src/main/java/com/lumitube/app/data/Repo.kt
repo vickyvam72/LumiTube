@@ -60,9 +60,33 @@ object Repo {
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
+    private val shortQueries = listOf(
+        "#shorts", "#shortsvideo", "#shorts lucu", "#shorts viral", "#funny #shorts", "#shortsindonesia",
+        "#trending #shorts", "#fyp #shorts", "#comedy #shorts", "#music #shorts", "#gaming #shorts",
+        "#food #shorts", "#prank #shorts", "#cat #shorts", "#football #shorts", "#dance #shorts",
+    )
+    /** Shorts yang sudah pernah disajikan (sesi ini) supaya tiap kali dibuka isinya baru. */
+    private val servedShorts = LinkedHashSet<String>()
+
+    /**
+     * Feed Shorts: campuran Shorts pilihan untuk akun (dari Beranda) dan pencarian dengan
+     * tagar acak, diacak dan tanpa yang sudah pernah tampil — jadi tidak "itu-itu saja".
+     */
     suspend fun ytShorts(): Page {
-        val r = InnerTube.search(Client.WEB, "#shorts")
-        val list = Parser.items(r, false).filter { it.type == ItemType.SHORT }
+        val r = InnerTube.search(Client.WEB, shortQueries.random())
+        val fromSearch = Parser.items(r, false).filter { it.type == ItemType.SHORT }
+        val fromHome = try {
+            ytHomeCached()?.items?.filter { it.type == ItemType.SHORT } ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val all = (fromHome.shuffled().take(6) + fromSearch.shuffled()).distinctBy { it.id }
+        val fresh = all.filter { it.id !in servedShorts }
+        val list = if (fresh.size >= 6) fresh else all.shuffled()
+        synchronized(servedShorts) {
+            list.forEach { servedShorts.add(it.id) }
+            while (servedShorts.size > 500) servedShorts.remove(servedShorts.first())
+        }
         return Page(items = list, continuation = Parser.continuation(r))
     }
 
@@ -96,25 +120,62 @@ object Repo {
     }
 
     /**
-     * Histori YouTube dikelompokkan per hari ("Hari ini", "Kemarin", …). Tiap hari berisi
-     * rak Shorts dan video. Dulu semuanya diratakan, jadi Shorts lama tampak di atas video terbaru.
+     * Histori YouTube dibaca berurutan seperti tampil di aplikasi asli: setiap judul hari
+     * ("Hari ini", "Kemarin", …) memulai kelompok baru; rak Shorts (reelShelf) jadi satu kelompok
+     * "reel", item lain jadi baris biasa. Judul di dalam objek dibaca lebih dulu daripada isinya.
      */
-    private fun historySections(r: org.json.JSONObject): List<Shelf> =
-        Parser.findAllPublic(r, "itemSectionRenderer").mapNotNull { sec ->
-            val h = sec.optJSONObject("header")?.optJSONObject("itemSectionHeaderRenderer")
-            val title = h?.optJSONObject("title")?.let { t ->
-                t.optString("simpleText").ifEmpty {
-                    t.optJSONArray("runs")?.let { runs -> (0 until runs.length()).joinToString("") { runs.optJSONObject(it)?.optString("text") ?: "" } } ?: ""
-                }
-            } ?: ""
-            val items = Parser.items(sec, false)
-            if (items.isEmpty()) null else Shelf(title, items = items)
-        }
+    private val historyItemKeys = setOf(
+        "videoRenderer", "compactVideoRenderer", "gridVideoRenderer", "videoWithContextRenderer",
+        "lockupViewModel", "reelItemRenderer", "shortsLockupViewModel",
+        "playlistRenderer", "gridPlaylistRenderer", "channelRenderer",
+    )
 
-    /** "Telusuri histori tontonan". */
-    suspend fun ytHistorySearch(query: String): Page {
-        val r = InnerTube.post(Client.WEB, "browse", org.json.JSONObject().put("browseId", "FEhistory").put("query", query))
-        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    private fun historySections(r: org.json.JSONObject): List<Shelf> {
+        val out = mutableListOf<Shelf>()
+        var day = ""
+        fun textOf(o: org.json.JSONObject?): String? {
+            if (o == null) return null
+            o.optString("simpleText").takeIf { it.isNotEmpty() }?.let { return it }
+            o.optString("content").takeIf { it.isNotEmpty() }?.let { return it }
+            val runs = o.optJSONArray("runs") ?: return null
+            return (0 until runs.length()).joinToString("") { runs.optJSONObject(it)?.optString("text") ?: "" }.takeIf { it.isNotEmpty() }
+        }
+        fun add(items: List<Item>, reel: Boolean) {
+            if (items.isEmpty()) return
+            val last = out.lastOrNull()
+            if (!reel && last != null && last.title == day && last.strapline == null) {
+                out[out.lastIndex] = last.copy(items = last.items + items)
+            } else {
+                out.add(Shelf(day, strapline = if (reel) "reel" else null, items = items))
+            }
+        }
+        fun visit(node: Any?) {
+            when (node) {
+                is org.json.JSONObject -> {
+                    val keys = node.keys().asSequence().toMutableList()
+                    if (keys.remove("header")) keys.add(0, "header")
+                    for (k in keys) {
+                        val v = node.opt(k)
+                        when {
+                            k == "itemSectionHeaderRenderer" || k == "sectionHeaderViewModel" -> {
+                                val o = v as? org.json.JSONObject
+                                (textOf(o?.optJSONObject("title")) ?: textOf(o?.optJSONObject("headline")) ?: textOf(o?.optJSONObject("text")))
+                                    ?.takeIf { it.isNotBlank() }?.let { day = it }
+                            }
+                            k == "reelShelfRenderer" || k == "richShelfRenderer" ->
+                                add(Parser.items(v, false), reel = true)
+                            k in historyItemKeys ->
+                                add(Parser.items(org.json.JSONObject().put(k, v), false), reel = false)
+                            k == "continuationItemRenderer" || k == "chipCloudRenderer" || k == "feedFilterChipBarRenderer" -> {}
+                            else -> visit(v)
+                        }
+                    }
+                }
+                is org.json.JSONArray -> for (i in 0 until node.length()) visit(node.opt(i))
+            }
+        }
+        visit(r)
+        return out
     }
 
     /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */
