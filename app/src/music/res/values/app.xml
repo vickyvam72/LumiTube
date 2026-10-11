@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">YT Music Lumi</string>
-    <color name="ic_bg_start">#FF7032E6</color>
-    <color name="ic_bg_end">#FF3B1C8C</color>
+    <color name="ic_bg_start">#FF22D3EE</color>
+    <color name="ic_bg_end">#FF2563EB</color>
 </resources>

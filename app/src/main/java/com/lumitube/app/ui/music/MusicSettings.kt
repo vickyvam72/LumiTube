@@ -60,6 +60,38 @@ fun MusicSettingsPanel(onClose: () -> Unit) {
                 }
             }
             item {
+                var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
+                ToggleRow(
+                    "Tutup aplikasi saat PiP ditutup",
+                    "Menutup jendela kecil juga menghentikan musik (tidak lanjut di latar belakang)",
+                    closePip,
+                ) {
+                    closePip = it
+                    Session.closeOnPipClose = it
+                }
+            }
+            item {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                var links by remember { mutableStateOf(com.lumitube.app.CrossApp.linksEnabled(ctx)) }
+                ToggleRow(
+                    "Buka link YouTube Music di aplikasi ini",
+                    "Link music.youtube.com yang dibuka atau dibagikan akan diputar di YT Music Lumi",
+                    links,
+                ) {
+                    links = it
+                    com.lumitube.app.CrossApp.setLinksEnabled(ctx, it)
+                    if (it) com.lumitube.app.CrossApp.openLinkSettings(ctx)
+                }
+                if (links) {
+                    Text(
+                        "Atur link default (tambahkan music.youtube.com)",
+                        color = Color(0xFF3EA6FF), fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { com.lumitube.app.CrossApp.openLinkSettings(ctx) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
+            }
+            item {
                 Text(
                     "Penyedia lirik", color = colors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),

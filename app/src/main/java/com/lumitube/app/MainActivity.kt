@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        incoming = CrossApp.itemFrom(intent)
+        if (savedInstanceState == null) incoming = CrossApp.itemFrom(intent)
         setContent { Root() }
     }
 
@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
             if (mode == "music") {
                 pendingPlay = item
             } else {
-                PlaybackManager.playVideo(item)
+                if (item.type == ItemType.VIDEO) PlaybackManager.playVideo(item)
                 pendingWatch = item
             }
         }
@@ -206,5 +206,13 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
+        // Jendela PiP ditutup (bukan diperbesar): aktivitas sudah berhenti. Opsional: tutup semuanya.
+        if (!isInPictureInPictureMode &&
+            lifecycle.currentState == androidx.lifecycle.Lifecycle.State.CREATED &&
+            Session.closeOnPipClose
+        ) {
+            PlaybackManager.stop()
+            finishAndRemoveTask()
+        }
     }
 }

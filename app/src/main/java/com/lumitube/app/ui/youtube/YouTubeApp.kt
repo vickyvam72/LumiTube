@@ -168,8 +168,14 @@ fun YouTubeApp(
 
     LaunchedEffect(pendingWatch) {
         if (pendingWatch != null) {
-            stack.removeAll { it is YtRoute.Watch }
-            stack.add(YtRoute.Watch(pendingWatch))
+            when {
+                pendingWatch.type == ItemType.SHORT -> openShorts(listOf(pendingWatch), 0)
+                !pendingWatch.isPlayable -> stack.add(YtRoute.Browse(pendingWatch.id, pendingWatch.title))
+                else -> {
+                    stack.removeAll { it is YtRoute.Watch }
+                    stack.add(YtRoute.Watch(pendingWatch))
+                }
+            }
             onPendingConsumed()
         }
     }
@@ -518,6 +524,27 @@ private fun YouTab(
         }
         item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
         item { MenuRow(Icons.Filled.MusicNote, "Buka YT Music Lumi", onSwitchMusic) }
+        item {
+            var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
+            MenuRow(Icons.Filled.Settings, "Tutup aplikasi saat PiP ditutup: ${if (closePip) "Aktif" else "Nonaktif"}") {
+                closePip = !closePip
+                Session.closeOnPipClose = closePip
+            }
+        }
+        item {
+            val ctx = LocalContext.current
+            var links by remember { mutableStateOf(com.lumitube.app.CrossApp.linksEnabled(ctx)) }
+            MenuRow(Icons.Filled.Share, "Buka link YouTube di YouTube Lumi: ${if (links) "Aktif" else "Nonaktif"}") {
+                links = !links
+                com.lumitube.app.CrossApp.setLinksEnabled(ctx, links)
+                if (links) com.lumitube.app.CrossApp.openLinkSettings(ctx)
+            }
+            if (links) {
+                MenuRow(Icons.Filled.Settings, "Atur link default (tambahkan youtube.com & youtu.be)") {
+                    com.lumitube.app.CrossApp.openLinkSettings(ctx)
+                }
+            }
+        }
         item {
             MenuRow(Icons.Filled.HighQuality, "Kualitas video maks: ${quality}p") {
                 val next = when (quality) { 360 -> 480; 480 -> 720; 720 -> 1080; else -> 360 }
@@ -966,7 +993,6 @@ private fun WatchDetails(
             item {
                 // Baris aksi seperti aplikasi YouTube: avatar, Subscribe, lalu suka/tidak suka/bagikan/simpan/unduh
                 var disliked by remember(current.id) { mutableStateOf(false) }
-                var saved by remember(current.id) { mutableStateOf(false) }
                 val chId = i?.channelId ?: current.channelId
                 Row(
                     Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 8.dp),
@@ -1044,26 +1070,6 @@ private fun WatchDetails(
                     }
                     WatchIcon(Icons.AutoMirrored.Outlined.Reply, "Bagikan", mirror = true) {
                         shareVideo(context, current.id, current.title, false)
-                    }
-                    WatchIcon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, "Simpan") {
-                        if (!Session.loggedIn) {
-                            onLogin()
-                        } else {
-                    val target = !saved
-                    saved = target
-                    scope.launch {
-                        try {
-                            if (target) Repo.saveWatchLater(current.id) else Repo.removeWatchLater(current.id)
-                            android.widget.Toast.makeText(
-                                context,
-                                if (target) "Disimpan ke Tonton nanti" else "Dihapus dari Tonton nanti",
-                                android.widget.Toast.LENGTH_SHORT,
-                            ).show()
-                        } catch (_: Exception) {
-                            saved = !target
-                        }
-                    }
-                }
                     }
                     WatchIcon(Icons.Outlined.Download, "Unduh") { onDownload() }
                 }

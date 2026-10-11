@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Membuka link YouTube dengan aplikasi ini. Bisa dimatikan dari setelan aplikasi. -->
+        <activity-alias
+            android:name="com.lumitube.app.LinkHandler"
+            android:targetActivity="com.lumitube.app.MainActivity"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="music.youtube.com" />
+                <data android:pathPrefix="/watch" />
+                <data android:pathPrefix="/playlist" />
+            </intent-filter>
+        </activity-alias>
+        <!-- "Bagikan" link dari aplikasi lain ke sini -->
+        <activity-alias
+            android:name="com.lumitube.app.ShareHandler"
+            android:targetActivity="com.lumitube.app.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

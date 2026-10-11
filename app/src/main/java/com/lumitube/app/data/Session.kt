@@ -113,6 +113,13 @@ object Session {
         prefs.edit().putString("search_history", org.json.JSONArray(list).toString()).apply()
     }
 
+    /** Menutup jendela PiP juga menutup aplikasi & menghentikan suara. */
+    var closeOnPipClose: Boolean
+        get() = prefs.getBoolean("close_on_pip", true)
+        set(value) {
+            prefs.edit().putBoolean("close_on_pip", value).apply()
+        }
+
     /** Tanyakan YouTube / YouTube Music setiap aplikasi dibuka. */
     var askMode: Boolean
         get() = prefs.getBoolean("ask_mode", true)

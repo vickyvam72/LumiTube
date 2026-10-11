@@ -8,7 +8,28 @@ import org.json.JSONArray
 import java.io.IOException
 
 /** Unduh, rapikan, dan (bila perlu) terjemahkan subtitle YouTube. */
+/** Satu baris subtitle yang sudah siap tampil. */
+data class SubCue(val startMs: Long, val endMs: Long, val text: String)
+
 object Subtitles {
+    /** Ubah VTT (yang sudah dirapikan) menjadi daftar cue untuk digambar di atas video. */
+    fun cues(vtt: String): List<SubCue> = parse(vtt).map { SubCue(ms(it.start), ms(it.end), it.text) }.sortedBy { it.startMs }
+
+    /** Cue yang aktif pada [pos] (pencarian biner). */
+    fun active(cues: List<SubCue>, pos: Long): SubCue? {
+        var lo = 0
+        var hi = cues.size - 1
+        var best = -1
+        while (lo <= hi) {
+            val mid = (lo + hi) / 2
+            if (cues[mid].startMs <= pos) { best = mid; lo = mid + 1 } else hi = mid - 1
+        }
+        if (best < 0) return null
+        // Cari mundur sedikit kalau cue saling tumpang tindih.
+        for (k in best downTo maxOf(0, best - 3)) if (pos < cues[k].endMs) return cues[k]
+        return null
+    }
+
     private data class Cue(val start: String, val end: String, val text: String)
 
     private fun download(url: String): String? = try {

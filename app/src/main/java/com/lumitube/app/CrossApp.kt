@@ -48,8 +48,32 @@ object CrossApp {
         }
     }
 
+    /**
+     * Link YouTube / YouTube Music yang dibuka atau dibagikan ke aplikasi ini:
+     * youtube.com/watch?v=, youtu.be/, /shorts/, /live/, /embed/, music.youtube.com, playlist (list=).
+     */
+    fun itemFromLink(intent: Intent?): Item? {
+        val text = intent?.dataString ?: intent?.getStringExtra(Intent.EXTRA_TEXT) ?: return null
+        val url = Regex("https?://\\S+").find(text)?.value ?: text
+        if (!url.contains("youtu")) return null
+        val video = Regex("[?&]v=([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
+            ?: Regex("youtu\\.be/([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
+            ?: Regex("/(?:embed|live|v)/([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
+        val short = Regex("/shorts/([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
+        val list = Regex("[?&]list=([A-Za-z0-9_-]+)").find(url)?.groupValues?.get(1)
+        intent.data = null
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        return when {
+            short != null -> Item(if (isMusic) ItemType.SONG else ItemType.SHORT, short, "")
+            video != null -> Item(if (isMusic) ItemType.SONG else ItemType.VIDEO, video, "", playlistId = list)
+            list != null && !isMusic -> Item(ItemType.PLAYLIST, "VL$list", "Playlist")
+            else -> null
+        }
+    }
+
     /** Item yang dikirim aplikasi pasangan lewat [openOther], bila ada. */
     fun itemFrom(intent: Intent?): Item? {
+        itemFromLink(intent)?.let { return it }
         val id = intent?.getStringExtra(EXTRA_ID) ?: return null
         intent.removeExtra(EXTRA_ID)
         return Item(
@@ -61,5 +85,43 @@ object CrossApp {
             channelName = intent.getStringExtra("lumi_channel"),
             channelId = intent.getStringExtra("lumi_channel_id"),
         )
+    }
+
+    // ---------------- Link YouTube ----------------
+
+    private fun linkComponent(ctx: Context) = android.content.ComponentName(ctx.packageName, "com.lumitube.app.LinkHandler")
+
+    fun linksEnabled(ctx: Context): Boolean =
+        ctx.packageManager.getComponentEnabledSetting(linkComponent(ctx)) !=
+            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+
+    /** Aktif/nonaktifkan penanganan link YouTube oleh aplikasi ini. */
+    fun setLinksEnabled(ctx: Context, on: Boolean) {
+        ctx.packageManager.setComponentEnabledSetting(
+            linkComponent(ctx),
+            if (on) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            android.content.pm.PackageManager.DONT_KILL_APP,
+        )
+    }
+
+    /**
+     * Android 12+ tidak mengizinkan aplikasi pihak ketiga otomatis menjadi pembuka link youtube.com;
+     * pengguna perlu menambahkan link di "Buka secara default". Buka halaman itu langsung.
+     */
+    fun openLinkSettings(ctx: Context) {
+        val uri = android.net.Uri.parse("package:${ctx.packageName}")
+        val intent = if (android.os.Build.VERSION.SDK_INT >= 31) {
+            Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, uri)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+        }
+        try {
+            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            ctx.startActivity(
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
     }
 }

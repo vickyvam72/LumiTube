@@ -89,6 +89,9 @@ object PlaybackManager {
         private set
     var captionError by mutableStateOf<String?>(null)
     private var captionFile: java.io.File? = null
+    /** Subtitle digambar sendiri di atas video, jadi menyalakan/mematikan CC tidak memuat ulang video. */
+    var subtitleCues by mutableStateOf<List<com.lumitube.app.data.SubCue>>(emptyList())
+        private set
     /** Dipanggil saat video selesai & autoplay aktif (mis. putar video terkait berikutnya). */
     var onAutoNext: (() -> Unit)? = null
     /** Video terkait berikutnya (untuk tombol next & putar otomatis). */
@@ -478,7 +481,7 @@ object PlaybackManager {
             captionIndex = -1
             captionTranslate = null
             captionFile = null
-            if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+            subtitleCues = emptyList()
             return
         }
         val cap = captions.getOrNull(i) ?: return
@@ -486,15 +489,14 @@ object PlaybackManager {
         captionError = null
         scope.launch {
             try {
-                val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                    val body = com.lumitube.app.data.Subtitles.load(item.id, cap, translate)
-                    java.io.File(appContext.cacheDir, "cap_${item.id}_${cap.lang}_${translate ?: "o"}.vtt").apply { writeText(body) }
+                val cues = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    com.lumitube.app.data.Subtitles.cues(com.lumitube.app.data.Subtitles.load(item.id, cap, translate))
                 }
                 if (current?.id != item.id) return@launch
+                if (cues.isEmpty()) throw java.io.IOException("Subtitle kosong")
                 captionIndex = i
                 captionTranslate = translate
-                captionFile = file
-                if (isVideo && item.localUri == null) load(item, exo.currentPosition)
+                subtitleCues = cues
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -542,6 +544,7 @@ object PlaybackManager {
             captionIndex = -1
             captionTranslate = null
             captionFile = null
+            subtitleCues = emptyList()
             retries = 0
         }
         loadJob?.cancel()
@@ -570,6 +573,16 @@ object PlaybackManager {
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly)
                     currentClient = stream.client
+                    // Dibuka dari link: judul/artis belum diketahui -> isi dari data stream.
+                    if (item.title.isBlank() && current?.id == item.id) {
+                        val upd = item.copy(
+                            title = stream.title ?: "",
+                            channelName = item.channelName ?: stream.author?.removeSuffix(" - Topic"),
+                            thumbnail = item.thumbnail ?: "https://i.ytimg.com/vi/${item.id}/hqdefault.jpg",
+                        )
+                        current = upd
+                        if (index in queue.indices && queue[index].id == item.id) queue[index] = upd
+                    }
                     qualities = stream.qualities
                     captions = stream.captions
                     translations = stream.translations

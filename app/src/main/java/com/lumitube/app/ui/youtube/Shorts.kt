@@ -162,7 +162,6 @@ private fun ShortPage(
     }
     var liked by remember(item.id, info?.liked) { mutableStateOf(info?.liked == true) }
     var subscribed by remember(item.id, info?.subscribed) { mutableStateOf(info?.subscribed == true) }
-    var saved by remember(item.id) { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(active, item.id) {
@@ -226,26 +225,6 @@ private fun ShortPage(
                 }
             }
             SideButton(Icons.Outlined.ChatBubbleOutline, info?.commentCount ?: "Komentar") { onComments(info) }
-            SideButton(if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder, "Simpan") {
-                if (!Session.loggedIn) {
-                    onLogin()
-                } else {
-                    val target = !saved
-                    saved = target
-                    scope.launch {
-                        try {
-                            if (target) Repo.saveWatchLater(item.id) else Repo.removeWatchLater(item.id)
-                            Toast.makeText(
-                                context,
-                                if (target) "Disimpan ke Tonton nanti" else "Dihapus dari Tonton nanti",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        } catch (_: Exception) {
-                            saved = !target
-                        }
-                    }
-                }
-            }
             SideButton(Icons.Filled.Share, "Bagikan") { shareVideo(context, item.id, item.title, false) }
             SideButton(Icons.Outlined.Download, "Download") { onDownload() }
             Img(

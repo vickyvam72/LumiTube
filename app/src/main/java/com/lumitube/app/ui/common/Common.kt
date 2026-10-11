@@ -23,6 +23,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -254,8 +256,9 @@ fun VideoSurface(
     onFullscreen: ((Boolean) -> Unit)? = null,
     zoom: Boolean = false,
 ) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(Color.Black)) {
     AndroidView(
-        modifier = modifier.background(Color.Black),
+        modifier = Modifier.matchParentSize(),
         factory = { ctx ->
             PlayerView(ctx).apply {
                 layoutParams = FrameLayout.LayoutParams(
@@ -305,6 +308,35 @@ fun VideoSurface(
                 it.player = PlaybackManager.player
             }
         },
+    )
+    SubtitleOverlay(maxWidth)
+    }
+}
+
+/** Subtitle di tengah bawah video, digambar Compose (tanpa memuat ulang pemutar). */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.SubtitleOverlay(width: androidx.compose.ui.unit.Dp) {
+    val cues = PlaybackManager.subtitleCues
+    if (cues.isEmpty()) return
+    var pos by remember { mutableLongStateOf(PlaybackManager.exo.currentPosition) }
+    LaunchedEffect(cues) {
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { }
+            pos = PlaybackManager.exo.currentPosition
+        }
+    }
+    val cue = com.lumitube.app.data.Subtitles.active(cues, pos) ?: return
+    val size = (width.value * 0.042f).coerceIn(10f, 24f)
+    Text(
+        cue.text,
+        color = Color.White,
+        fontSize = size.sp,
+        lineHeight = (size * 1.3f).sp,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = Modifier.align(Alignment.BottomCenter)
+            .padding(start = 12.dp, end = 12.dp, bottom = (width.value * 0.035f).coerceIn(4f, 28f).dp)
+            .background(Color(0xB3000000), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
