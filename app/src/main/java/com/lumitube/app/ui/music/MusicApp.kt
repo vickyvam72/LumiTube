@@ -171,7 +171,10 @@ fun MusicApp(
     var chipIndex by remember(loggedIn) { mutableIntStateOf(-1) }
     var homeChips by remember(loggedIn) { mutableStateOf(emptyList<Chip>()) }
     val selectedChip = homeChips.getOrNull(chipIndex)
-    val home = rememberFeed(key = "mhome$loggedIn${selectedChip?.params}", more = { Repo.musicMore(it) }) {
+    val home = rememberFeed(
+        key = "mhome$loggedIn${selectedChip?.params}", more = { Repo.musicMore(it) },
+        peek = if (selectedChip == null) ({ Repo.musicHomeCached() }) else null,
+    ) {
         Repo.musicBrowse(selectedChip?.browseId ?: "FEmusic_home", selectedChip?.params)
     }
     LaunchedEffect(home.page) {

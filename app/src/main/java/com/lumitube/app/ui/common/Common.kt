@@ -87,6 +87,7 @@ class FeedLoader(
     private val scope: CoroutineScope,
     private val first: suspend () -> Page,
     private val more: (suspend (String) -> Page)?,
+    private val peek: (() -> Page?)? = null,
 ) {
     var page by mutableStateOf<Page?>(null)
         private set
@@ -125,6 +126,23 @@ class FeedLoader(
             items.clear()
             items.addAll(c.items)
             continuation = c.continuation
+            return
+        }
+        if (peek != null) {
+            // Tampilkan salinan terakhir dari HP dulu (seperti aplikasi YouTube asli), lalu perbarui.
+            scope.launch {
+                val p = try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { peek.invoke() }
+                } catch (_: Exception) {
+                    null
+                }
+                if (p != null && page == null && items.isEmpty()) {
+                    page = p
+                    items.addAll(p.items)
+                    continuation = p.continuation
+                }
+                load()
+            }
             return
         }
         load()
@@ -199,10 +217,11 @@ class FeedLoader(
 fun rememberFeed(
     key: Any?,
     more: (suspend (String) -> Page)? = null,
+    peek: (() -> Page?)? = null,
     first: suspend () -> Page,
 ): FeedLoader {
     val scope = rememberCoroutineScope()
-    return remember(key) { FeedLoader(key, scope, first, more).also { it.loadCachedOrFetch() } }
+    return remember(key) { FeedLoader(key, scope, first, more, peek).also { it.loadCachedOrFetch() } }
 }
 
 /** Panggil loadMore saat daftar hampir mencapai akhir. */

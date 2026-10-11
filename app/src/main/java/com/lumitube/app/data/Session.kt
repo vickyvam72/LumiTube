@@ -54,6 +54,15 @@ object Session {
         }
     }
 
+    fun getString(key: String): String? = if (::prefs.isInitialized) prefs.getString(key, null) else null
+    fun putString(key: String, value: String?) {
+        if (::prefs.isInitialized) prefs.edit().putString(key, value).apply()
+    }
+    fun getLong(key: String): Long = if (::prefs.isInitialized) prefs.getLong(key, 0L) else 0L
+    fun putLong(key: String, value: Long) {
+        if (::prefs.isInitialized) prefs.edit().putLong(key, value).apply()
+    }
+
     var visitorData: String?
         get() = prefs.getString("visitor", null)
         set(value) {

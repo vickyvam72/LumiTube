@@ -11,11 +11,43 @@ object Repo {
 
     suspend fun ytHome(): Page {
         val r = InnerTube.browse(Client.WEB, "FEwhat_to_watch")
-        return Page(
-            chips = Parser.ytChips(r),
-            items = Parser.items(r, false),
-            continuation = Parser.continuation(r),
-        )
+        saveRaw("yt_home_${Session.loggedIn}", r)
+        return ytHomePage(r)
+    }
+
+    private fun ytHomePage(r: org.json.JSONObject) = Page(
+        chips = Parser.ytChips(r),
+        items = Parser.items(r, false),
+        continuation = Parser.continuation(r),
+    )
+
+    /** Beranda terakhir yang tersimpan di HP: tampil seketika saat aplikasi dibuka. */
+    fun ytHomeCached(): Page? = loadRaw("yt_home_${Session.loggedIn}")?.let {
+        try { ytHomePage(it).takeIf { p -> p.items.isNotEmpty() } } catch (_: Exception) { null }
+    }
+
+    fun musicHomeCached(): Page? = loadRaw("music_home_${Session.loggedIn}")?.let {
+        try {
+            val header = Parser.musicHeader(it)
+            header.copy(chips = Parser.musicChips(it), shelves = Parser.musicShelves(it), continuation = Parser.continuation(it))
+                .takeIf { p -> p.shelves.isNotEmpty() }
+        } catch (_: Exception) { null }
+    }
+
+    private fun rawFile(name: String) = Cipher.cacheDir?.let { java.io.File(it, "feed_$name.json") }
+
+    private fun saveRaw(name: String, r: org.json.JSONObject) {
+        try {
+            rawFile(name)?.writeText(r.toString())
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun loadRaw(name: String): org.json.JSONObject? = try {
+        rawFile(name)?.takeIf { it.exists() && System.currentTimeMillis() - it.lastModified() < 3 * 24 * 60 * 60 * 1000L }
+            ?.let { org.json.JSONObject(it.readText()) }
+    } catch (_: Exception) {
+        null
     }
 
     suspend fun ytMore(token: String, endpoint: String = "browse"): Page {
@@ -267,6 +299,7 @@ object Repo {
 
     suspend fun musicBrowse(browseId: String, params: String? = null): Page {
         val r = InnerTube.browse(Client.MUSIC, browseId, params)
+        if (browseId == "FEmusic_home" && params == null) saveRaw("music_home_${Session.loggedIn}", r)
         val header = Parser.musicHeader(r)
         return header.copy(
             chips = Parser.musicChips(r),

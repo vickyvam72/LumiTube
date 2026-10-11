@@ -313,6 +313,7 @@ object PlaybackManager {
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) onEnded()
                 if (state == Player.STATE_READY && !isVideo) loadLyrics()
+                if (state == Player.STATE_READY) registerHistory()
             }
 
             override fun onPlayerError(e: PlaybackException) {
@@ -603,6 +604,23 @@ object PlaybackManager {
         }
     }
 
+    private var historyFor: String? = null
+
+    /** Masukkan video/lagu yang diputar ke Histori akun YouTube (sekali per pemutaran). */
+    private fun registerHistory() {
+        val item = current ?: return
+        if (item.localUri != null || historyFor == item.id || !com.lumitube.app.data.Session.loggedIn) return
+        historyFor = item.id
+        scope.launch {
+            try {
+                com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo)
+                // Histori yang tersimpan sementara di memori dibuang supaya video ini langsung muncul.
+                listOf("hist" + true, "FEhistory", "FEmusic_history").forEach { com.lumitube.app.ui.common.FeedLoader.invalidate(it) }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private var lyricsJob: kotlinx.coroutines.Job? = null
     private var lyricsGen = 0
 
@@ -752,6 +770,7 @@ object PlaybackManager {
             chapters = emptyList()
         }
         loadJob?.cancel()
+        if (current?.id != item.id) historyFor = null
         current = item
         error = null
         if (lyricsFor != item.id && lyricsSong != songKey(item.title)) {

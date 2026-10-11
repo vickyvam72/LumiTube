@@ -189,7 +189,7 @@ fun YouTubeApp(
     }
 
     val loggedIn = Session.loggedIn
-    val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }) { Repo.ytHome() }
+    val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
     val shorts = rememberFeed(key = "shorts", more = { Repo.ytMore(it, "search") }) { Repo.ytShorts() }
     val subs = rememberFeed(key = "subs$loggedIn", more = { Repo.ytMore(it) }) {
         if (Session.loggedIn) Repo.ytBrowse("FEsubscriptions") else Page()
@@ -328,6 +328,19 @@ private fun FeedList(
     val state = rememberLazyListState()
     LoadMoreEffect(state, feed)
     val rows = remember(feed.items.size, feed.items.firstOrNull()?.key) { groupRows(feed.items.toList()) }
+    // Siapkan data stream video yang sedang terlihat (saat daftar berhenti digulir),
+    // supaya begitu diketuk video langsung diputar.
+    LaunchedEffect(state, rows) {
+        androidx.compose.runtime.snapshotFlow { state.isScrollInProgress to state.firstVisibleItemIndex }
+            .collect { (scrolling, _) ->
+                if (scrolling) return@collect
+                kotlinx.coroutines.delay(400)
+                state.layoutInfo.visibleItemsInfo.mapNotNull { info -> (rows.getOrNull(info.index - 1) as? FeedRow.Single)?.item }
+                    .filter { it.type == ItemType.VIDEO && !it.live }
+                    .take(3)
+                    .forEach { com.lumitube.app.data.StreamResolver.prefetch(it.id) }
+            }
+    }
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
         item { header() }
         if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }

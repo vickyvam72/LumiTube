@@ -47,8 +47,30 @@ object InnerTube {
     /** Ambil versi klien terbaru & visitorData langsung dari halaman YouTube (fallback ke konstanta). */
     private fun ensureConfig(client: Client) {
         if (client in configured) return
+        // Versi klien tersimpan dari pembukaan sebelumnya: langsung dipakai (tanpa menunggu
+        // halaman YouTube diunduh), lalu diperbarui diam-diam di latar belakang.
+        val saved = Session.getString("cver_${client.name}")
+        if (saved != null && client !in configured) {
+            synchronized(configured) {
+                if (client !in configured) {
+                    client.version = saved
+                    configured.add(client)
+                    if (System.currentTimeMillis() - Session.getLong("cver_t_${client.name}") > 12 * 60 * 60 * 1000L) {
+                        Thread { fetchConfig(client) }.start()
+                    }
+                }
+            }
+            return
+        }
         synchronized(configured) {
             if (client in configured) return
+            fetchConfig(client)
+            configured.add(client)
+        }
+    }
+
+    private fun fetchConfig(client: Client) {
+        run {
             try {
                 val req = Request.Builder().url(client.origin + "/")
                     .header("User-Agent", DESKTOP_UA)
@@ -59,6 +81,8 @@ object InnerTube {
                     val html = resp.body?.string() ?: ""
                     Regex("\"INNERTUBE_CLIENT_VERSION\":\"([^\"]+)\"").find(html)?.let {
                         client.version = it.groupValues[1]
+                        Session.putString("cver_${client.name}", client.version)
+                        Session.putLong("cver_t_${client.name}", System.currentTimeMillis())
                     }
                     if (Session.visitorData == null) {
                         Regex("\"VISITOR_DATA\":\"([^\"]+)\"").find(html)?.let {
@@ -69,7 +93,42 @@ object InnerTube {
             } catch (_: Exception) {
                 // pakai versi bawaan
             }
-            configured.add(client)
+        }
+    }
+
+    /**
+     * Catat ke Histori tontonan akun: ambil URL "videostatsPlaybackUrl" dari respons player
+     * yang login, lalu panggil URL itu seperti yang dilakukan pemutar web YouTube.
+     */
+    suspend fun registerWatch(videoId: String, playlistId: String?, music: Boolean) = withContext(Dispatchers.IO) {
+        val cookie = Session.cookie ?: return@withContext
+        if (!Session.loggedIn) return@withContext
+        val order = if (music) listOf(Client.MUSIC, Client.WEB) else listOf(Client.WEB, Client.MUSIC)
+        for (client in order) {
+            try {
+                val body = JSONObject().put("videoId", videoId)
+                if (playlistId != null) body.put("playlistId", playlistId)
+                val r = post(client, "player", body)
+                val base = r.optJSONObject("playbackTracking")?.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")
+                    ?.takeIf { it.startsWith("http") } ?: continue
+                val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+                val cpn = (1..16).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
+                var url = base.replace("https://s.youtube.com", client.origin)
+                url += (if ('?' in url) "&" else "?") + "ver=2&c=${client.clientName}&cver=${client.version}&cpn=$cpn" +
+                    (if (playlistId != null) "&list=$playlistId" else "")
+                val b = Request.Builder().url(url)
+                    .header("User-Agent", DESKTOP_UA)
+                    .header("Origin", client.origin)
+                    .header("Referer", client.origin + "/")
+                    .header("Cookie", cookie)
+                    .header("X-Goog-AuthUser", "0")
+                authHeader(cookie, client.origin)?.let { b.header("Authorization", it) }
+                Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
+                http.newCall(b.build()).execute().use { resp -> if (resp.isSuccessful) return@withContext }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
         }
     }
 
