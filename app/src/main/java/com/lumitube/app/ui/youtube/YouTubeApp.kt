@@ -722,9 +722,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         for (sh in page?.shelves ?: emptyList()) {
             val list = sh.items.filter { seenKeys.add(it.key) }
             if (list.isEmpty()) continue
-            // Rak Shorts (kartu geser) dari YouTube sering salah tanggal: tidak ditampilkan.
-            if (sh.strapline == "reel") continue
-            val group = false to list
+            // Rak Shorts dari YouTube = daftar Shorts yang ditonton di hari itu (terbaru dulu).
+            val group = (sh.strapline == "reel") to list
             if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.add(group)
             else out.add(sh.title to mutableListOf(group))
         }
@@ -946,8 +945,9 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, groups) ->
-                    val all = groups.flatMap { it.second }
-                    val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT }
+                    // Shorts dari rak YouTube didahulukan (urutan terbaru), lalu Shorts di daftar biasa.
+                    val all = groups.filter { it.first }.flatMap { it.second } + groups.filter { !it.first }.flatMap { it.second }
+                    val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT || groups.any { g -> g.first && it in g.second } }
                     val dayVideos = if (histFilter == 2) emptyList() else all.filter { it.type != ItemType.SHORT }
                     if (dayShorts.isNotEmpty() || dayVideos.isNotEmpty()) {
                         if (day.isNotBlank()) {
