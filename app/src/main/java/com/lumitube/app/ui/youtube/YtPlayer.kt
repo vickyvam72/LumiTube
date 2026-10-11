@@ -390,7 +390,7 @@ fun YtVideoPlayer(
  * Subtitle bawaan: bahasa HP bila ada; kalau tidak ada, terjemahkan otomatis
  * subtitle terbaik ke bahasa HP (bila YouTube mendukung).
  */
-private fun defaultCaption(): Pair<Int, String?> {
+internal fun defaultCaption(): Pair<Int, String?> {
     val list = PlaybackManager.captions
     val lang = Locale.getDefault().language
     list.indexOfFirst { it.lang.startsWith(lang) && !it.auto }.takeIf { it >= 0 }?.let { return it to null }
@@ -437,7 +437,7 @@ private fun AutoplayToggle() {
 }
 
 @Composable
-private fun YtSeekBar(
+internal fun YtSeekBar(
     position: Long,
     duration: Long,
     buffered: Long,
@@ -696,7 +696,7 @@ private fun CheckRow(label: String, checked: Boolean, onClick: () -> Unit) {
 
 /** Satu gambar pratinjau dari lembar storyboard YouTube (dipotong dari gambar besar). */
 @Composable
-private fun StoryboardFrame(sb: com.lumitube.app.data.Storyboard, timeMs: Long, modifier: Modifier) {
+internal fun StoryboardFrame(sb: com.lumitube.app.data.Storyboard, timeMs: Long, modifier: Modifier) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val (url, x, y) = sb.frame(timeMs)
     var shown by remember { mutableStateOf<Pair<androidx.compose.ui.graphics.ImageBitmap, androidx.compose.ui.unit.IntOffset>?>(null) }

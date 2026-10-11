@@ -23,6 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.ClosedCaption
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -39,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -54,6 +59,8 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +79,7 @@ import com.lumitube.app.ui.common.Img
 import com.lumitube.app.ui.common.PanelColors
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.common.YtRed
+import com.lumitube.app.ui.common.formatTime
 import com.lumitube.app.ui.common.shareVideo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -94,6 +102,7 @@ fun ShortsPlayer(
     var commentsFor by remember { mutableStateOf<WatchInfo?>(null) }
     var showComments by remember { mutableStateOf(false) }
     var downloadItem by remember { mutableStateOf<Item?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(pager.settledPage, items.size) {
         val it = items.getOrNull(pager.settledPage) ?: return@LaunchedEffect
@@ -119,6 +128,7 @@ fun ShortsPlayer(
                 onLogin = onLogin,
                 onComments = { info -> commentsFor = info; showComments = true },
                 onDownload = { downloadItem = item },
+                onSettings = { showSettings = true },
             )
         }
         if (onBack != null) {
@@ -138,6 +148,7 @@ fun ShortsPlayer(
         }
     }
     downloadItem?.let { DownloadDialog(it) { downloadItem = null } }
+    if (showSettings) YtSettingsSheet { showSettings = false }
 }
 
 @Composable
@@ -148,6 +159,7 @@ private fun ShortPage(
     onLogin: () -> Unit,
     onComments: (WatchInfo?) -> Unit,
     onDownload: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -162,20 +174,45 @@ private fun ShortPage(
     }
     var liked by remember(item.id, info?.liked) { mutableStateOf(info?.liked == true) }
     var subscribed by remember(item.id, info?.subscribed) { mutableStateOf(info?.subscribed == true) }
-    var progress by remember { mutableFloatStateOf(0f) }
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var buffered by remember { mutableLongStateOf(0L) }
+    var scrub by remember { mutableStateOf<Float?>(null) }
+    var holding by remember { mutableStateOf(false) }
 
     LaunchedEffect(active, item.id) {
         while (active) {
-            val d = PlaybackManager.exo.duration
-            progress = if (d > 0) PlaybackManager.exo.currentPosition.toFloat() / d else 0f
+            position = PlaybackManager.exo.currentPosition
+            duration = PlaybackManager.exo.duration.coerceAtLeast(0)
+            buffered = PlaybackManager.exo.bufferedPosition
             delay(200)
         }
     }
 
+    val holdScope = rememberCoroutineScope()
     Box(
         Modifier.fillMaxSize().background(Color.Black)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                if (active) PlaybackManager.togglePlay()
+            .pointerInput(active) {
+                if (!active) return@pointerInput
+                detectTapGestures(
+                    // Tahan layar (kiri/kanan) = cepat 2x, lepas = normal, seperti pemutar video.
+                    onPress = {
+                        var started = false
+                        val job = holdScope.launch {
+                            delay(450)
+                            started = true
+                            holding = true
+                            PlaybackManager.startHoldSeek(1)
+                        }
+                        tryAwaitRelease()
+                        job.cancel()
+                        if (started) {
+                            PlaybackManager.stopHoldSeek()
+                            holding = false
+                        }
+                    },
+                    onTap = { PlaybackManager.togglePlay() },
+                )
             }
     ) {
         // Langsung video. Selama data belum siap layar cukup hitam (tanpa thumbnail/loading).
@@ -278,12 +315,66 @@ private fun ShortPage(
         }
 
         if (active) {
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp),
-                color = YtRed,
-                trackColor = Color(0x33FFFFFF),
-            )
+            // Tombol atas kanan: teks (CC) dan setelan (kualitas, kecepatan, teks, timer tidur).
+            Row(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp)) {
+                val hasCaptions = PlaybackManager.captions.isNotEmpty()
+                IconButton(
+                    onClick = {
+                        if (PlaybackManager.captionIndex >= 0) PlaybackManager.setCaption(-1)
+                        else defaultCaption().let { (idx, tl) -> PlaybackManager.setCaption(idx, tl) }
+                    },
+                    enabled = hasCaptions,
+                ) {
+                    Icon(
+                        if (PlaybackManager.captionIndex >= 0) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaption,
+                        "Teks", tint = if (hasCaptions) Color.White else Color(0x66FFFFFF),
+                    )
+                }
+                IconButton(onClick = onSettings) { Icon(Icons.Filled.MoreVert, "Setelan", tint = Color.White) }
+            }
+
+            if (holding) {
+                Row(
+                    Modifier.align(Alignment.TopCenter).padding(top = 56.dp).clip(RoundedCornerShape(16.dp))
+                        .background(Color(0x99000000)).padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(" 2x ", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Filled.FastForward, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            // Menggeser garis merah: pratinjau gambar + waktu, seperti pemutar video.
+            scrub?.let { f ->
+                val t = (f * duration).toLong()
+                Column(
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    PlaybackManager.storyboard?.let { sb ->
+                        Box(Modifier.size(width = 120.dp, height = 213.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black)) {
+                            StoryboardFrame(sb, t, Modifier.fillMaxSize())
+                        }
+                    }
+                    Text(
+                        "${formatTime(t)} / ${formatTime(duration)}", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x99000000))
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                    )
+                }
+            }
+
+            YtSeekBar(
+                position = position,
+                duration = duration,
+                buffered = buffered,
+                expanded = true,
+                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+                onScrub = { scrub = it },
+                onSeekStart = { },
+            ) { fraction ->
+                if (duration > 0) PlaybackManager.exo.seekTo((fraction * duration).toLong())
+            }
         }
     }
 }

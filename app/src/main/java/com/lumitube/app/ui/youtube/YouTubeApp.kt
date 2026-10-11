@@ -323,6 +323,9 @@ private fun groupRows(items: List<Item>): List<FeedRow> {
     return rows
 }
 
+private val feedListStates = java.util.WeakHashMap<FeedLoader, androidx.compose.foundation.lazy.LazyListState>()
+private val feedChipStates = java.util.WeakHashMap<FeedLoader, androidx.compose.runtime.MutableIntState>()
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun FeedList(
@@ -334,7 +337,8 @@ private fun FeedList(
     empty: @Composable () -> Unit = {},
 ) {
     val yt = LocalYt.current
-    val state = rememberLazyListState()
+    // Posisi gulir disimpan per feed: buka video lalu kembali = tetap di posisi yang sama.
+    val state = remember(feed) { feedListStates.getOrPut(feed) { androidx.compose.foundation.lazy.LazyListState() } }
     LoadMoreEffect(state, feed)
     val rows = remember(feed.items.size, feed.items.firstOrNull()?.key) { groupRows(feed.items.toList()) }
     // Siapkan data stream video yang sedang terlihat (saat daftar berhenti digulir),
@@ -405,7 +409,8 @@ private fun HomeTab(
     onOffline: () -> Unit,
 ) {
     val yt = LocalYt.current
-    var selected by remember(feed) { mutableIntStateOf(0) }
+    val selectedState = remember(feed) { feedChipStates.getOrPut(feed) { androidx.compose.runtime.mutableIntStateOf(0) } }
+    var selected by selectedState
     val chips = remember(feed.page) {
         val c = feed.page?.chips ?: emptyList()
         if (c.isEmpty()) listOf(com.lumitube.app.data.Chip("Semua", selected = true)) else c
@@ -715,7 +720,9 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         for (sh in page?.shelves ?: emptyList()) {
             val list = sh.items.filter { seenKeys.add(it.key) }
             if (list.isEmpty()) continue
-            val group = (sh.strapline == "reel") to list
+            // Rak Shorts (kartu geser) dari YouTube sering salah tanggal: tidak ditampilkan.
+            if (sh.strapline == "reel") continue
+            val group = false to list
             if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.add(group)
             else out.add(sh.title to mutableListOf(group))
         }
@@ -726,8 +733,6 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         }
         out
     } else emptyList()
-    // Filter Histori seperti aplikasi YouTube: Semua / Video / Shorts.
-    var histFilter by rememberSaveable(id) { mutableIntStateOf(0) }
     val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { d -> d.second.flatMap { it.second } }
         else if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
     // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
@@ -884,15 +889,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             Icon(Icons.Filled.Search, null, tint = yt.sub)
                             Text("Telusuri histori tontonan", color = yt.sub, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp))
                         }
-                        Row(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Semua", "Video", "Shorts").forEachIndexed { i, label ->
-                                val on = histFilter == i
-                                Box(
-                                    Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) yt.text else yt.chip)
-                                        .clickable { histFilter = i }.padding(horizontal = 14.dp, vertical = 7.dp),
-                                ) { Text(label, color = if (on) yt.bg else yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
-                            }
-                        }
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
             } else if (page != null && (page.title != null || page.thumbnail != null)) {
@@ -937,14 +934,16 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, groups) ->
-                    // Filter: Video = bukan Shorts; Shorts = rak Shorts + Shorts di baris.
-                    val shown = groups.mapNotNull { (reel, list) ->
-                        val l = when (histFilter) {
-                            1 -> list.filter { it.type != ItemType.SHORT }
-                            2 -> list.filter { it.type == ItemType.SHORT }
-                            else -> list
+                    // Shorts berurutan jadi deretan kartu tegak; video biasa tetap baris.
+                    val shown = groups.flatMap { (_, list) ->
+                        val out = mutableListOf<Pair<Boolean, List<Item>>>()
+                        for (v in list) {
+                            val short = v.type == ItemType.SHORT
+                            val last = out.lastOrNull()
+                            if (last != null && last.first == short) out[out.lastIndex] = short to (last.second + v)
+                            else out.add(short to listOf(v))
                         }
-                        if (l.isEmpty()) null else (reel || (histFilter == 2)) to l
+                        out
                     }
                     if (shown.isNotEmpty()) {
                         if (day.isNotBlank()) {

@@ -331,5 +331,7 @@ object InnerTube {
             if (like) "like/like" else "like/removelike",
             JSONObject().put("target", JSONObject().put("videoId", videoId))
         )
+        // Daftar "Video yang disukai" yang tersimpan sementara dibuang supaya langsung terlihat.
+        listOf("VLLL", "VLLM", "FEmusic_liked_videos").forEach { com.lumitube.app.ui.common.FeedLoader.invalidate(it) }
     }
 }

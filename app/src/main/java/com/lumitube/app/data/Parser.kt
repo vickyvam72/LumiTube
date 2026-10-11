@@ -121,9 +121,11 @@ object Parser {
         val live = badgeVm?.str("badgeStyle")?.contains("LIVE") == true ||
             badge?.trim()?.uppercase() in setOf("LIVE", "LANGSUNG", "EN DIRECT", "EN VIVO")
         val channelId = findFirst(meta.obj("image"), "browseEndpoint")?.str("browseId")
+        // Shorts di daftar biasa (mis. Histori) dibuka dengan reelWatchEndpoint.
+        val isShortLockup = findFirst(v.obj("rendererContext"), "reelWatchEndpoint") != null
         return when {
-            type.contains("VIDEO") -> Item(
-                type = ItemType.VIDEO,
+            type.contains("VIDEO") || type.contains("SHORT") -> Item(
+                type = if (isShortLockup || type.contains("SHORT")) ItemType.SHORT else ItemType.VIDEO,
                 id = id,
                 title = title,
                 subtitle = rows.joinToString(" • "),
