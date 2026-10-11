@@ -77,7 +77,50 @@ data class WatchInfo(
     /** Siaran langsung: token untuk live chat (pengganti kolom komentar). */
     val liveChatToken: String? = null,
     val isLive: Boolean = false,
+    /** Bab video dari kreator: (mulai ms, judul). */
+    val chapters: List<Pair<Long, String>> = emptyList(),
 )
+
+/** Lembar gambar pratinjau (storyboard) untuk menggeser timeline. */
+data class Storyboard(
+    val template: String,
+    val width: Int,
+    val height: Int,
+    val count: Int,
+    val cols: Int,
+    val rows: Int,
+    val intervalMs: Long,
+) {
+    /** URL lembar + posisi gambar (x, y) untuk waktu [timeMs]. */
+    fun frame(timeMs: Long): Triple<String, Int, Int> {
+        val idx = (timeMs / intervalMs.coerceAtLeast(1)).toInt().coerceIn(0, (count - 1).coerceAtLeast(0))
+        val per = (cols * rows).coerceAtLeast(1)
+        val within = idx % per
+        return Triple(template.replace("\$M", (idx / per).toString()), (within % cols) * width, (within / cols) * height)
+    }
+
+    companion object {
+        /** spec: "url|w#h#count#cols#rows#interval#name#sigh|..." -> pakai level terbesar. */
+        fun parse(spec: String?, durationMs: Long): Storyboard? {
+            if (spec.isNullOrBlank()) return null
+            val parts = spec.split("|")
+            if (parts.size < 2) return null
+            val base = parts[0]
+            val level = parts.size - 2
+            val f = parts.last().split("#")
+            if (f.size < 8) return null
+            val w = f[0].toIntOrNull() ?: return null
+            val h = f[1].toIntOrNull() ?: return null
+            val count = f[2].toIntOrNull() ?: return null
+            val cols = f[3].toIntOrNull() ?: return null
+            val rows = f[4].toIntOrNull() ?: return null
+            var interval = f[5].toLongOrNull() ?: 0L
+            if (interval <= 0 && count > 0) interval = durationMs / count
+            val url = base.replace("\$L", level.toString()).replace("\$N", f[6]) + "&sigh=" + f[7]
+            return Storyboard(url, w, h, count, cols, rows, interval)
+        }
+    }
+}
 
 data class ChatMessage(
     val id: String,

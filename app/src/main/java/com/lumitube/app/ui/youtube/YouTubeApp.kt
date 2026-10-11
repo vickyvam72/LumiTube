@@ -933,6 +933,11 @@ fun WatchScreen(
 
     BackHandler { if (full) full = false else onBack() }
 
+    // Bab video untuk garis putus-putus di timeline.
+    LaunchedEffect(info) {
+        if (info != null && PlaybackManager.current?.id == current.id) PlaybackManager.chapters = info?.chapters ?: emptyList()
+    }
+
     // Putar otomatis: saat video selesai, lanjut ke video terkait pertama.
     LaunchedEffect(info) {
         val next = info?.related?.firstOrNull { it.type == ItemType.VIDEO }

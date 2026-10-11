@@ -179,6 +179,12 @@ object PlaybackManager {
         closeRequested++
     }
 
+    /** Gambar pratinjau timeline untuk video saat ini. */
+    var storyboard by mutableStateOf<com.lumitube.app.data.Storyboard?>(null)
+        private set
+    /** Bab video (diisi halaman tonton). */
+    var chapters by mutableStateOf<List<Pair<Long, String>>>(emptyList())
+
     /** Video yang diputar adalah siaran langsung. */
     var isLiveStream by mutableStateOf(false)
         private set
@@ -728,6 +734,8 @@ object PlaybackManager {
             subtitleCues = emptyList()
             retries = 0
             netRetries = 0
+            storyboard = null
+            chapters = emptyList()
         }
         loadJob?.cancel()
         current = item
@@ -756,6 +764,9 @@ object PlaybackManager {
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly, short = item.type == ItemType.SHORT)
                     currentClient = stream.client
+                    if (!stream.isLive) {
+                        com.lumitube.app.data.Storyboard.parse(stream.storyboardSpec, stream.lengthSeconds * 1000)?.let { storyboard = it }
+                    }
                     // Dibuka dari link: judul/artis belum diketahui -> isi dari data stream.
                     if (item.title.isBlank() && current?.id == item.id) {
                         val upd = item.copy(

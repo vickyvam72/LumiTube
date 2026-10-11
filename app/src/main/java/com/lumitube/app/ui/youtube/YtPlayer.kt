@@ -30,6 +30,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.blur
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -113,6 +115,7 @@ fun YtVideoPlayer(
     var buffered by remember { mutableLongStateOf(0L) }
     var seekSide by remember { mutableIntStateOf(0) } // -1 kiri, 1 kanan
     var holdSide by remember { mutableIntStateOf(0) } // tahan: 1 maju 2x, -1 mundur 2x
+    var scrub by remember { mutableStateOf<Float?>(null) } // posisi saat menggeser timeline
     var seekAmount by remember { mutableIntStateOf(0) }
     var seekKey by remember { mutableIntStateOf(0) }
 
@@ -142,6 +145,29 @@ fun YtVideoPlayer(
     Box(modifier.background(Color.Black)) {
         VideoSurface(Modifier.fillMaxSize(), controller = false)
 
+        // Menggeser timeline: gambar pratinjau (diburamkan) + waktu & judul bab, seperti YouTube.
+        scrub?.let { f ->
+            val t = (f * duration).toLong()
+            val sb = PlaybackManager.storyboard
+            Box(Modifier.fillMaxSize().background(Color(0x66000000)))
+            if (sb != null) {
+                StoryboardFrame(
+                    sb, t,
+                    Modifier.fillMaxSize().then(
+                        if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(10.dp) else Modifier
+                    ),
+                )
+            }
+            val chapter = PlaybackManager.chapters.lastOrNull { it.first <= t }?.second
+            Text(
+                listOfNotNull(formatTime(t), chapter?.takeIf { it.isNotBlank() }).joinToString("   "),
+                color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
+                    .clip(RoundedCornerShape(20.dp)).background(Color(0x99000000))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+
         // Lapisan gestur: ketuk = tampil/sembunyi kontrol, ketuk 2x = lompat 10 detik
         val holdScope = androidx.compose.runtime.rememberCoroutineScope()
         Box(
@@ -149,7 +175,7 @@ fun YtVideoPlayer(
                 detectTapGestures(
                     // Tahan kanan = maju cepat 2x, tahan kiri = mundur 2x; lepas = normal lagi.
                     onPress = { o ->
-                        val side = if (o.x > size.width / 2f) 1 else -1
+                        val side = 1 // tahan kiri maupun kanan = maju cepat 2x
                         var started = false
                         val job = holdScope.launch {
                             kotlinx.coroutines.delay(450)
@@ -356,6 +382,8 @@ fun YtVideoPlayer(
             buffered = buffered,
             expanded = show,
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+            chapters = PlaybackManager.chapters.map { it.first },
+            onScrub = { scrub = it; touch = System.currentTimeMillis() },
             onSeekStart = { touch = System.currentTimeMillis() },
         ) { fraction ->
             touch = System.currentTimeMillis()
@@ -421,6 +449,8 @@ private fun YtSeekBar(
     buffered: Long,
     expanded: Boolean,
     modifier: Modifier,
+    chapters: List<Long> = emptyList(),
+    onScrub: (Float?) -> Unit = {},
     onSeekStart: () -> Unit,
     onSeek: (Float) -> Unit,
 ) {
@@ -441,23 +471,41 @@ private fun YtSeekBar(
                         dragging = true
                         drag = (o.x / size.width).coerceIn(0f, 1f)
                         onSeekStart()
+                        onScrub(drag)
                     },
                     onDragEnd = {
                         dragging = false
+                        onScrub(null)
                         onSeek(drag)
                     },
-                    onDragCancel = { dragging = false },
+                    onDragCancel = { dragging = false; onScrub(null) },
                 ) { change, _ ->
                     drag = (change.position.x / size.width).coerceIn(0f, 1f)
+                    onScrub(drag)
                 }
             },
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val y = size.height - 1.5.dp.toPx()
             val stroke = 3.dp.toPx()
-            drawLine(Color(0x55FFFFFF), Offset(0f, y), Offset(size.width, y), stroke)
-            drawLine(Color(0x99FFFFFF), Offset(0f, y), Offset(size.width * buf, y), stroke)
-            drawLine(YtRed, Offset(0f, y), Offset(size.width * played.coerceIn(0f, 1f), y), stroke, cap = StrokeCap.Butt)
+            // Bab dari kreator: timeline dipecah jadi beberapa garis (putus-putus).
+            val gap = if (chapters.size >= 2 && duration > 0) 2.dp.toPx() else 0f
+            val bounds = if (gap > 0) {
+                (chapters.filter { it in 1 until duration }.map { it.toFloat() / duration } + 1f).sorted()
+            } else listOf(1f)
+            fun seg(color: Color, upTo: Float) {
+                var start = 0f
+                for (end in bounds) {
+                    val a = size.width * start
+                    val b = size.width * minOf(end, upTo) - (if (end < 1f) gap / 2 else 0f)
+                    if (b > a) drawLine(color, Offset(a + (if (start > 0f) gap / 2 else 0f), y), Offset(b, y), stroke, cap = StrokeCap.Butt)
+                    if (end >= upTo) break
+                    start = end
+                }
+            }
+            seg(Color(0x55FFFFFF), 1f)
+            seg(Color(0x99FFFFFF), buf)
+            seg(YtRed, played.coerceIn(0f, 1f))
             if (expanded) drawCircle(YtRed, radius = (if (dragging) 9 else 7).dp.toPx(), center = Offset(size.width * played.coerceIn(0f, 1f), y))
         }
     }
@@ -649,5 +697,42 @@ private fun CheckRow(label: String, checked: Boolean, onClick: () -> Unit) {
             if (checked) Icon(Icons.Filled.Check, null, tint = yt.text)
         }
         Text(label, color = yt.text, fontSize = 15.sp)
+    }
+}
+
+/** Satu gambar pratinjau dari lembar storyboard YouTube (dipotong dari gambar besar). */
+@Composable
+private fun StoryboardFrame(sb: com.lumitube.app.data.Storyboard, timeMs: Long, modifier: Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val (url, x, y) = sb.frame(timeMs)
+    var shown by remember { mutableStateOf<Pair<androidx.compose.ui.graphics.ImageBitmap, androidx.compose.ui.unit.IntOffset>?>(null) }
+    LaunchedEffect(url, x, y) {
+        val bmp = StoryboardCache.get(context, url) ?: return@LaunchedEffect
+        shown = bmp to androidx.compose.ui.unit.IntOffset(x, y)
+    }
+    val cur = shown ?: return
+    Canvas(modifier) {
+        drawImage(
+            cur.first,
+            srcOffset = cur.second,
+            srcSize = androidx.compose.ui.unit.IntSize(
+                sb.width.coerceAtMost(cur.first.width - cur.second.x),
+                sb.height.coerceAtMost(cur.first.height - cur.second.y),
+            ),
+            dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+        )
+    }
+}
+
+private object StoryboardCache {
+    private val cache = android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(6)
+
+    suspend fun get(context: android.content.Context, url: String): androidx.compose.ui.graphics.ImageBitmap? {
+        cache.get(url)?.let { return it }
+        val req = coil.request.ImageRequest.Builder(context).data(url).allowHardware(false).build()
+        val result = coil.Coil.imageLoader(context).execute(req)
+        val bmp = ((result as? coil.request.SuccessResult)?.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+            ?: return null
+        return bmp.asImageBitmap().also { cache.put(url, it) }
     }
 }

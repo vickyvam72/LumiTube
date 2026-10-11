@@ -51,6 +51,8 @@ data class Stream(
     val headers: Map<String, String> = emptyMap(),
     /** Ukuran potongan Range tetap (0 = adaptif). Klien Android VR maksimal 512 KB. */
     val chunk: Long = 0,
+    /** Spesifikasi storyboard (gambar pratinjau timeline). */
+    val storyboardSpec: String? = null,
 ) {
     /** Daftar resolusi video yang tersedia (tanpa AV1), urut dari tertinggi. */
     val qualities: List<Int>
@@ -530,6 +532,7 @@ object StreamResolver {
             client = key(c),
             headers = c.mediaHeaders,
             chunk = c.chunk,
+            storyboardSpec = json.str("storyboards", "playerStoryboardSpecRenderer", "spec"),
             isLive = isLive,
             title = json.str("videoDetails", "title"),
             author = json.str("videoDetails", "author"),

@@ -519,6 +519,7 @@ object Parser {
                 findFirst(lc.arr("continuations"), "reloadContinuationData")?.str("continuation")
             },
             isLive = primary.obj("viewCount", "videoViewCountRenderer")?.optBoolean("isLive", false) == true,
+            chapters = chapters(next),
         )
     }
 
@@ -662,4 +663,18 @@ object Parser {
     fun findFirstPublic(root: Any?, key: String): JSONObject? = findFirst(root, key)
 
     fun findAllPublic(root: Any?, key: String): List<JSONObject> = findAll(root, key)
+
+    /** Bab video (garis putus-putus di timeline). */
+    private fun chapters(next: JSONObject): List<Pair<Long, String>> {
+        val list = findAll(next, "chapterRenderer").mapNotNull { c ->
+            val start = c.optLong("timeRangeStartMillis", -1)
+            if (start < 0) null else start to (text(c.obj("title")) ?: "")
+        }.ifEmpty {
+            findAll(next.arr("engagementPanels"), "macroMarkersListItemRenderer").mapNotNull { m ->
+                val sec = findFirst(m.obj("onTap"), "watchEndpoint")?.optInt("startTimeSeconds", -1) ?: -1
+                if (sec < 0) null else sec * 1000L to (text(m.obj("title")) ?: "")
+            }
+        }
+        return list.distinctBy { it.first }.sortedBy { it.first }.takeIf { it.size >= 2 } ?: emptyList()
+    }
 }
