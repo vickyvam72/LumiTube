@@ -109,7 +109,9 @@ object Repo {
             } ?: ""
             val items = Parser.items(sec, false)
             if (items.isEmpty()) null else Shelf(title, items = items)
-        } (tab "Telusuri" di halaman channel). */
+        }
+
+    /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */
     suspend fun ytChannelSearch(channelId: String, query: String): Page {
         val body = org.json.JSONObject()
             .put("browseId", channelId)
