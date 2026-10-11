@@ -555,9 +555,11 @@ object Parser {
             commentsToken = commentsToken,
             commentCount = commentCount,
             descriptionLinks = descriptionLinks(secondary.obj("attributedDescription")),
-            liveChatToken = findFirst(next.obj("contents"), "liveChatRenderer")?.let { lc ->
-                findFirst(lc.arr("continuations"), "reloadContinuationData")?.str("continuation")
-            },
+            // Live chat hanya untuk siaran yang sedang live. Video bekas premiere/live punya
+            // "chat replay" (isReplay) — video seperti itu tetap memakai kolom komentar.
+            liveChatToken = findFirst(next.obj("contents"), "liveChatRenderer")
+                ?.takeIf { lc -> !lc.optBoolean("isReplay", false) && primary.obj("viewCount", "videoViewCountRenderer")?.optBoolean("isLive", false) == true }
+                ?.let { lc -> findFirst(lc.arr("continuations"), "reloadContinuationData")?.str("continuation") },
             isLive = primary.obj("viewCount", "videoViewCountRenderer")?.optBoolean("isLive", false) == true,
             chapters = chapters(next),
         )
