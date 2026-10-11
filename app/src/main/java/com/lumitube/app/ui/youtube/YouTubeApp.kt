@@ -116,6 +116,7 @@ import com.lumitube.app.ui.common.LocalYt
 import com.lumitube.app.ui.common.MessageBox
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.common.YtRed
+import androidx.compose.material.icons.filled.SlowMotionVideo
 import com.lumitube.app.ui.common.findActivity
 import com.lumitube.app.ui.common.rememberFeed
 import com.lumitube.app.ui.common.shareVideo
@@ -733,6 +734,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
         }
         out
     } else emptyList()
+    // Filter Histori: Semua / Video / Shorts.
+    var histFilter by rememberSaveable(id) { mutableIntStateOf(0) }
     val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { d -> d.second.flatMap { it.second } }
         else if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
     // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
@@ -889,7 +892,15 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             Icon(Icons.Filled.Search, null, tint = yt.sub)
                             Text("Telusuri histori tontonan", color = yt.sub, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp))
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Semua", "Video", "Shorts").forEachIndexed { i, label ->
+                                val on = histFilter == i
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) yt.text else yt.chip)
+                                        .clickable { histFilter = i }.padding(horizontal = 14.dp, vertical = 7.dp),
+                                ) { Text(label, color = if (on) yt.bg else yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                            }
+                        }
                     }
                 }
             } else if (page != null && (page.title != null || page.thumbnail != null)) {
@@ -934,35 +945,46 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, groups) ->
-                    // Shorts berurutan jadi deretan kartu tegak; video biasa tetap baris.
-                    val shown = groups.flatMap { (_, list) ->
-                        val out = mutableListOf<Pair<Boolean, List<Item>>>()
-                        for (v in list) {
-                            val short = v.type == ItemType.SHORT
-                            val last = out.lastOrNull()
-                            if (last != null && last.first == short) out[out.lastIndex] = short to (last.second + v)
-                            else out.add(short to listOf(v))
-                        }
-                        out
-                    }
-                    if (shown.isNotEmpty()) {
+                    val all = groups.flatMap { it.second }
+                    val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT }
+                    val dayVideos = if (histFilter == 2) emptyList() else all.filter { it.type != ItemType.SHORT }
+                    if (dayShorts.isNotEmpty() || dayVideos.isNotEmpty()) {
                         if (day.isNotBlank()) {
                             item(key = "hd$di") {
                                 Text(day, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 10.dp))
                             }
                         }
-                        shown.forEachIndexed { gi, (reel, list) ->
-                            if (reel) {
-                                item(key = "hs$di-$gi") { HistoryShorts(list) { s -> open(s) } }
+                        if (dayShorts.isNotEmpty()) {
+                            if (histFilter == 2) {
+                                // Tab Shorts: kisi 3 kolom kartu tegak.
+                                val rowsOf3 = dayShorts.chunked(3)
+                                items(rowsOf3.size, key = { "hg$di-$it" }) { r ->
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        rowsOf3[r].forEach { sh -> ShortCard(sh, Modifier.weight(1f)) { open(sh) } }
+                                        repeat(3 - rowsOf3[r].size) { Spacer(Modifier.weight(1f)) }
+                                    }
+                                }
                             } else {
-                                items(list, key = { "h$di-$gi" + it.key }) { v ->
-                                    if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                                // Tab Semua: semua Shorts hari itu dalam satu deretan kartu di atas video.
+                                item(key = "hs$di") {
+                                    Column {
+                                        Row(Modifier.padding(start = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Filled.SlowMotionVideo, null, tint = YtRed, modifier = Modifier.size(20.dp))
+                                            Text("Shorts", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+                                        }
+                                        HistoryShorts(dayShorts) { s -> open(s) }
+                                    }
                                 }
                             }
                         }
+                        items(dayVideos, key = { "h$di" + it.key }) { v ->
+                            if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                        }
                     }
                 }
-            }
             items(if (historyDays.isNotEmpty()) emptyList() else own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
@@ -1471,25 +1493,26 @@ private fun HistoryShorts(items: List<Item>, onClick: (Item) -> Unit) {
     androidx.compose.foundation.lazy.LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(bottom = 12.dp),
+        modifier = Modifier.padding(bottom = 14.dp),
     ) {
-        items(items, key = { it.key }) { s ->
-            Box(
-                Modifier.width(135.dp).aspectRatio(9f / 13.5f).clip(RoundedCornerShape(10.dp)).clickable { onClick(s) }
-            ) {
-                Img(s.thumbnail ?: "https://i.ytimg.com/vi/${s.id}/oar2.jpg", Modifier.fillMaxSize())
-                Box(
-                    Modifier.fillMaxSize().background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            0.55f to Color.Transparent, 1f to Color(0xCC000000)
-                        )
-                    )
-                )
-                Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-                    Text(s.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp)
-                    if (s.subtitle.isNotBlank()) Text(s.subtitle, color = Color(0xDDFFFFFF), fontSize = 12.sp, maxLines = 1)
-                }
-            }
+        items(items, key = { it.key }) { s -> ShortCard(s, Modifier.width(118.dp)) { onClick(s) } }
+    }
+}
+
+/** Kartu Short tegak 9:16 dengan judul & tayangan di atas gambar. */
+@Composable
+private fun ShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.aspectRatio(9f / 16f).clip(RoundedCornerShape(10.dp)).background(Color.Black).clickable(onClick = onClick)) {
+        Img(s.thumbnail ?: "https://i.ytimg.com/vi/${s.id}/oar2.jpg", Modifier.fillMaxSize())
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xCC000000))
+            )
+        )
+        Column(Modifier.align(Alignment.BottomStart).padding(7.dp)) {
+            Text(s.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
+            val views = s.subtitle.split(" • ").lastOrNull()?.takeIf { it.isNotBlank() }
+            if (views != null) Text(views, color = Color(0xDDFFFFFF), fontSize = 11.sp, maxLines = 1)
         }
     }
 }
