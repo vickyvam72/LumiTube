@@ -70,6 +70,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumitube.app.data.Chip
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import com.lumitube.app.data.Item
 import com.lumitube.app.data.ItemType
 import com.lumitube.app.data.Repo
@@ -409,8 +411,35 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
                 },
             )
         } else {
-            val feed = rememberFeed(key = query) { Repo.musicSearch(query) }
-            ShelfList(feed, onItem)
+            // Filter seperti YT Music asli: Lagu, Artis, Album, Playlist komunitas, Video, …
+            var chips by remember(query) { mutableStateOf(emptyList<Chip>()) }
+            var chip by remember(query) { mutableStateOf<Chip?>(null) }
+            val feed = rememberFeed(key = "msearch|$query|${chip?.params}", more = { Repo.musicSearchMore(it) }) {
+                Repo.musicSearch(query, chip?.params)
+            }
+            LaunchedEffect(feed.page) {
+                val c = feed.page?.chips ?: emptyList()
+                if (chips.isEmpty() && c.isNotEmpty()) chips = c
+            }
+            Column {
+                if (chips.isNotEmpty()) {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    ) {
+                        items(chips.size) { i ->
+                            val c = chips[i]
+                            val on = chip?.title == c.title
+                            Box(
+                                Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) Color.White else MusicColors.chip)
+                                    .clickable { chip = if (on) null else c }.padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) { Text(c.title, color = if (on) Color.Black else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                        }
+                    }
+                }
+                ShelfList(feed, onItem, search = true)
+            }
         }
     }
 }
@@ -422,9 +451,21 @@ private fun ShelfList(
     onItem: (Item, List<Item>) -> Unit,
     header: @Composable () -> Unit = {},
     deleter: com.lumitube.app.ui.common.PlaylistDeleter? = null,
+    search: Boolean = false,
 ) {
     val shelves = feed.page?.shelves ?: emptyList()
-    LazyColumn(Modifier.fillMaxSize()) {
+    val state = rememberLazyListState()
+    if (search) {
+        val nearEnd by remember {
+            derivedStateOf {
+                val info = state.layoutInfo
+                val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+            }
+        }
+        LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) feed.loadMore() }
+    }
+    LazyColumn(Modifier.fillMaxSize(), state = state) {
         item { header() }
         if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = Color.White) }
         feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } } }
@@ -432,6 +473,15 @@ private fun ShelfList(
             item { MessageBox("Tidak ada apa-apa di sini.", MusicColors.sub) }
         }
         shelves.forEachIndexed { si, shelf ->
+            // Hasil teratas di pencarian: kartu besar seperti YT Music asli, isinya di bawah.
+            if (search && si == 0 && shelf.strapline != "search" && shelf.items.isNotEmpty()) {
+                val top = shelf.items.first()
+                item(key = "top") { TopResultCard(top, onPlay = { onItem(top, listOf(top)) }) { onItem(top, shelf.items) } }
+                items(shelf.items.drop(1).filter { deleter == null || it.id !in deleter.deleted }, key = { "s0" + it.key }) { item ->
+                    SongRow(item) { onItem(item, shelf.items) }
+                }
+                return@forEachIndexed
+            }
             if (shelf.title.isNotBlank()) {
                 item(key = "h$si") {
                     Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
@@ -737,5 +787,40 @@ private fun PillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, la
         Icon(icon, null, tint = if (primary) Color.Black else Color.White, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(6.dp))
         Text(label, color = if (primary) Color.Black else Color.White, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Kartu "Hasil teratas" di pencarian YT Music. */
+@Composable
+private fun TopResultCard(item: Item, onPlay: () -> Unit, onOpen: () -> Unit) {
+    Column(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            .background(MusicColors.card).padding(16.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
+            Img(item.thumbnail, Modifier.size(64.dp).clip(if (item.type == ItemType.ARTIST) CircleShape else RoundedCornerShape(4.dp)))
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(item.title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (item.subtitle.isNotBlank()) Text(item.subtitle, color = MusicColors.sub, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White)
+        }
+        Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(Color.White).clickable(onClick = onOpen),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Shuffle, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                Text(if (item.type == ItemType.SONG) "Radio" else "Buka", color = Color.Black, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            }
+            Row(
+                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp))
+                    .border(1.dp, Color(0x66FFFFFF), RoundedCornerShape(20.dp)).clickable(onClick = if (item.type == ItemType.SONG) onPlay else onOpen),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Text("Putar", color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
     }
 }

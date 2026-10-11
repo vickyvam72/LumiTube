@@ -362,6 +362,17 @@ object Parser {
                     out.add(Shelf(text(v.obj("header", "gridHeaderRenderer", "title")) ?: "", null, items(v.arr("items"), true)))
                     true
                 }
+                // Hasil pencarian YT Music (2026): baris lagu/artis/album di dalam itemSectionRenderer.
+                "itemSectionRenderer" -> {
+                    val nested = listOf("musicShelfRenderer", "musicCarouselShelfRenderer", "gridRenderer", "musicCardShelfRenderer", "musicPlaylistShelfRenderer")
+                        .any { findFirst(v, it) != null }
+                    if (nested) {
+                        false
+                    } else {
+                        out.add(Shelf("", "search", items(v.arr("contents"), true)))
+                        true
+                    }
+                }
                 "header", "musicResponsiveHeaderRenderer", "musicImmersiveHeaderRenderer" -> true
                 else -> false
             }
@@ -404,6 +415,14 @@ object Parser {
         }
         return out
     }
+
+    /** Filter hasil pencarian YT Music (Lagu, Artis, Album, Playlist komunitas, Video, …). */
+    fun musicSearchChips(root: Any?): List<Chip> =
+        findAll(root, "chipCloudChipRenderer").mapNotNull { v ->
+            val t = text(v.obj("text")) ?: return@mapNotNull null
+            val e = v.obj("navigationEndpoint", "searchEndpoint") ?: return@mapNotNull null
+            Chip(t, null, e.str("params"), selected = v.optBoolean("isSelected", false))
+        }
 
     fun musicChips(root: Any?): List<Chip> {
         val chips = findAll(root, "chipCloudChipRenderer").mapNotNull { v ->

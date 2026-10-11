@@ -416,9 +416,15 @@ object Repo {
         return Page(shelves = shelves, items = items, continuation = Parser.continuation(r))
     }
 
-    suspend fun musicSearch(query: String): Page {
-        val r = InnerTube.search(Client.MUSIC, query)
-        return Page(shelves = Parser.musicShelves(r))
+    suspend fun musicSearch(query: String, params: String? = null): Page {
+        val r = InnerTube.search(Client.MUSIC, query, params)
+        return Page(shelves = Parser.musicShelves(r), chips = Parser.musicSearchChips(r), continuation = Parser.continuation(r))
+    }
+
+    suspend fun musicSearchMore(token: String): Page {
+        val r = InnerTube.continuation(Client.MUSIC, "search", token)
+        val shelves = Parser.musicShelves(r)
+        return Page(shelves = shelves, items = if (shelves.isEmpty()) Parser.items(r, true) else emptyList(), continuation = Parser.continuation(r))
     }
 
     /** Antrean radio/playlist untuk sebuah lagu. */

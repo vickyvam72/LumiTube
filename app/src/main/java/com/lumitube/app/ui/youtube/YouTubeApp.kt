@@ -258,7 +258,7 @@ fun YouTubeApp(
                 }
                 else -> when (tab) {
                     0 -> HomeTab(
-                        home, open, openChannel, openShorts, onSearch = { stack.add(YtRoute.Search) },
+                        home, open, openChannel, openShorts, onSearch = { YtSearchState.reset(); stack.add(YtRoute.Search) },
                         onSwitchMusic = onSwitchMusic, onLogin = onLogin, onOffline = { stack.add(YtRoute.Downloads) },
                     )
                     1 -> ShortsTabPlayer(shorts, openChannel, onLogin)
@@ -337,10 +337,11 @@ private fun FeedList(
     openShorts: ((List<Item>, Int) -> Unit)? = null,
     header: @Composable () -> Unit = {},
     empty: @Composable () -> Unit = {},
+    listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val yt = LocalYt.current
     // Posisi gulir disimpan per feed: buka video lalu kembali = tetap di posisi yang sama.
-    val state = remember(feed) { feedListStates.getOrPut(feed) { androidx.compose.foundation.lazy.LazyListState() } }
+    val state = listState ?: remember(feed) { feedListStates.getOrPut(feed) { androidx.compose.foundation.lazy.LazyListState() } }
     LoadMoreEffect(state, feed)
     val rows = remember(feed.items.size, feed.items.firstOrNull()?.key) { groupRows(feed.items.toList()) }
     // Siapkan data stream video yang sedang terlihat (saat daftar berhenti digulir),
@@ -1103,12 +1104,27 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
 
 // ---------------------------------------------------------------- Pencarian
 
+/**
+ * Status pencarian disimpan di luar layar: buka video dari hasil pencarian lalu kembali =
+ * tetap di hasil pencarian (posisi gulir sama), bukan ke kolom ketik.
+ */
+private object YtSearchState {
+    var query by mutableStateOf("")
+    var editing by mutableStateOf(true)
+    var list = androidx.compose.foundation.lazy.LazyListState()
+    fun reset() {
+        query = ""
+        editing = true
+        list = androidx.compose.foundation.lazy.LazyListState()
+    }
+}
+
 @Composable
 private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: (String) -> Unit) {
     val yt = LocalYt.current
     var field by remember { mutableStateOf(TextFieldValue("")) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var editing by rememberSaveable { mutableStateOf(true) }
+    var query by YtSearchState::query
+    var editing by YtSearchState::editing
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(Unit) {
@@ -1118,6 +1134,7 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
         val t = q.trim()
         if (t.isEmpty()) return
         field = TextFieldValue(t, TextRange(t.length))
+        if (query != t) YtSearchState.list = androidx.compose.foundation.lazy.LazyListState()
         query = t
         Session.addSearch(t)
         editing = false
@@ -1145,7 +1162,7 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
             )
         } else {
             val feed = rememberFeed(key = query, more = { Repo.ytMore(it, "search") }) { Repo.ytSearch(query) }
-            FeedList(feed, open, openChannel)
+            FeedList(feed, open, openChannel, listState = YtSearchState.list)
         }
     }
 }
