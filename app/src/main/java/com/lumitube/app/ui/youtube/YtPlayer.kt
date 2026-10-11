@@ -149,15 +149,9 @@ fun YtVideoPlayer(
         scrub?.let { f ->
             val t = (f * duration).toLong()
             val sb = PlaybackManager.storyboard
-            Box(Modifier.fillMaxSize().background(Color(0x66000000)))
-            if (sb != null) {
-                StoryboardFrame(
-                    sb, t,
-                    Modifier.fillMaxSize().then(
-                        if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(10.dp) else Modifier
-                    ),
-                )
-            }
+            Box(Modifier.fillMaxSize().background(Color.Black))
+            // Gambar pratinjau tajam (tanpa buram), dihaluskan saat diperbesar.
+            if (sb != null) StoryboardFrame(sb, t, Modifier.fillMaxSize())
             val chapter = PlaybackManager.chapters.lastOrNull { it.first <= t }?.second
             Text(
                 listOfNotNull(formatTime(t), chapter?.takeIf { it.isNotBlank() }).joinToString("   "),
@@ -720,6 +714,7 @@ private fun StoryboardFrame(sb: com.lumitube.app.data.Storyboard, timeMs: Long, 
                 sb.height.coerceAtMost(cur.first.height - cur.second.y),
             ),
             dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
         )
     }
 }
