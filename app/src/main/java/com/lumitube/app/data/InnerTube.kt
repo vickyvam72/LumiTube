@@ -109,22 +109,44 @@ object InnerTube {
                 val body = JSONObject().put("videoId", videoId)
                 if (playlistId != null) body.put("playlistId", playlistId)
                 val r = post(client, "player", body)
-                val base = r.optJSONObject("playbackTracking")?.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")
-                    ?.takeIf { it.startsWith("http") } ?: continue
+                val tracking = r.optJSONObject("playbackTracking") ?: continue
+                val playback = tracking.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") } ?: continue
+                val watchtime = tracking.optJSONObject("videostatsWatchtimeUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
+                val len = r.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toDoubleOrNull()?.coerceAtLeast(1.0) ?: 1.0
+                val lenStr = String.format(Locale.US, "%.3f", len)
                 val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
                 val cpn = (1..16).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
-                var url = base.replace("https://s.youtube.com", client.origin)
-                url += (if ('?' in url) "&" else "?") + "ver=2&c=${client.clientName}&cver=${client.version}&cpn=$cpn" +
-                    (if (playlistId != null) "&list=$playlistId" else "")
-                val b = Request.Builder().url(url)
-                    .header("User-Agent", DESKTOP_UA)
-                    .header("Origin", client.origin)
-                    .header("Referer", client.origin + "/")
-                    .header("Cookie", cookie)
-                    .header("X-Goog-AuthUser", "0")
-                authHeader(cookie, client.origin)?.let { b.header("Authorization", it) }
-                Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
-                http.newCall(b.build()).execute().use { resp -> if (resp.isSuccessful) return@withContext }
+                // Cara yt-dlp (--mark-watched): panggil URL playback lalu watchtime dengan cpn, cmt,
+                // dan el=detailpage (tanpa ini YouTube menganggapnya "shorts" dan tidak mencatat histori).
+                fun build(base: String, extra: Map<String, String>): String {
+                    val url = if (client == Client.MUSIC) base.replace("https://s.youtube.com", client.origin) else base
+                    val set = linkedMapOf(
+                        "ver" to "2", "cpn" to cpn, "cmt" to lenStr, "el" to "detailpage",
+                        "c" to client.clientName, "cver" to client.version,
+                    )
+                    if (playlistId != null) set["list"] = playlistId
+                    set.putAll(extra)
+                    // Ganti nilai yang sudah ada (seperti qs.update di yt-dlp), jangan digandakan.
+                    val path = url.substringBefore('?')
+                    val kept = url.substringAfter('?', "").split('&')
+                        .filter { it.isNotEmpty() && it.substringBefore('=') !in set.keys }
+                    val added = set.map { (k, v) -> "$k=" + java.net.URLEncoder.encode(v, "UTF-8") }
+                    return path + "?" + (kept + added).joinToString("&")
+                }
+                fun ping(url: String): Boolean {
+                    val b = Request.Builder().url(url)
+                        .header("User-Agent", DESKTOP_UA)
+                        .header("Origin", client.origin)
+                        .header("Referer", client.origin + "/")
+                        .header("Cookie", cookie)
+                        .header("X-Goog-AuthUser", "0")
+                    authHeader(cookie, client.origin)?.let { b.header("Authorization", it) }
+                    Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
+                    return http.newCall(b.build()).execute().use { it.isSuccessful }
+                }
+                val ok = ping(build(playback, emptyMap()))
+                watchtime?.let { ping(build(it, mapOf("st" to "0", "et" to lenStr))) }
+                if (ok) return@withContext
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (_: Exception) {
