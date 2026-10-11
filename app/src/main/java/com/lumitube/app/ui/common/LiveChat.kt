@@ -84,7 +84,7 @@ private fun chatHint(): String =
  * diperbarui terus selama panel terbuka. Video tetap tampil di atasnya.
  */
 @Composable
-fun LiveChatPanel(token: String, colors: PanelColors, onClose: () -> Unit) {
+fun LiveChatPanel(token: String, videoId: String, colors: PanelColors, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val messages = remember(token) { mutableStateListOf<ChatMessage>() }
@@ -96,25 +96,67 @@ fun LiveChatPanel(token: String, colors: PanelColors, onClose: () -> Unit) {
     val state = rememberLazyListState()
     var follow by remember { mutableStateOf(true) }
 
+    // Pesan baru yang belum ditampilkan; dialirkan satu per satu supaya terasa real-time
+    // (YouTube mengirim pesan berkelompok tiap beberapa detik).
+    val pending = remember(token) { ArrayDeque<ChatMessage>() }
+    var pollMs by remember { mutableStateOf(1500L) }
+    val seen = remember(token) { HashSet<String>() }
+
     LaunchedEffect(token) {
         var cont: String? = token
-        while (cont != null) {
+        var first = true
+        var failures = 0
+        while (true) {
+            val c = cont
+            if (c == null) {
+                // Token habis: ambil token baru dari halaman video.
+                cont = try { Repo.watch(videoId).liveChatToken } catch (_: Exception) { null }
+                if (cont == null) { delay(3000) }
+                continue
+            }
             try {
-                val page = Repo.liveChat(cont)
+                val page = Repo.liveChat(c)
                 error = null
+                failures = 0
                 if (page.sendParams != null) sendParams = page.sendParams
-                notice = page.notice
-                val seen = messages.map { it.id }.toHashSet()
-                messages.addAll(page.messages.filter { it.id !in seen })
-                if (messages.size > 300) messages.removeRange(0, messages.size - 300)
-                cont = page.continuation
-                delay(page.timeoutMs.coerceIn(1500, 8000))
+                if (page.notice != null || first) notice = page.notice
+                val fresh = page.messages.filter { seen.add(it.id) }
+                if (first) {
+                    messages.addAll(fresh.takeLast(80))
+                    first = false
+                } else {
+                    synchronized(pending) { pending.addAll(fresh) }
+                }
+                cont = page.continuation ?: cont
+                pollMs = page.timeoutMs.coerceIn(1000, 2500)
+                delay(pollMs)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = "Live chat gagal dimuat"
-                delay(5000)
+                failures++
+                if (failures >= 2) {
+                    // Token kedaluwarsa/ditolak: minta token baru.
+                    cont = try { Repo.watch(videoId).liveChatToken ?: c } catch (_: Exception) { c }
+                    first = messages.isEmpty()
+                }
+                if (failures >= 4 && messages.isEmpty()) error = "Live chat gagal dimuat, mencoba lagi…"
+                delay(1500)
             }
+        }
+    }
+    // Alirkan pesan tertunda merata sepanjang jeda polling.
+    LaunchedEffect(token) {
+        while (true) {
+            val n = synchronized(pending) { pending.size }
+            if (n == 0) {
+                delay(150)
+                continue
+            }
+            val m = synchronized(pending) { pending.removeFirst() }
+            messages.removeAll { it.id.startsWith("local") && it.text == m.text }
+            messages.add(m)
+            if (messages.size > 300) messages.removeRange(0, messages.size - 300)
+            delay((pollMs / (n + 1)).coerceIn(40, 700))
         }
     }
     // Ikuti pesan terbaru selama pengguna tidak sedang menggulir ke atas.
@@ -205,6 +247,9 @@ fun LiveChatPanel(token: String, colors: PanelColors, onClose: () -> Unit) {
                                 Repo.sendLiveChat(params, text)
                                 draft = ""
                                 follow = true
+                                // Tampilkan langsung pesan sendiri (seperti YouTube).
+                                val id = "local" + System.currentTimeMillis()
+                                messages.add(ChatMessage(id, Session.account?.handle ?: Session.account?.name ?: "Kamu", Session.account?.photo, text))
                             } catch (_: Exception) {
                                 Toast.makeText(context, "Pesan tidak terkirim", Toast.LENGTH_SHORT).show()
                             } finally {

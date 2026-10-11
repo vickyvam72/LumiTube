@@ -916,7 +916,7 @@ fun WatchScreen(
         )
         2 -> YtSettingsSheet(onListenMusic = { panel = 0; onPlayInMusic(current) }) { panel = 0 }
         3 -> info?.liveChatToken?.let { t ->
-            com.lumitube.app.ui.common.LiveChatPanel(t, ytPanelColors()) { panel = 0 }
+            com.lumitube.app.ui.common.LiveChatPanel(t, current.id, ytPanelColors()) { panel = 0 }
         }
     }
     }

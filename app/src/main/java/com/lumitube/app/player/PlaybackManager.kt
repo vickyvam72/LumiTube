@@ -139,13 +139,35 @@ object PlaybackManager {
     var repeat by mutableStateOf(RepeatMode.OFF)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private lateinit var trackSelector: androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+
+    /** Batas kualitas untuk stream adaptif (live HLS) sesuai setelan kualitas. */
+    private fun applyQualityCap() {
+        if (!::trackSelector.isInitialized) return
+        val q = Session.maxQuality
+        trackSelector.setParameters(
+            trackSelector.buildUponParameters()
+                .setViewportSize(Int.MAX_VALUE, Int.MAX_VALUE, false)
+                .setMaxVideoSize(if (q >= 1080) 1920 else if (q >= 720) 1280 else if (q >= 480) 854 else 640, q.coerceAtLeast(360))
+        )
+    }
     private var loadJob: Job? = null
     private var queueJob: Job? = null
 
     fun init(context: Context) {
         if (::exo.isInitialized) return
         appContext = context.applicationContext
+        trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context.applicationContext)
+        applyQualityCap()
         exo = ExoPlayer.Builder(context.applicationContext)
+            .setTrackSelector(trackSelector)
+            // Perkiraan awal kecepatan internet tinggi: live (HLS) langsung mulai di kualitas setelan
+            // (mis. 720p), bukan dari resolusi terendah lalu naik pelan-pelan.
+            .setBandwidthMeter(
+                androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder(context.applicationContext)
+                    .setInitialBitrateEstimate(8_000_000L)
+                    .build()
+            )
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -479,6 +501,7 @@ object PlaybackManager {
     /** Ganti kualitas video dan lanjutkan dari posisi yang sama. */
     fun setQuality(height: Int) {
         Session.maxQuality = height
+        applyQualityCap()
         val item = current ?: return
         if (!isVideo || item.localUri != null) return
         val pos = exo.currentPosition
