@@ -84,6 +84,7 @@ import com.lumitube.app.ui.common.rememberFeed
 import com.lumitube.app.ui.common.DownloadsList
 import com.lumitube.app.ui.common.MusicPanelColors
 import com.lumitube.app.ui.common.toItem
+import com.lumitube.app.ui.common.reorderItem
 
 sealed interface MRoute {
     data class Browse(val id: String, val params: String?, val title: String?) : MRoute
@@ -493,8 +494,6 @@ private fun MusicBrowseScreen(
     LaunchedEffect(nearEnd, feed.items.size, page?.shelves?.size) { if (nearEnd) feed.loadMore() }
 
     val shelves = page?.shelves ?: emptyList()
-    val allSongs = (shelves.flatMap { s -> s.items.filter { it.type == ItemType.SONG && it.row } } + feed.items.filter { it.type == ItemType.SONG })
-        .distinctBy { it.id }
     val isArtist = route.id.startsWith("UC") || route.id.startsWith("MPAD")
     val isAlbum = route.id.startsWith("MPRE")
     // Playlist milik akun: bisa dihapus dan lagunya dihapus satu per satu.
@@ -503,6 +502,42 @@ private fun MusicBrowseScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val editScope = rememberCoroutineScope()
+    // Lagu playlist milik akun yang bisa diurutkan ulang (punya setVideoId), dalam satu daftar.
+    fun movable(it: Item) = editable && it.type == ItemType.SONG && it.setVideoId != null
+    val basePl = (shelves.flatMap { s -> s.items.filter { it.row && movable(it) } } + feed.items.filter { movable(it) })
+        .distinctBy { it.key }.filter { it.id !in removed }
+    val order = remember(route.id) { androidx.compose.runtime.mutableStateListOf<String>() }
+    val plItems = if (order.isEmpty()) basePl else {
+        order.mapNotNull { k -> basePl.firstOrNull { it.key == k } } + basePl.filter { it.key !in order }
+    }
+    val allSongs = (plItems + shelves.flatMap { s -> s.items.filter { it.type == ItemType.SONG && it.row && !movable(it) } } +
+        feed.items.filter { it.type == ItemType.SONG && !movable(it) })
+        .distinctBy { it.id }
+    val reorder = com.lumitube.app.ui.common.rememberReorderState(
+        state,
+        canDrop = { k -> plItems.any { "p" + it.key == k } },
+        onMove = { from, to ->
+            if (order.isEmpty()) order.addAll(plItems.map { it.key })
+            val a = order.indexOf((from as String).removePrefix("p"))
+            val b = order.indexOf((to as String).removePrefix("p"))
+            if (a >= 0 && b >= 0) order.add(b, order.removeAt(a))
+        },
+        onEnd = { key ->
+            val list = plItems
+            val i = list.indexOfFirst { "p" + it.key == key }
+            val sv = list.getOrNull(i)?.setVideoId
+            if (sv != null) {
+                editScope.launch {
+                    try {
+                        Repo.movePlaylistItem(route.id, sv, list.getOrNull(i - 1)?.setVideoId, list.getOrNull(i + 1)?.setVideoId)
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(ctx, "Gagal mengubah urutan (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                        order.clear()
+                    }
+                }
+            }
+        },
+    )
     fun removeMenu(item: Item): List<Pair<String, () -> Unit>>? = if (!editable || item.type != ItemType.SONG) null else listOf(
         "Hapus dari playlist" to {
             removed.add(item.id)
@@ -628,6 +663,14 @@ private fun MusicBrowseScreen(
             }
             if (feed.loading && page == null) item { LoadingBox(color = Color.White) }
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } } }
+            items(plItems, key = { "p" + it.key }) { item ->
+                Row(Modifier.reorderItem(reorder, "p" + item.key), verticalAlignment = Alignment.CenterVertically) {
+                    com.lumitube.app.ui.common.DragHandle(reorder, "p" + item.key, MusicColors.sub)
+                    Box(Modifier.weight(1f)) {
+                        SongRow(item, fallbackThumb = page?.thumbnail, menu = removeMenu(item)) { playFrom(item) }
+                    }
+                }
+            }
             shelves.forEachIndexed { si, shelf ->
                 val rows = shelf.items.count { it.row } * 2 > shelf.items.size
                 if (rows) {
@@ -636,7 +679,7 @@ private fun MusicBrowseScreen(
                             Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
                         }
                     }
-                    itemsIndexed(shelf.items.filter { it.id !in removed }, key = { _, it -> "r$si" + it.key }) { i, item ->
+                    itemsIndexed(shelf.items.filter { it.id !in removed && !movable(it) }, key = { _, it -> "r$si" + it.key }) { i, item ->
                         SongRow(item, index = if (isAlbum) i + 1 else null, fallbackThumb = if (isAlbum) null else page?.thumbnail, menu = removeMenu(item)) {
                             if (item.type == ItemType.SONG) playFrom(item) else onItem(item, shelf.items)
                         }
@@ -647,7 +690,7 @@ private fun MusicBrowseScreen(
                     }
                 }
             }
-            items(feed.items.filter { it.id !in removed }, key = { "m" + it.key }) { item ->
+            items(feed.items.filter { it.id !in removed && !movable(it) }, key = { "m" + it.key }) { item ->
                 SongRow(item, fallbackThumb = page?.thumbnail, menu = removeMenu(item)) { playFrom(item) }
             }
             item { Spacer(Modifier.height(24.dp)) }

@@ -165,6 +165,24 @@ object Repo {
         )
     }
 
+    /**
+     * Pindahkan item playlist: diletakkan setelah [afterSetVideoId], atau ke paling atas
+     * (sebelum [beforeSetVideoId]) bila [afterSetVideoId] null.
+     */
+    suspend fun movePlaylistItem(playlistId: String, setVideoId: String, afterSetVideoId: String?, beforeSetVideoId: String?) {
+        val action = org.json.JSONObject().put("setVideoId", setVideoId)
+        if (afterSetVideoId != null) {
+            action.put("action", "ACTION_MOVE_VIDEO_AFTER").put("movedSetVideoIdPredecessor", afterSetVideoId)
+        } else {
+            action.put("action", "ACTION_MOVE_VIDEO_BEFORE")
+            beforeSetVideoId?.let { action.put("movedSetVideoIdSuccessor", it) }
+        }
+        InnerTube.post(
+            Client.WEB, "browse/edit_playlist",
+            org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")).put("actions", org.json.JSONArray().put(action))
+        )
+    }
+
     /** Hapus playlist milik akun. [playlistId] tanpa awalan "VL". */
     suspend fun deletePlaylist(playlistId: String) {
         InnerTube.post(Client.WEB, "playlist/delete", org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")))

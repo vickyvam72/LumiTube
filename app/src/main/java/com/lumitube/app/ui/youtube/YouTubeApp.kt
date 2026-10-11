@@ -124,6 +124,7 @@ import com.lumitube.app.ui.common.CommentsPanel
 import com.lumitube.app.ui.common.VideoSettingsPanel
 import com.lumitube.app.ui.common.DownloadDialog
 import com.lumitube.app.ui.common.ytPanelColors
+import com.lumitube.app.ui.common.reorderItem
 import kotlinx.coroutines.launch
 
 sealed interface YtRoute {
@@ -660,7 +661,38 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     val ctx = LocalContext.current
     val editScope = rememberCoroutineScope()
     val ownAll = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
-    val own = ownAll.filter { it.id !in removed }
+    val baseOwn = ownAll.filter { it.id !in removed }
+    // Urutan lokal setelah diseret (kunci item); kosong = urutan dari YouTube.
+    val order = remember(id) { androidx.compose.runtime.mutableStateListOf<String>() }
+    val own = if (order.isEmpty()) baseOwn else {
+        order.mapNotNull { k -> baseOwn.firstOrNull { it.key == k } } + baseOwn.filter { it.key !in order }
+    }
+    val reorder = com.lumitube.app.ui.common.rememberReorderState(
+        state,
+        canDrop = { k -> own.any { it.key == k && it.setVideoId != null } },
+        onMove = { from, to ->
+            if (order.isEmpty()) order.addAll(own.map { it.key })
+            val a = order.indexOf(from)
+            val b = order.indexOf(to)
+            if (a >= 0 && b >= 0) order.add(b, order.removeAt(a))
+        },
+        onEnd = { key ->
+            val list = if (order.isEmpty()) own else order.mapNotNull { k -> own.firstOrNull { it.key == k } }
+            val i = list.indexOfFirst { it.key == key }
+            val item = list.getOrNull(i)
+            val sv = item?.setVideoId
+            if (item != null && sv != null) {
+                editScope.launch {
+                    try {
+                        Repo.movePlaylistItem(id, sv, list.getOrNull(i - 1)?.setVideoId, list.getOrNull(i + 1)?.setVideoId)
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(ctx, "Gagal mengubah urutan (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                        order.clear()
+                    }
+                }
+            }
+        },
+    )
     val extra = (if (plCount != null && plCount < feed.items.size) feed.items.drop(plCount) else emptyList()) +
         (page?.suggestions ?: emptyList())
     // Cari di dalam channel: null = tidak sedang mencari
@@ -806,7 +838,15 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             items(own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
-                    else -> VideoRow(
+                    else -> Row(
+                        if (editable && item.setVideoId != null) Modifier.reorderItem(reorder, item.key) else Modifier,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                    if (editable && item.setVideoId != null) {
+                        com.lumitube.app.ui.common.DragHandle(reorder, item.key, yt.sub)
+                    }
+                    Box(Modifier.weight(1f)) {
+                    VideoRow(
                         item,
                         menu = if (editable) listOf(
                             "Hapus dari playlist" to {
@@ -829,6 +869,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             PlaybackManager.playVideos(videos, idx)
                         }
                         open(item)
+                    }
+                    }
                     }
                 }
             }

@@ -21,6 +21,8 @@ data class Item(
     val localUri: String? = null,
     /** Siaran langsung yang sedang berlangsung. */
     val live: Boolean = false,
+    /** ID item di dalam playlist (setVideoId), untuk mengubah urutan. */
+    val setVideoId: String? = null,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"

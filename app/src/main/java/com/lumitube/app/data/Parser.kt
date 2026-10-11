@@ -35,10 +35,25 @@ object Parser {
                 "feedFilterChipBarRenderer", "chipCloudRenderer", "chipBarViewModel" -> null
                 else -> return@walk false
             }
-            if (item != null && seen.add(item.key)) out.add(item)
+            if (item != null && seen.add(item.key)) {
+                // ID unik item di dalam playlist (untuk mengubah urutan / menghapus).
+                val sv = if (item.type == ItemType.VIDEO || item.type == ItemType.SONG) setVideoIdOf(v) else null
+                out.add(if (sv != null) item.copy(setVideoId = sv) else item)
+            }
             true
         }
         return out
+    }
+
+    private fun setVideoIdOf(v: JSONObject): String? {
+        v.str("setVideoId")?.let { return it }
+        v.str("playlistItemData", "playlistSetVideoId")?.let { return it }
+        var found: String? = null
+        walk(v) { _, o ->
+            if (found == null) found = o.str("setVideoId") ?: o.str("playlistSetVideoId")
+            found != null
+        }
+        return found
     }
 
     // ---------------- YouTube ----------------
