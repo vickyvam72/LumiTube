@@ -80,10 +80,36 @@ object Repo {
                 return header.copy(items = own, continuation = Parser.continuation(list) ?: Parser.continuation(r), suggestions = rest)
             }
         }
+        if (browseId == "FEhistory") {
+            val shelves = historySections(r)
+            if (shelves.isNotEmpty()) return header.copy(shelves = shelves, continuation = Parser.continuation(r))
+        }
         return header.copy(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
-    /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */
+    /** Halaman lanjutan Histori: tetap dikelompokkan per hari. */
+    suspend fun ytHistoryMore(token: String): Page {
+        val r = InnerTube.continuation(Client.WEB, "browse", token)
+        val shelves = historySections(r)
+        return if (shelves.isNotEmpty()) Page(shelves = shelves, continuation = Parser.continuation(r))
+        else Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    }
+
+    /**
+     * Histori YouTube dikelompokkan per hari ("Hari ini", "Kemarin", …). Tiap hari berisi
+     * rak Shorts dan video. Dulu semuanya diratakan, jadi Shorts lama tampak di atas video terbaru.
+     */
+    private fun historySections(r: org.json.JSONObject): List<Shelf> =
+        Parser.findAllPublic(r, "itemSectionRenderer").mapNotNull { sec ->
+            val h = sec.optJSONObject("header")?.optJSONObject("itemSectionHeaderRenderer")
+            val title = h?.optJSONObject("title")?.let { t ->
+                t.optString("simpleText").ifEmpty {
+                    t.optJSONArray("runs")?.let { runs -> (0 until runs.length()).joinToString("") { runs.optJSONObject(it)?.optString("text") ?: "" } } ?: ""
+                }
+            } ?: ""
+            val items = Parser.items(sec, false)
+            if (items.isEmpty()) null else Shelf(title, items = items)
+        } (tab "Telusuri" di halaman channel). */
     suspend fun ytChannelSearch(channelId: String, query: String): Page {
         val body = org.json.JSONObject()
             .put("browseId", channelId)

@@ -496,7 +496,13 @@ private fun YouTab(
         }
     }
     val history = rememberFeed(key = "hist${Session.loggedIn}") {
-        if (Session.loggedIn) Repo.ytBrowse("FEhistory") else Page()
+        if (Session.loggedIn) {
+            val p = Repo.ytBrowse("FEhistory")
+            // Kartu Histori di halaman Anda: per hari, video dulu lalu Shorts.
+            if (p.shelves.isEmpty()) p else p.copy(items = p.shelves.flatMap { sh ->
+                sh.items.filter { it.type != ItemType.SHORT } + sh.items.filter { it.type == ItemType.SHORT }
+            }.distinctBy { it.key })
+        } else Page()
     }
     var quality by remember { mutableIntStateOf(Session.maxQuality) }
 
@@ -657,7 +663,8 @@ private fun YtSearchField(
 @Composable
 private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (Item) -> Unit) {
     val yt = LocalYt.current
-    val feed = rememberFeed(key = id, more = { Repo.ytMore(it) }) { Repo.ytBrowse(id) }
+    val isHistory = id == "FEhistory"
+    val feed = rememberFeed(key = id, more = { if (isHistory) Repo.ytHistoryMore(it) else Repo.ytMore(it) }) { Repo.ytBrowse(id) }
     val state = rememberLazyListState()
     LoadMoreEffect(state, feed)
     val page = feed.page
@@ -674,7 +681,19 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
     val ctx = LocalContext.current
     val editScope = com.lumitube.app.ui.common.EditScope.scope
     val appCtx = ctx.applicationContext
-    val ownAll = if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
+    // Histori: kumpulkan hari yang sama (bisa terbelah oleh halaman lanjutan).
+    val historyDays = if (isHistory) {
+        val out = mutableListOf<Pair<String, MutableList<Item>>>()
+        val seenKeys = HashSet<String>()
+        for (sh in page?.shelves ?: emptyList()) {
+            val list = sh.items.filter { seenKeys.add(it.key) }
+            if (out.isNotEmpty() && (sh.title.isBlank() || out.last().first == sh.title)) out.last().second.addAll(list)
+            else out.add(sh.title to list.toMutableList())
+        }
+        out
+    } else emptyList()
+    val ownAll = if (historyDays.isNotEmpty()) historyDays.flatMap { it.second }
+        else if (plCount != null && plCount < feed.items.size) feed.items.take(plCount) else feed.items.toList()
     // Daftar playlist (Koleksi): titik tiga untuk menghapus playlist milik akun.
     val plDeleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
     val baseOwn = ownAll.filter { it.id !in removed && it.id !in plDeleter.deleted }
@@ -857,7 +876,21 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             }
             if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
             feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
-            items(own, key = { it.key }) { item ->
+            if (historyDays.isNotEmpty()) {
+                historyDays.forEachIndexed { di, (day, dayItems) ->
+                    if (day.isNotBlank()) {
+                        item(key = "hd$di") {
+                            Text(day, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
+                        }
+                    }
+                    val shorts = dayItems.filter { it.type == ItemType.SHORT }
+                    if (shorts.isNotEmpty()) item(key = "hs$di") { ShortsShelf(shorts) { s -> open(s) } }
+                    items(dayItems.filter { it.type != ItemType.SHORT }, key = { "h$di" + it.key }) { v ->
+                        if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                    }
+                }
+            }
+            items(if (historyDays.isNotEmpty()) emptyList() else own, key = { it.key }) { item ->
                 when (item.type) {
                     ItemType.CHANNEL -> ChannelRow(item) { open(item) }
                     else -> Row(
