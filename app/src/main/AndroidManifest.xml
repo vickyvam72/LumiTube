@@ -12,6 +12,8 @@
     <queries>
         <package android:name="com.lumitube.app" />
         <package android:name="com.lumitube.music" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.google.android.apps.youtube.music" />
     </queries>
 
     <application

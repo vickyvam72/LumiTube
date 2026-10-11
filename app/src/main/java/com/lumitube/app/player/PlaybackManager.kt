@@ -586,7 +586,7 @@ object PlaybackManager {
                     qualities = stream.qualities
                     captions = stream.captions
                     translations = stream.translations
-                    queue.getOrNull(index + 1)?.let { if (it.localUri == null) StreamResolver.prefetch(it.id) }
+                    queue.getOrNull(index + 1)?.let { if (it.localUri == null) prefetchMedia(it.id, video = isVideo) }
                     exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
                 }
                 exo.prepare()
@@ -627,13 +627,70 @@ object PlaybackManager {
             .build()
     }
 
+    /**
+     * Cache media di disk. Awal video Shorts berikutnya diunduh lebih dulu ke sini,
+     * jadi saat digeser videonya langsung jalan tanpa loading (seperti YouTube asli).
+     */
+    private val mediaCache by lazy {
+        androidx.media3.datasource.cache.SimpleCache(
+            java.io.File(appContext.cacheDir, "media"),
+            androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(300L * 1024 * 1024),
+            androidx.media3.database.StandaloneDatabaseProvider(appContext),
+        )
+    }
+
+    /** URL googlevideo berubah tiap kali diambil; kunci cache = video + format + ukuran. */
+    private val cacheKeys = androidx.media3.datasource.cache.CacheKeyFactory { spec ->
+        val u = spec.uri
+        val id = try { u.getQueryParameter("id") } catch (_: Exception) { null }
+        val itag = try { u.getQueryParameter("itag") } catch (_: Exception) { null }
+        val clen = try { u.getQueryParameter("clen") } catch (_: Exception) { null }
+        if (id != null && itag != null) "$id-$itag-$clen" else spec.key ?: u.toString()
+    }
+
+    private fun plainFactory(s: Stream) = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
+        .setUserAgent(s.userAgent.ifEmpty { null })
+        .setDefaultRequestProperties(s.headers)
+
+    private fun cachedFactory(s: Stream): androidx.media3.datasource.DataSource.Factory =
+        androidx.media3.datasource.cache.CacheDataSource.Factory()
+            .setCache(mediaCache)
+            .setCacheKeyFactory(cacheKeys)
+            .setUpstreamDataSourceFactory(ChunkedDataSource.Factory(plainFactory(s), s.chunk))
+            .setFlags(androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+    private val warmed = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Siapkan video berikutnya (Shorts / antrean): ambil URL stream lalu unduh bagian awal
+     * video & audio ke cache. [video] = false untuk lagu (audio saja).
+     */
+    fun prefetchMedia(videoId: String, video: Boolean = true) {
+        if (!warmed.add(videoId + video)) return
+        scope.launch(Dispatchers.IO) {
+            try {
+                val s = StreamResolver.resolve(videoId, audioOnly = !video)
+                if (s.isLive) return@launch
+                val factory = cachedFactory(s)
+                for (url in listOfNotNull(if (video) s.videoUrl else null, s.audioUrl)) {
+                    val spec = androidx.media3.datasource.DataSpec.Builder()
+                        .setUri(url).setPosition(0).setLength(if (video) 900_000L else 400_000L).build()
+                    androidx.media3.datasource.cache.CacheWriter(
+                        factory.createDataSource() as androidx.media3.datasource.cache.CacheDataSource,
+                        spec, null, null,
+                    ).cache()
+                }
+            } catch (_: Exception) {
+                warmed.remove(videoId + video)
+            }
+        }
+    }
+
     private fun buildSource(item: Item, s: Stream, audioOnly: Boolean): MediaSource {
         // OkHttp: koneksi dipakai ulang antar potongan (tanpa handshake TLS berulang), mendukung HTTP/2.
-        val plainHttp = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
-            .setUserAgent(s.userAgent.ifEmpty { null })
-            .setDefaultRequestProperties(s.headers)
-        // Progressive (video/audio terpisah) diunduh per potongan agar tidak macet.
-        val http = ChunkedDataSource.Factory(plainHttp, s.chunk)
+        val plainHttp = plainFactory(s)
+        // Progressive (video/audio terpisah) diunduh per potongan agar tidak macet, lewat cache disk.
+        val http = cachedFactory(s)
         val artist = item.channelName ?: s.author ?: item.subtitle.substringBefore(" • ")
         val meta = MediaMetadata.Builder()
             .setTitle(s.title ?: item.title)

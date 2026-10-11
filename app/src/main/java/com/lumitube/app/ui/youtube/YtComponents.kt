@@ -258,7 +258,7 @@ fun ShortCard(item: Item, modifier: Modifier = Modifier, onClick: () -> Unit) {
 fun ShortsShelf(items: List<Item>, onClick: (Item) -> Unit) {
     val yt = LocalYt.current
     LaunchedEffect(items.firstOrNull()?.id) {
-        items.take(2).forEach { com.lumitube.app.data.StreamResolver.prefetch(it.id) }
+        items.take(2).forEach { com.lumitube.app.player.PlaybackManager.prefetchMedia(it.id) }
     }
     Column(Modifier.padding(bottom = 16.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

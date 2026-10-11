@@ -125,4 +125,71 @@ object CrossApp {
             )
         }
     }
+
+    /** Aplikasi resmi yang biasanya memegang link youtube.com / music.youtube.com. */
+    val originalPackage: String get() = if (isMusic) "com.google.android.apps.youtube.music" else "com.google.android.youtube"
+    private val originalName: String get() = if (isMusic) "YouTube Music" else "YouTube"
+    private val ownName: String get() = if (isMusic) "YT Music Lumi" else "YouTube Lumi"
+
+    private var pendingOwnLinkSettings = false
+
+    private fun openByDefault(ctx: Context, pkg: String) {
+        val uri = android.net.Uri.parse("package:$pkg")
+        val intent = if (android.os.Build.VERSION.SDK_INT >= 31) {
+            Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, uri)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+        }
+        try {
+            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            try {
+                ctx.startActivity(
+                    Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun isInstalled(ctx: Context, pkg: String): Boolean = try {
+        ctx.packageManager.getPackageInfo(pkg, 0)
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * Langkah 1: buka info aplikasi YouTube / YouTube Music asli supaya "Buka link yang didukung"
+     * bisa dimatikan. Saat kembali ke aplikasi ini, langkah 2 otomatis membuka info aplikasi Lumi.
+     */
+    fun startLinkSetup(ctx: Context) {
+        if (isInstalled(ctx, originalPackage)) {
+            pendingOwnLinkSettings = true
+            Toast.makeText(
+                ctx,
+                "Langkah 1: di $originalName asli, matikan \"Buka link yang didukung\", lalu kembali ke sini",
+                Toast.LENGTH_LONG,
+            ).show()
+            openByDefault(ctx, originalPackage)
+        } else {
+            showOwnStep(ctx)
+        }
+    }
+
+    private fun showOwnStep(ctx: Context) {
+        Toast.makeText(
+            ctx,
+            "Langkah 2: di $ownName, aktifkan \"Buka link yang didukung\" dan tambahkan semua link",
+            Toast.LENGTH_LONG,
+        ).show()
+        openByDefault(ctx, ctx.packageName)
+    }
+
+    /** Dipanggil saat aplikasi kembali tampil (onResume). */
+    fun resumeLinkSetup(ctx: Context) {
+        if (!pendingOwnLinkSettings) return
+        pendingOwnLinkSettings = false
+        showOwnStep(ctx)
+    }
 }

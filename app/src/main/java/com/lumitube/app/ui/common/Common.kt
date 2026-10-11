@@ -326,7 +326,7 @@ private fun androidx.compose.foundation.layout.BoxScope.SubtitleOverlay(width: a
         }
     }
     val cue = com.lumitube.app.data.Subtitles.active(cues, pos) ?: return
-    val size = (width.value * 0.042f).coerceIn(10f, 24f)
+    val size = (width.value * 0.032f).coerceIn(9f, 18f)
     Text(
         cue.text,
         color = Color.White,

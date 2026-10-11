@@ -99,8 +99,8 @@ fun ShortsPlayer(
         val it = items.getOrNull(pager.settledPage) ?: return@LaunchedEffect
         if (PlaybackManager.current?.id != it.id) PlaybackManager.playVideo(it.copy(type = ItemType.SHORT))
         // Siapkan stream Shorts berikutnya supaya geser terasa instan.
-        items.getOrNull(pager.settledPage + 1)?.let { n -> com.lumitube.app.data.StreamResolver.prefetch(n.id) }
-        items.getOrNull(pager.settledPage + 2)?.let { n -> com.lumitube.app.data.StreamResolver.prefetch(n.id) }
+        // Bagian awal 3 Shorts berikutnya (dan 1 sebelumnya) sudah diunduh sebelum digeser.
+        for (d in listOf(1, 2, 3, -1)) items.getOrNull(pager.settledPage + d)?.let { n -> PlaybackManager.prefetchMedia(n.id) }
         if (pager.settledPage >= items.size - 3) onLoadMore?.invoke()
     }
     DisposableEffect(Unit) {

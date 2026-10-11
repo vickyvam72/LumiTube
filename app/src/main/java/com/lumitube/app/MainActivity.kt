@@ -147,6 +147,11 @@ class MainActivity : ComponentActivity() {
         controllerFuture = MediaController.Builder(this, token).buildAsync()
     }
 
+    override fun onResume() {
+        super.onResume()
+        CrossApp.resumeLinkSetup(this)
+    }
+
     override fun onStop() {
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null

@@ -80,13 +80,13 @@ fun MusicSettingsPanel(onClose: () -> Unit) {
                 ) {
                     links = it
                     com.lumitube.app.CrossApp.setLinksEnabled(ctx, it)
-                    if (it) com.lumitube.app.CrossApp.openLinkSettings(ctx)
+                    if (it) com.lumitube.app.CrossApp.startLinkSetup(ctx)
                 }
                 if (links) {
                     Text(
-                        "Atur link default (tambahkan music.youtube.com)",
+                        "Atur ulang link (YouTube Music asli → YT Music Lumi)",
                         color = Color(0xFF3EA6FF), fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth().clickable { com.lumitube.app.CrossApp.openLinkSettings(ctx) }
+                        modifier = Modifier.fillMaxWidth().clickable { com.lumitube.app.CrossApp.startLinkSetup(ctx) }
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                     )
                 }

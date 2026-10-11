@@ -537,11 +537,11 @@ private fun YouTab(
             MenuRow(Icons.Filled.Share, "Buka link YouTube di YouTube Lumi: ${if (links) "Aktif" else "Nonaktif"}") {
                 links = !links
                 com.lumitube.app.CrossApp.setLinksEnabled(ctx, links)
-                if (links) com.lumitube.app.CrossApp.openLinkSettings(ctx)
+                if (links) com.lumitube.app.CrossApp.startLinkSetup(ctx)
             }
             if (links) {
-                MenuRow(Icons.Filled.Settings, "Atur link default (tambahkan youtube.com & youtu.be)") {
-                    com.lumitube.app.CrossApp.openLinkSettings(ctx)
+                MenuRow(Icons.Filled.Settings, "Atur ulang link (YouTube asli → YouTube Lumi)") {
+                    com.lumitube.app.CrossApp.startLinkSetup(ctx)
                 }
             }
         }
