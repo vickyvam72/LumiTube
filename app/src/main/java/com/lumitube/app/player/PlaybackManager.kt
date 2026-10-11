@@ -605,6 +605,8 @@ object PlaybackManager {
     }
 
     private var historyFor: String? = null
+    private var historyWarned = false
+    private var lastStream: Pair<String, com.lumitube.app.data.Stream>? = null
 
     /** Masukkan video/lagu yang diputar ke Histori akun YouTube (sekali per pemutaran). */
     private fun registerHistory() {
@@ -613,7 +615,19 @@ object PlaybackManager {
         historyFor = item.id
         scope.launch {
             try {
-                com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo)
+                val st = lastStream?.takeIf { it.first == item.id }?.second
+                val tracking = st?.trackPlayback?.let {
+                    com.lumitube.app.data.InnerTube.Tracking(it, st.trackWatchtime, st.trackClient, st.trackVersion, st.lengthSeconds)
+                }
+                val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo, stream = tracking)
+                if (!ok && !historyWarned) {
+                    historyWarned = true
+                    android.widget.Toast.makeText(
+                        appContext,
+                        "Video belum tercatat di Histori (${com.lumitube.app.data.InnerTube.lastHistoryResult.take(120)}). Cek apakah Histori tontonan dijeda di akun YouTube.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
                 // Histori yang tersimpan sementara di memori dibuang supaya video ini langsung muncul.
                 listOf("hist" + true, "FEhistory", "FEmusic_history").forEach { com.lumitube.app.ui.common.FeedLoader.invalidate(it) }
             } catch (_: Exception) {
@@ -802,6 +816,7 @@ object PlaybackManager {
                     )
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly, short = item.type == ItemType.SHORT)
+                    lastStream = item.id to stream
                     currentClient = stream.client
                     if (!stream.isLive) {
                         com.lumitube.app.data.Storyboard.parse(stream.storyboardSpec, stream.lengthSeconds * 1000)?.let { storyboard = it }

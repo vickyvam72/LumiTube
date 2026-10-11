@@ -28,6 +28,7 @@ object InnerTube {
     ) {
         WEB("WEB", 1, "2.20260805.01.00", "https://www.youtube.com"),
         MUSIC("WEB_REMIX", 67, "1.20260804.16.00", "https://music.youtube.com"),
+        MWEB("MWEB", 2, "2.20260805.01.00", "https://m.youtube.com"),
     }
 
     const val DESKTOP_UA =
@@ -100,58 +101,88 @@ object InnerTube {
      * Catat ke Histori tontonan akun: ambil URL "videostatsPlaybackUrl" dari respons player
      * yang login, lalu panggil URL itu seperti yang dilakukan pemutar web YouTube.
      */
-    suspend fun registerWatch(videoId: String, playlistId: String?, music: Boolean) = withContext(Dispatchers.IO) {
-        val cookie = Session.cookie ?: return@withContext
-        if (!Session.loggedIn) return@withContext
-        val order = if (music) listOf(Client.MUSIC, Client.WEB) else listOf(Client.WEB, Client.MUSIC)
+    /** Data pelacakan yang sudah ada dari stream yang sedang diputar. */
+    data class Tracking(val playback: String, val watchtime: String?, val clientName: String, val version: String, val lengthSeconds: Long)
+
+    /** Hasil terakhir pencatatan histori (untuk diagnosis). */
+    @Volatile var lastHistoryResult: String = ""
+
+    suspend fun registerWatch(videoId: String, playlistId: String?, music: Boolean, stream: Tracking? = null): Boolean = withContext(Dispatchers.IO) {
+        val cookie = Session.cookie ?: return@withContext false
+        if (!Session.loggedIn) return@withContext false
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        val log = mutableListOf<String>()
+
+        fun ping(base: String, clientName: String, version: String, origin: String, len: Double, extra: Map<String, String>, cpn: String): Int {
+            val lenStr = String.format(Locale.US, "%.3f", len.coerceAtLeast(1.0))
+            val url0 = if (origin.contains("music.")) base.replace("https://s.youtube.com", origin) else base
+            // Cara yt-dlp (--mark-watched): ver, cpn, cmt dan el=detailpage (tanpa ini dianggap "shorts").
+            val set = linkedMapOf("ver" to "2", "cpn" to cpn, "cmt" to lenStr, "el" to "detailpage", "c" to clientName, "cver" to version)
+            if (playlistId != null) set["list"] = playlistId
+            set.putAll(extra.mapValues { if (it.value == "LEN") lenStr else it.value })
+            val path = url0.substringBefore('?')
+            val kept = url0.substringAfter('?', "").split('&').filter { it.isNotEmpty() && it.substringBefore('=') !in set.keys }
+            val url = path + "?" + (kept + set.map { (k, v) -> "$k=" + java.net.URLEncoder.encode(v, "UTF-8") }).joinToString("&")
+            val b = Request.Builder().url(url)
+                .header("User-Agent", DESKTOP_UA)
+                .header("Origin", origin)
+                .header("Referer", "$origin/")
+                .header("Cookie", cookie)
+                .header("X-Goog-AuthUser", "0")
+            authHeader(cookie, origin)?.let { b.header("Authorization", it) }
+            Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
+            return http.newCall(b.build()).execute().use { it.code }
+        }
+
+        fun send(playback: String, watchtime: String?, clientName: String, version: String, origin: String, len: Double, tag: String): Boolean {
+            val cpn = (1..16).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
+            val code = ping(playback, clientName, version, origin, len, emptyMap(), cpn)
+            if (watchtime != null) try {
+                ping(watchtime, clientName, version, origin, len, mapOf("st" to "0", "et" to "LEN"), cpn)
+            } catch (_: Exception) {
+            }
+            log += "$tag:$code"
+            return code in 200..299
+        }
+
+        var ok = false
+        // 1) URL pelacakan dari stream yang sedang diputar (respons yang sama dengan pemutarannya).
+        if (stream != null) {
+            try {
+                ok = send(stream.playback, stream.watchtime, stream.clientName, stream.version, Client.WEB.origin, stream.lengthSeconds.toDouble(), "stream")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log += "stream:${e.message}"
+            }
+        }
+        // 2) Respons player yang login (klien web / mobile web / YT Music), sampai satu berhasil.
+        val order = if (music) listOf(Client.MUSIC, Client.WEB, Client.MWEB) else listOf(Client.WEB, Client.MWEB, Client.MUSIC)
         for (client in order) {
             try {
                 val body = JSONObject().put("videoId", videoId)
                 if (playlistId != null) body.put("playlistId", playlistId)
                 val r = post(client, "player", body)
-                val tracking = r.optJSONObject("playbackTracking") ?: continue
-                val playback = tracking.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") } ?: continue
+                val tracking = r.optJSONObject("playbackTracking")
+                val playback = tracking?.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
+                if (playback == null) {
+                    log += "${client.name}:${r.optJSONObject("playabilityStatus")?.optString("status") ?: "no-tracking"}"
+                    continue
+                }
                 val watchtime = tracking.optJSONObject("videostatsWatchtimeUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
-                val len = r.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toDoubleOrNull()?.coerceAtLeast(1.0) ?: 1.0
-                val lenStr = String.format(Locale.US, "%.3f", len)
-                val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-                val cpn = (1..16).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
-                // Cara yt-dlp (--mark-watched): panggil URL playback lalu watchtime dengan cpn, cmt,
-                // dan el=detailpage (tanpa ini YouTube menganggapnya "shorts" dan tidak mencatat histori).
-                fun build(base: String, extra: Map<String, String>): String {
-                    val url = if (client == Client.MUSIC) base.replace("https://s.youtube.com", client.origin) else base
-                    val set = linkedMapOf(
-                        "ver" to "2", "cpn" to cpn, "cmt" to lenStr, "el" to "detailpage",
-                        "c" to client.clientName, "cver" to client.version,
-                    )
-                    if (playlistId != null) set["list"] = playlistId
-                    set.putAll(extra)
-                    // Ganti nilai yang sudah ada (seperti qs.update di yt-dlp), jangan digandakan.
-                    val path = url.substringBefore('?')
-                    val kept = url.substringAfter('?', "").split('&')
-                        .filter { it.isNotEmpty() && it.substringBefore('=') !in set.keys }
-                    val added = set.map { (k, v) -> "$k=" + java.net.URLEncoder.encode(v, "UTF-8") }
-                    return path + "?" + (kept + added).joinToString("&")
+                val len = r.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toDoubleOrNull() ?: 1.0
+                if (send(playback, watchtime, client.clientName, client.version, client.origin, len, client.name)) {
+                    ok = true
+                    break
                 }
-                fun ping(url: String): Boolean {
-                    val b = Request.Builder().url(url)
-                        .header("User-Agent", DESKTOP_UA)
-                        .header("Origin", client.origin)
-                        .header("Referer", client.origin + "/")
-                        .header("Cookie", cookie)
-                        .header("X-Goog-AuthUser", "0")
-                    authHeader(cookie, client.origin)?.let { b.header("Authorization", it) }
-                    Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
-                    return http.newCall(b.build()).execute().use { it.isSuccessful }
-                }
-                val ok = ping(build(playback, emptyMap()))
-                watchtime?.let { ping(build(it, mapOf("st" to "0", "et" to lenStr))) }
-                if (ok) return@withContext
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                log += "${client.name}:${e.message}"
             }
         }
+        lastHistoryResult = log.joinToString(", ")
+        ok
     }
 
     private fun context(client: Client): JSONObject {
