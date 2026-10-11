@@ -184,8 +184,9 @@ object StreamResolver {
      * Data stream mentah di-cache per video (berlaku untuk mode video maupun audio),
      * jadi berpindah Video <-> Music tidak perlu meminta ulang ke YouTube.
      */
-    suspend fun resolve(videoId: String, audioOnly: Boolean): Stream = withContext(Dispatchers.IO) {
-        select(raw(videoId), audioOnly)
+    /** [short] = Shorts: maksimal 720p supaya geser cepat & tidak buffering. */
+    suspend fun resolve(videoId: String, audioOnly: Boolean, short: Boolean = false): Stream = withContext(Dispatchers.IO) {
+        select(raw(videoId), audioOnly, if (short) minOf(Session.maxQuality, 720) else Session.maxQuality)
     }
 
     private val inFlight = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Stream>>()
@@ -238,9 +239,8 @@ object StreamResolver {
     }
 
     /** Pilih URL video & audio sesuai mode dan kualitas maksimum. */
-    private fun select(raw: Stream, audioOnly: Boolean): Stream {
+    private fun select(raw: Stream, audioOnly: Boolean, maxH: Int = Session.maxQuality): Stream {
         val audio = raw.formats.filter { it.isAudio }.maxByOrNull { it.bitrate }?.url
-        val maxH = Session.maxQuality
         // Hindari AV1 (belum semua HP bisa memutarnya); utamakan H.264 lalu VP9.
         val videos = raw.formats.filter { !it.isAudio && it.codec != "av01" }
         val video = videos
@@ -416,6 +416,11 @@ object StreamResolver {
                 sigMap = solved.first
                 nMap = solved.second
                 if (sigs.isNotEmpty() && sigMap.isEmpty()) throw IOException("Tanda tangan gagal dipecahkan")
+                // Parameter n yang tidak terpecahkan membuat YouTube membatasi kecepatan unduh
+                // (video jadi sering buffering) -> lebih baik pakai klien lain.
+                if (ns.isNotEmpty() && nMap.none { (k, v) -> v.isNotBlank() && v != k }) {
+                    throw IOException("Parameter n gagal dipecahkan")
+                }
             }
         } else if (pending.any { it.s != null }) {
             throw IOException("Butuh dekripsi tanda tangan")

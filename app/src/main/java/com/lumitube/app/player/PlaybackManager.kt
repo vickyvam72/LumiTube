@@ -147,7 +147,10 @@ object PlaybackManager {
             // Mulai putar lebih cepat: cukup 0,7 detik data untuk mulai
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(15_000, 60_000, 500, 1_000)
+                    // Mulai cepat (0,5 dtk), tapi setelah sempat buffering tunggu 2,5 dtk supaya tidak
+                    // putus-putus; simpan cadangan 30-60 dtk di depan (seperti NewPipe/YouTube).
+                    .setBufferDurationsMs(30_000, 60_000, 500, 2_500)
+                    .setPrioritizeTimeOverSizeThresholds(true)
                     .build()
             )
             .build()
@@ -571,7 +574,7 @@ object PlaybackManager {
                         startPosition
                     )
                 } else {
-                    val stream = StreamResolver.resolve(item.id, audioOnly)
+                    val stream = StreamResolver.resolve(item.id, audioOnly, short = item.type == ItemType.SHORT)
                     currentClient = stream.client
                     // Dibuka dari link: judul/artis belum diketahui -> isi dari data stream.
                     if (item.title.isBlank() && current?.id == item.id) {
@@ -652,29 +655,48 @@ object PlaybackManager {
         .setUserAgent(s.userAgent.ifEmpty { null })
         .setDefaultRequestProperties(s.headers)
 
-    private fun cachedFactory(s: Stream): androidx.media3.datasource.DataSource.Factory =
+    /**
+     * [write] = true hanya untuk prefetch. Pemutar utama cukup MEMBACA bagian awal yang sudah
+     * di-cache lalu lanjut langsung dari internet (tanpa menulis ke disk & tanpa kunci cache),
+     * jadi tidak menambah beban saat memutar.
+     */
+    private fun cachedFactory(s: Stream, write: Boolean = false): androidx.media3.datasource.DataSource.Factory =
         androidx.media3.datasource.cache.CacheDataSource.Factory()
             .setCache(mediaCache)
             .setCacheKeyFactory(cacheKeys)
             .setUpstreamDataSourceFactory(ChunkedDataSource.Factory(plainFactory(s), s.chunk))
+            .apply { if (!write) setCacheWriteDataSinkFactory(null) }
             .setFlags(androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
     private val warmed = java.util.Collections.synchronizedSet(HashSet<String>())
+    /** Prefetch dijalankan satu per satu supaya tidak berebut internet dengan video yang sedang diputar. */
+    private val prefetchDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     /**
      * Siapkan video berikutnya (Shorts / antrean): ambil URL stream lalu unduh bagian awal
      * video & audio ke cache. [video] = false untuk lagu (audio saja).
      */
-    fun prefetchMedia(videoId: String, video: Boolean = true) {
+    fun prefetchMedia(videoId: String, video: Boolean = true, short: Boolean = false) {
         if (!warmed.add(videoId + video)) return
-        scope.launch(Dispatchers.IO) {
+        scope.launch(prefetchDispatcher) {
             try {
-                val s = StreamResolver.resolve(videoId, audioOnly = !video)
+                // Tunggu video yang sedang diputar punya cadangan buffer dulu.
+                var waited = 0
+                while (waited < 15_000) {
+                    val ready = kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        exo.playbackState == Player.STATE_READY &&
+                            exo.bufferedPosition - exo.currentPosition > 4_000
+                    }
+                    if (ready) break
+                    kotlinx.coroutines.delay(500)
+                    waited += 500
+                }
+                val s = StreamResolver.resolve(videoId, audioOnly = !video, short = short)
                 if (s.isLive) return@launch
-                val factory = cachedFactory(s)
+                val factory = cachedFactory(s, write = true)
                 for (url in listOfNotNull(if (video) s.videoUrl else null, s.audioUrl)) {
                     val spec = androidx.media3.datasource.DataSpec.Builder()
-                        .setUri(url).setPosition(0).setLength(if (video) 900_000L else 400_000L).build()
+                        .setUri(url).setPosition(0).setLength(if (video) 450_000L else 200_000L).build()
                     androidx.media3.datasource.cache.CacheWriter(
                         factory.createDataSource() as androidx.media3.datasource.cache.CacheDataSource,
                         spec, null, null,

@@ -99,8 +99,8 @@ fun ShortsPlayer(
         val it = items.getOrNull(pager.settledPage) ?: return@LaunchedEffect
         if (PlaybackManager.current?.id != it.id) PlaybackManager.playVideo(it.copy(type = ItemType.SHORT))
         // Siapkan stream Shorts berikutnya supaya geser terasa instan.
-        // Bagian awal 3 Shorts berikutnya (dan 1 sebelumnya) sudah diunduh sebelum digeser.
-        for (d in listOf(1, 2, 3, -1)) items.getOrNull(pager.settledPage + d)?.let { n -> PlaybackManager.prefetchMedia(n.id) }
+        // Bagian awal 2 Shorts berikutnya disiapkan (bergantian, setelah video ini lancar).
+        for (d in listOf(1, 2)) items.getOrNull(pager.settledPage + d)?.let { n -> PlaybackManager.prefetchMedia(n.id, short = true) }
         if (pager.settledPage >= items.size - 3) onLoadMore?.invoke()
     }
     DisposableEffect(Unit) {
@@ -178,15 +178,8 @@ private fun ShortPage(
                 if (active) PlaybackManager.togglePlay()
             }
     ) {
-        // Permukaan video langsung disiapkan; thumbnail menutupinya sampai frame pertama tampil,
-        // sehingga tidak ada layar hitam / tombol play yang muncul sesaat.
+        // Langsung video. Selama data belum siap layar cukup hitam (tanpa thumbnail/loading).
         if (active) VideoSurface(Modifier.fillMaxSize(), controller = false, zoom = true)
-        if (!active || PlaybackManager.firstFrameFor != item.id) {
-            Img(com.lumitube.app.ui.common.hdThumb(item), Modifier.fillMaxSize(), contentScale = ContentScale.Crop, placeholder = Color.Black, fallback = item.thumbnail)
-        }
-        if (active && PlaybackManager.firstFrameFor == item.id && PlaybackManager.buffering) {
-            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.align(Alignment.Center).size(36.dp))
-        }
         if (active && !PlaybackManager.playWhenReady && !PlaybackManager.loading && PlaybackManager.current?.id == item.id) {
             Box(
                 Modifier.align(Alignment.Center).size(72.dp).clip(CircleShape).background(Color(0x66000000)),
