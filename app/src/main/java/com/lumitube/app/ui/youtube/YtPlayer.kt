@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -111,6 +112,7 @@ fun YtVideoPlayer(
     var duration by remember { mutableLongStateOf(0L) }
     var buffered by remember { mutableLongStateOf(0L) }
     var seekSide by remember { mutableIntStateOf(0) } // -1 kiri, 1 kanan
+    var holdSide by remember { mutableIntStateOf(0) } // tahan: 1 maju 2x, -1 mundur 2x
     var seekAmount by remember { mutableIntStateOf(0) }
     var seekKey by remember { mutableIntStateOf(0) }
 
@@ -141,9 +143,28 @@ fun YtVideoPlayer(
         VideoSurface(Modifier.fillMaxSize(), controller = false)
 
         // Lapisan gestur: ketuk = tampil/sembunyi kontrol, ketuk 2x = lompat 10 detik
+        val holdScope = androidx.compose.runtime.rememberCoroutineScope()
         Box(
             Modifier.fillMaxSize().pointerInput(Unit) {
                 detectTapGestures(
+                    // Tahan kanan = maju cepat 2x, tahan kiri = mundur 2x; lepas = normal lagi.
+                    onPress = { o ->
+                        val side = if (o.x > size.width / 2f) 1 else -1
+                        var started = false
+                        val job = holdScope.launch {
+                            kotlinx.coroutines.delay(450)
+                            started = true
+                            holdSide = side
+                            PlaybackManager.startHoldSeek(side)
+                        }
+                        tryAwaitRelease()
+                        job.cancel()
+                        if (started) {
+                            PlaybackManager.stopHoldSeek()
+                            holdSide = 0
+                        }
+                    },
+                    onLongPress = { },
                     onTap = {
                         show = !show
                         touch = System.currentTimeMillis()
@@ -158,6 +179,19 @@ fun YtVideoPlayer(
                 )
             }
         )
+
+        // Penanda tahan untuk 2x
+        if (holdSide != 0) {
+            Row(
+                Modifier.align(Alignment.TopCenter).padding(top = 14.dp).clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x99000000)).padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (holdSide < 0) Icon(Icons.Filled.FastRewind, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Text(" 2x ", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                if (holdSide > 0) Icon(Icons.Filled.FastForward, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+        }
 
         // Umpan balik lompat 10 detik
         if (seekSide != 0) {

@@ -108,7 +108,11 @@ class MainActivity : ComponentActivity() {
         val context = this@MainActivity
         // Timer tidur habis: tutup aplikasi.
         LaunchedEffect(PlaybackManager.closeRequested) {
-            if (PlaybackManager.closeRequested > 0) finishAndRemoveTask()
+            if (PlaybackManager.closeRequested > 0) {
+                // Reset dulu: kalau tidak, aplikasi langsung tertutup lagi saat dibuka.
+                PlaybackManager.closeHandled()
+                finishAndRemoveTask()
+            }
         }
         // Mode PiP: layar tetap menyala selama video/lagu diputar (meski timeout layar pendek).
         LaunchedEffect(inPip, PlaybackManager.isPlaying) {

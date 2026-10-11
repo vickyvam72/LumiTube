@@ -90,6 +90,44 @@ object PlaybackManager {
     var captionError by mutableStateOf<String?>(null)
     private var captionFile: java.io.File? = null
     /** Subtitle digambar sendiri di atas video, jadi menyalakan/mematikan CC tidak memuat ulang video. */
+    // ---------------- Tahan untuk 2x ----------------
+
+    private var holdJob: Job? = null
+    private var holdWasPlaying = false
+
+    /** 1 = putar 2x lebih cepat, -1 = mundur dengan kecepatan 2x. */
+    fun startHoldSeek(direction: Int) {
+        holdJob?.cancel()
+        holdWasPlaying = exo.playWhenReady
+        if (direction > 0) {
+            exo.setPlaybackSpeed(speed * 2f)
+            exo.play()
+        } else {
+            // ExoPlayer tidak bisa diputar mundur: lompat mundur sedikit-sedikit dengan cepat.
+            exo.pause()
+            exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT)
+            holdJob = scope.launch {
+                while (true) {
+                    if (exo.playbackState != Player.STATE_BUFFERING) {
+                        val t = (exo.currentPosition - 500).coerceAtLeast(0)
+                        exo.seekTo(t)
+                        if (t == 0L) break
+                    }
+                    kotlinx.coroutines.delay(250)
+                }
+            }
+        }
+    }
+
+    fun stopHoldSeek() {
+        holdJob?.cancel()
+        holdJob = null
+        exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
+        exo.setPlaybackSpeed(speed)
+        if (holdWasPlaying) exo.play()
+        holdWasPlaying = false
+    }
+
     // ---------------- Timer tidur ----------------
 
     /** Waktu (epoch ms) aplikasi akan ditutup, atau null. */
@@ -101,6 +139,11 @@ object PlaybackManager {
     /** Bertambah saat timer habis; MainActivity menutup aplikasi. */
     var closeRequested by mutableIntStateOf(0)
         private set
+
+    /** Dipanggil MainActivity setelah menutup aplikasi, supaya bisa dibuka lagi. */
+    fun closeHandled() {
+        closeRequested = 0
+    }
     private var sleepJob: Job? = null
 
     fun setSleepMinutes(minutes: Int) = setSleepAtTime(System.currentTimeMillis() + minutes * 60_000L)
@@ -152,6 +195,21 @@ object PlaybackManager {
     var onAutoNext: (() -> Unit)? = null
     /** Video terkait berikutnya (untuk tombol next & putar otomatis). */
     var relatedNext by mutableStateOf<Item?>(null)
+    private var netRetries = 0
+
+    private fun isNetworkError(e: Throwable?): Boolean {
+        var t = e
+        while (t != null) {
+            if (t is java.net.UnknownHostException || t is java.net.SocketTimeoutException ||
+                t is java.net.ConnectException || t is java.net.NoRouteToHostException
+            ) return true
+            val m = t.message ?: ""
+            if (m.contains("hostname", true) || m.contains("resolve host", true)) return true
+            t = t.cause
+        }
+        return false
+    }
+
     /** Jumlah percobaan ulang (ganti klien) untuk item saat ini. */
     private var retries = 0
     private var currentClient = ""
@@ -255,6 +313,16 @@ object PlaybackManager {
                 // URL kedaluwarsa / ditolak (HTTP 403 di tengah lagu): ambil URL baru
                 // dari klien lain dan lanjutkan dari posisi yang sama, sampai beberapa kali.
                 val item = current
+                if (item != null && item.localUri == null && isNetworkError(e.cause) && netRetries < 4) {
+                    // Internet putus sesaat: tunggu sebentar lalu lanjut dari posisi yang sama.
+                    netRetries++
+                    val pos = exo.currentPosition.coerceAtLeast(0)
+                    scope.launch {
+                        kotlinx.coroutines.delay(2000L * netRetries)
+                        if (current?.id == item.id) load(item, pos)
+                    }
+                    return
+                }
                 if (item != null && item.localUri == null && retries < 5) {
                     retries++
                     // Gangguan koneksi: coba lagi klien yang sama. Selain itu (403, data rusak/
@@ -659,6 +727,7 @@ object PlaybackManager {
             captionFile = null
             subtitleCues = emptyList()
             retries = 0
+            netRetries = 0
         }
         loadJob?.cancel()
         current = item
@@ -715,7 +784,19 @@ object PlaybackManager {
                 throw e
             } catch (e: Exception) {
                 val msg = e.message ?: "Gagal memutar"
-                error = if (msg.contains("bot", ignoreCase = true)) {
+                if (isNetworkError(e) && netRetries < 4) {
+                    // Internet sempat putus/DNS gagal ("hostname"): coba lagi otomatis sebentar lagi.
+                    netRetries++
+                    val delayMs = 1500L * netRetries
+                    scope.launch {
+                        kotlinx.coroutines.delay(delayMs)
+                        if (current?.id == item.id) load(item, startPosition)
+                    }
+                    return@launch
+                }
+                error = if (isNetworkError(e)) {
+                    "Koneksi internet bermasalah. Periksa internet lalu coba lagi."
+                } else if (msg.contains("bot", ignoreCase = true)) {
                     // Identitas pengunjung kemungkinan ditandai: pakai yang baru saat mencoba lagi.
                     StreamResolver.resetIdentity()
                     if (Session.loggedIn) "YouTube sedang membatasi pemutaran. Coba lagi sebentar lagi."

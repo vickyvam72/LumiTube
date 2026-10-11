@@ -232,17 +232,44 @@ object StreamResolver {
                         .thenBy { minOf(failures[key(it.value)] ?: 0, 3) }
                         .thenBy { it.index })
                     .map { it.value }
-                for (c in ordered) {
-                    if (key(c) in bad && ordered.any { key(it) !in bad }) continue
-                    try {
-                        val st = request(c, videoId)
-                        cache[videoId] = System.currentTimeMillis() to st
-                        return@async st
-                    } catch (e: Exception) {
-                        lastError = e
+                val list = ordered.filter { c -> !(key(c) in bad && ordered.any { key(it) !in bad }) }
+                // Balapan bertahap: klien utama dicoba dulu; bila belum selesai dalam 2,5 detik
+                // (atau sudah gagal), klien berikutnya ikut dimulai. Hasil pertama yang berhasil dipakai,
+                // jadi satu klien yang lambat tidak membuat video lama dimuat.
+                val finished = java.util.concurrent.atomic.AtomicInteger(0)
+                val result = kotlinx.coroutines.CompletableDeferred<Stream>()
+                val errors = java.util.Collections.synchronizedList(mutableListOf<Exception>())
+                val jobs = list.mapIndexed { i, c ->
+                    launch {
+                        var waited = 0L
+                        while (waited < i * 2500L && finished.get() < i && !result.isCompleted) {
+                            kotlinx.coroutines.delay(100)
+                            waited += 100
+                        }
+                        if (result.isCompleted) return@launch
+                        try {
+                            result.complete(request(c, videoId))
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            errors.add(e)
+                        } finally {
+                            if (finished.incrementAndGet() == list.size && !result.isCompleted) {
+                                val err = errors.firstOrNull { it.message?.contains("bot", true) == true }
+                                    ?: errors.firstOrNull() ?: lastError ?: IOException("Video tidak bisa diputar")
+                                result.completeExceptionally(err)
+                            }
+                        }
                     }
                 }
-                throw lastError ?: IOException("Video tidak bisa diputar")
+                if (list.isEmpty()) throw IOException("Video tidak bisa diputar")
+                try {
+                    val st = result.await()
+                    cache[videoId] = System.currentTimeMillis() to st
+                    st
+                } finally {
+                    jobs.forEach { it.cancel() }
+                }
             }
         }
         try {
