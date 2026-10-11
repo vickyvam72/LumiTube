@@ -117,6 +117,7 @@ import com.lumitube.app.ui.common.MessageBox
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.common.YtRed
 import androidx.compose.material.icons.filled.SlowMotionVideo
+import androidx.compose.material.icons.filled.SmartDisplay
 import com.lumitube.app.ui.common.findActivity
 import com.lumitube.app.ui.common.rememberFeed
 import com.lumitube.app.ui.common.shareVideo
@@ -955,28 +956,23 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             }
                         }
                         if (dayShorts.isNotEmpty()) {
-                            if (histFilter == 2) {
-                                // Tab Shorts: kisi 3 kolom kartu tegak.
-                                val rowsOf3 = dayShorts.chunked(3)
-                                items(rowsOf3.size, key = { "hg$di-$it" }) { r ->
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        rowsOf3[r].forEach { sh -> HistoryShortCard(sh, Modifier.weight(1f)) { open(sh) } }
-                                        repeat(3 - rowsOf3[r].size) { Spacer(Modifier.weight(1f)) }
-                                    }
+                            // Penanda bagian + kisi 3 kolom yang pas di layar (kiri-kanan sama rata).
+                            if (histFilter == 0) item(key = "hsl$di") { HistorySectionLabel(Icons.Filled.SlowMotionVideo, "Shorts") }
+                            val rowsOf3 = dayShorts.chunked(3)
+                            items(rowsOf3.size, key = { "hg$di-$it" }) { r ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    rowsOf3[r].forEach { sh -> HistoryShortCard(sh, Modifier.weight(1f)) { open(sh) } }
+                                    repeat(3 - rowsOf3[r].size) { Spacer(Modifier.weight(1f)) }
                                 }
-                            } else {
-                                // Tab Semua: semua Shorts hari itu dalam satu deretan kartu di atas video.
-                                item(key = "hs$di") {
-                                    Column {
-                                        Row(Modifier.padding(start = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Filled.SlowMotionVideo, null, tint = YtRed, modifier = Modifier.size(20.dp))
-                                            Text("Shorts", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
-                                        }
-                                        HistoryShorts(dayShorts) { s -> open(s) }
-                                    }
+                            }
+                        }
+                        if (dayVideos.isNotEmpty() && histFilter == 0) {
+                            item(key = "hvl$di") {
+                                Box(Modifier.padding(top = if (dayShorts.isNotEmpty()) 10.dp else 0.dp)) {
+                                    HistorySectionLabel(Icons.Filled.SmartDisplay, "Video")
                                 }
                             }
                         }
@@ -1515,5 +1511,15 @@ private fun HistoryShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
             val views = s.subtitle.split(" • ").lastOrNull()?.takeIf { it.isNotBlank() }
             if (views != null) Text(views, color = Color(0xDDFFFFFF), fontSize = 11.sp, maxLines = 1)
         }
+    }
+}
+
+/** Penanda bagian di Histori ("Shorts" / "Video"). */
+@Composable
+private fun HistorySectionLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+    val yt = LocalYt.current
+    Row(Modifier.padding(start = 16.dp, top = 2.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = YtRed, modifier = Modifier.size(20.dp))
+        Text(label, color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
     }
 }

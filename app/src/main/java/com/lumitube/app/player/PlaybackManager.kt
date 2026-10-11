@@ -619,7 +619,7 @@ object PlaybackManager {
                 val tracking = st?.trackPlayback?.let {
                     com.lumitube.app.data.InnerTube.Tracking(it, st.trackWatchtime, st.trackClient, st.trackVersion, st.lengthSeconds)
                 }
-                val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo, stream = tracking)
+                val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo, stream = tracking, short = item.type == ItemType.SHORT)
                 if (!ok && !historyWarned) {
                     historyWarned = true
                     android.widget.Toast.makeText(

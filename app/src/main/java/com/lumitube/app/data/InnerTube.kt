@@ -107,7 +107,7 @@ object InnerTube {
     /** Hasil terakhir pencatatan histori (untuk diagnosis). */
     @Volatile var lastHistoryResult: String = ""
 
-    suspend fun registerWatch(videoId: String, playlistId: String?, music: Boolean, stream: Tracking? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun registerWatch(videoId: String, playlistId: String?, music: Boolean, stream: Tracking? = null, short: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         val cookie = Session.cookie ?: return@withContext false
         if (!Session.loggedIn) return@withContext false
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -117,7 +117,8 @@ object InnerTube {
             val lenStr = String.format(Locale.US, "%.3f", len.coerceAtLeast(1.0))
             val url0 = if (origin.contains("music.")) base.replace("https://s.youtube.com", origin) else base
             // Cara yt-dlp (--mark-watched): ver, cpn, cmt dan el=detailpage (tanpa ini dianggap "shorts").
-            val set = linkedMapOf("ver" to "2", "cpn" to cpn, "cmt" to lenStr, "el" to "detailpage", "c" to clientName, "cver" to version)
+            // Shorts dicatat sebagai Shorts (el=shortspage), video biasa sebagai detailpage.
+            val set = linkedMapOf("ver" to "2", "cpn" to cpn, "cmt" to lenStr, "el" to (if (short) "shortspage" else "detailpage"), "c" to clientName, "cver" to version)
             if (playlistId != null) set["list"] = playlistId
             set.putAll(extra.mapValues { if (it.value == "LEN") lenStr else it.value })
             val path = url0.substringBefore('?')
