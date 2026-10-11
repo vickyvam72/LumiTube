@@ -957,8 +957,17 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         }
                         if (dayShorts.isNotEmpty()) {
                             // Penanda bagian + kisi 3 kolom yang pas di layar (kiri-kanan sama rata).
-                            if (histFilter == 0) item(key = "hsl$di") { HistorySectionLabel(Icons.Filled.SlowMotionVideo, "Shorts") }
-                            val rowsOf3 = dayShorts.chunked(3)
+                            if (histFilter == 0) {
+                                // Tab Semua: deretan kartu yang bisa digeser kanan-kiri.
+                                item(key = "hsl$di") {
+                                    Column {
+                                        HistorySectionLabel(Icons.Filled.SlowMotionVideo, "Shorts")
+                                        HistoryShorts(dayShorts) { s -> open(s) }
+                                    }
+                                }
+                            }
+                            // Tab Shorts: kisi 3 kolom.
+                            val rowsOf3 = if (histFilter == 2) dayShorts.chunked(3) else emptyList()
                             items(rowsOf3.size, key = { "hg$di-$it" }) { r ->
                                 Row(
                                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
