@@ -963,7 +963,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     ) {
-                                        rowsOf3[r].forEach { sh -> ShortCard(sh, Modifier.weight(1f)) { open(sh) } }
+                                        rowsOf3[r].forEach { sh -> HistoryShortCard(sh, Modifier.weight(1f)) { open(sh) } }
                                         repeat(3 - rowsOf3[r].size) { Spacer(Modifier.weight(1f)) }
                                     }
                                 }
@@ -1496,13 +1496,13 @@ private fun HistoryShorts(items: List<Item>, onClick: (Item) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.padding(bottom = 14.dp),
     ) {
-        items(items, key = { it.key }) { s -> ShortCard(s, Modifier.width(118.dp)) { onClick(s) } }
+        items(items, key = { it.key }) { s -> HistoryShortCard(s, Modifier.width(118.dp)) { onClick(s) } }
     }
 }
 
 /** Kartu Short tegak 9:16 dengan judul & tayangan di atas gambar. */
 @Composable
-private fun ShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
+private fun HistoryShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
     Box(modifier.aspectRatio(9f / 16f).clip(RoundedCornerShape(10.dp)).background(Color.Black).clickable(onClick = onClick)) {
         Img(s.thumbnail ?: "https://i.ytimg.com/vi/${s.id}/oar2.jpg", Modifier.fillMaxSize())
         Box(
