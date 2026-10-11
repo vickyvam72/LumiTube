@@ -511,7 +511,9 @@ private fun MusicBrowseScreen(
     val removed = remember(route.id) { androidx.compose.runtime.mutableStateListOf<String>() }
     var confirmDelete by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val editScope = rememberCoroutineScope()
+    val editScope = com.lumitube.app.ui.common.EditScope.scope
+    val appCtx = ctx.applicationContext
+    val feedKey = route.id + route.params
     // Lagu playlist milik akun yang bisa diurutkan ulang (punya setVideoId), dalam satu daftar.
     fun movable(it: Item) = editable && it.type == ItemType.SONG && it.setVideoId != null
     val basePl = (shelves.flatMap { s -> s.items.filter { it.row && movable(it) } } + feed.items.filter { movable(it) })
@@ -537,11 +539,14 @@ private fun MusicBrowseScreen(
             val i = list.indexOfFirst { "p" + it.key == key }
             val sv = list.getOrNull(i)?.setVideoId
             if (sv != null) {
+                com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
                 editScope.launch {
                     try {
                         Repo.movePlaylistItem(route.id, sv, list.getOrNull(i - 1)?.setVideoId, list.getOrNull(i + 1)?.setVideoId)
-                    } catch (_: Exception) {
-                        android.widget.Toast.makeText(ctx, "Gagal menyimpan urutan, memuat ulang playlist…", android.widget.Toast.LENGTH_SHORT).show()
+                        com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
+                    } catch (e: Exception) {
+                        com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
+                        android.widget.Toast.makeText(appCtx, "Gagal menyimpan urutan: ${e.message ?: e}", android.widget.Toast.LENGTH_LONG).show()
                         // Muat ulang supaya urutan di layar sama dengan yang tersimpan di YouTube.
                         order.clear()
                         feed.load()
@@ -556,6 +561,7 @@ private fun MusicBrowseScreen(
             editScope.launch {
                 try {
                     Repo.setInPlaylist(route.id.removePrefix("VL"), item.id, false)
+                    com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
                     android.widget.Toast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
                 } catch (_: Exception) {
                     removed.remove(item.id)
@@ -591,6 +597,7 @@ private fun MusicBrowseScreen(
                         editScope.launch {
                             try {
                                 Repo.deletePlaylist(route.id)
+                                com.lumitube.app.ui.common.FeedLoader.clear()
                                 android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
                                 onBack()
                             } catch (_: Exception) {

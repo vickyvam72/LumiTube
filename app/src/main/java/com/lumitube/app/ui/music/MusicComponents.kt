@@ -250,7 +250,10 @@ fun SongRow(
         if (menu != null) {
             com.lumitube.app.ui.common.ItemMenu(menu, MusicColors.sub)
         } else {
-            Icon(Icons.Outlined.MoreVert, null, tint = MusicColors.sub, modifier = Modifier.size(20.dp))
+            // Ukuran sama dengan tombol menu supaya titik tiga sejajar.
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.MoreVert, null, tint = MusicColors.sub, modifier = Modifier.size(22.dp))
+            }
         }
     }
 }

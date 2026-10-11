@@ -105,6 +105,11 @@ class FeedLoader(
         /** Cache halaman di memori supaya pindah tab / mode YouTube <-> Music terasa instan. */
         private val cache = HashMap<Any, Cached>()
         fun clear() = cache.clear()
+
+        /** Buang cache satu halaman (setelah playlist diubah) supaya dibuka ulang dari server. */
+        fun invalidate(key: Any?) {
+            if (key != null) cache.remove(key)
+        }
     }
 
     private fun store() {
@@ -368,3 +373,11 @@ fun formatTime(ms: Long): String {
 
 @Composable
 fun Spacer8() = androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+
+/**
+ * Scope untuk perubahan ke akun (urutan/hapus playlist) yang tidak boleh batal
+ * saat layar ditutup (misalnya langsung menekan kembali setelah menggeser).
+ */
+object EditScope {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+}

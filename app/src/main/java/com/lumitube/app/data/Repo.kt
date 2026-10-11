@@ -206,6 +206,13 @@ object Repo {
         }
     }
 
+    /** Keluarkan playlist (milik orang lain / buatan YouTube seperti Recap) dari koleksi. */
+    suspend fun removePlaylistFromLibrary(playlistId: String) {
+        val pid = playlistId.removePrefix("VL")
+        val client = if (com.lumitube.app.CrossApp.isMusic) Client.MUSIC else Client.WEB
+        InnerTube.post(client, "like/removelike", org.json.JSONObject().put("target", org.json.JSONObject().put("playlistId", pid)))
+    }
+
     /** Hapus playlist milik akun. [playlistId] tanpa awalan "VL". */
     suspend fun deletePlaylist(playlistId: String) {
         InnerTube.post(Client.WEB, "playlist/delete", org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")))

@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.platform.LocalContext
@@ -27,42 +26,62 @@ class PlaylistDeleter(
     val deleted: SnapshotStateList<String>,
     private val ask: (Item) -> Unit,
 ) {
-    /** Playlist yang mungkin milik akun (bukan "Video/Lagu yang disukai", "Tonton nanti", mix, atau album). */
+    /** Semua playlist di koleksi, kecuali "Video/Lagu yang disukai", "Tonton nanti", dan Episode. */
     fun canDelete(item: Item): Boolean {
         if (!Session.loggedIn || item.type != ItemType.PLAYLIST) return false
-        val id = item.id.removePrefix("VL")
-        if (id in setOf("LL", "LM", "WL", "SE")) return false
-        return id.startsWith("PL")
+        return item.id.removePrefix("VL") !in setOf("LL", "LM", "WL", "SE")
     }
 
+    /** Playlist buatan akun (ID "PL…"); lainnya (Recap, mix, playlist orang lain) hanya bisa dikeluarkan dari koleksi. */
+    fun isOwnLike(item: Item) = item.id.removePrefix("VL").startsWith("PL")
+
     fun menu(item: Item): List<Pair<String, () -> Unit>>? =
-        if (canDelete(item)) listOf("Hapus playlist" to { ask(item) }) else null
+        if (canDelete(item)) listOf((if (isOwnLike(item)) "Hapus playlist" else "Hapus dari koleksi") to { ask(item) }) else null
 }
 
 @Composable
 fun rememberPlaylistDeleter(): PlaylistDeleter {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val deleted = remember { mutableStateListOf<String>() }
     var target by remember { mutableStateOf<Item?>(null) }
     val deleter = remember { PlaylistDeleter(deleted) { target = it } }
     target?.let { item ->
+        val own = deleter.isOwnLike(item)
         AlertDialog(
             onDismissRequest = { target = null },
-            title = { Text("Hapus playlist?") },
-            text = { Text("\"${item.title.ifBlank { "Playlist" }}\" akan dihapus permanen dari akunmu.") },
+            title = { Text(if (own) "Hapus playlist?" else "Hapus dari koleksi?") },
+            text = {
+                Text(
+                    if (own) "\"${item.title.ifBlank { "Playlist" }}\" akan dihapus permanen dari akunmu."
+                    else "\"${item.title.ifBlank { "Playlist" }}\" akan dikeluarkan dari koleksimu."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     target = null
                     deleted.add(item.id)
-                    scope.launch {
-                        try {
-                            Repo.deletePlaylist(item.id)
-                            Toast.makeText(ctx, "Playlist dihapus", Toast.LENGTH_SHORT).show()
-                        } catch (_: Exception) {
+                    val app = ctx.applicationContext
+                    EditScope.scope.launch {
+                        val msg = try {
+                            if (own) {
+                                try {
+                                    Repo.deletePlaylist(item.id)
+                                    "Playlist dihapus"
+                                } catch (e: Exception) {
+                                    // Playlist orang lain yang disimpan: keluarkan dari koleksi saja.
+                                    Repo.removePlaylistFromLibrary(item.id)
+                                    "Dihapus dari koleksi"
+                                }
+                            } else {
+                                Repo.removePlaylistFromLibrary(item.id)
+                                "Dihapus dari koleksi"
+                            }
+                        } catch (e: Exception) {
                             deleted.remove(item.id)
-                            Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", Toast.LENGTH_SHORT).show()
+                            "Gagal menghapus: ${e.message ?: e}"
                         }
+                        FeedLoader.clear()
+                        Toast.makeText(app, msg, Toast.LENGTH_SHORT).show()
                     }
                 }) { Text("Hapus") }
             },
