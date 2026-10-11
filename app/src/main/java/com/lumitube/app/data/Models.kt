@@ -19,6 +19,8 @@ data class Item(
     val row: Boolean = false,
     /** Lokasi file hasil download (content:// atau file://), jika diputar offline. */
     val localUri: String? = null,
+    /** Siaran langsung yang sedang berlangsung. */
+    val live: Boolean = false,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"
@@ -70,6 +72,28 @@ data class WatchInfo(
     val commentCount: String? = null,
     /** Tautan di deskripsi: (awal, panjang, target). Target "http..", "t:<detik>", atau "c:<browseId>". */
     val descriptionLinks: List<Triple<Int, Int, String>> = emptyList(),
+    /** Siaran langsung: token untuk live chat (pengganti kolom komentar). */
+    val liveChatToken: String? = null,
+    val isLive: Boolean = false,
+)
+
+data class ChatMessage(
+    val id: String,
+    val author: String,
+    val photo: String?,
+    val text: String,
+    /** Super Chat: nominal, mis. "Rp20.000". */
+    val paid: String? = null,
+    val member: Boolean = false,
+)
+
+data class LiveChatPage(
+    val messages: List<ChatMessage>,
+    val continuation: String?,
+    val timeoutMs: Long,
+    val sendParams: String?,
+    /** Pesan pembatasan, mis. "Mode khusus subscriber...". */
+    val notice: String?,
 )
 
 data class Comment(

@@ -22,6 +22,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
@@ -150,6 +153,18 @@ fun DurationBadge(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** Lencana "((•)) LIVE" merah untuk siaran langsung. */
+@Composable
+fun LiveBadge(modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(4.dp)).background(YtRed).padding(horizontal = 5.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Sensors, null, tint = Color.White, modifier = Modifier.size(14.dp))
+        Text("LIVE", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 3.dp))
+    }
+}
+
 /** Kartu video besar seperti di beranda YouTube. */
 @Composable
 fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
@@ -157,13 +172,20 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(bottom = 16.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
             Img(hdThumb(item), Modifier.fillMaxSize(), fallback = item.thumbnail)
-            item.duration?.let {
-                DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(8.dp))
+            if (item.live) {
+                LiveBadge(Modifier.align(Alignment.BottomEnd).padding(8.dp))
+            } else {
+                item.duration?.let {
+                    DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(8.dp))
+                }
             }
         }
         Row(Modifier.padding(start = 12.dp, top = 10.dp, end = 4.dp)) {
+            Box(contentAlignment = Alignment.BottomCenter) {
             Box(
-                Modifier.size(36.dp).clip(CircleShape).clickable(enabled = onChannel != null) { onChannel?.invoke() }
+                Modifier.size(if (item.live) 40.dp else 36.dp)
+                    .then(if (item.live) Modifier.border(2.dp, YtRed, CircleShape).padding(3.dp) else Modifier)
+                    .clip(CircleShape).clickable(enabled = onChannel != null) { onChannel?.invoke() }
             ) {
                 if (item.channelThumb != null) {
                     Img(item.channelThumb, Modifier.fillMaxSize())
@@ -175,6 +197,14 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
                         )
                     }
                 }
+            }
+            if (item.live) {
+                Text(
+                    "LIVE", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = 4.dp).clip(RoundedCornerShape(3.dp)).background(YtRed)
+                        .padding(horizontal = 3.dp),
+                )
+            }
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(
@@ -211,7 +241,8 @@ fun VideoRow(item: Item, onClick: () -> Unit) {
                     }
                 }
             } else {
-                item.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp)) }
+                if (item.live) LiveBadge(Modifier.align(Alignment.BottomEnd).padding(4.dp))
+                else item.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp)) }
             }
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {

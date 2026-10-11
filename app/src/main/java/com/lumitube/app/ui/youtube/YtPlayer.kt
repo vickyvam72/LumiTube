@@ -246,10 +246,25 @@ fun YtVideoPlayer(
                     Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(start = 14.dp, end = 4.dp, bottom = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "${formatTime(position)} / ${formatTime(duration)}",
-                        color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                    )
+                    if (PlaybackManager.isLiveStream) {
+                        // Titik merah = sedang di bagian terkini. Ketuk untuk kembali ke live.
+                        val offset = PlaybackManager.exo.currentLiveOffset
+                        val atLive = offset == androidx.media3.common.C.TIME_UNSET || offset < 15_000 || duration - position < 15_000
+                        Row(
+                            Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0x66000000))
+                                .clickable { touch = System.currentTimeMillis(); PlaybackManager.goLive() }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(8.dp).clip(CircleShape).background(if (atLive) YtRed else Color(0xFFAAAAAA)))
+                            Text("Live", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+                        }
+                    } else {
+                        Text(
+                            "${formatTime(position)} / ${formatTime(duration)}",
+                            color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                        )
+                    }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { onFullscreen(!full) }) {
                         Icon(if (full) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen, "Layar penuh", tint = Color.White, modifier = Modifier.size(28.dp))

@@ -90,6 +90,16 @@ object PlaybackManager {
     var captionError by mutableStateOf<String?>(null)
     private var captionFile: java.io.File? = null
     /** Subtitle digambar sendiri di atas video, jadi menyalakan/mematikan CC tidak memuat ulang video. */
+    /** Video yang diputar adalah siaran langsung. */
+    var isLiveStream by mutableStateOf(false)
+        private set
+
+    /** Lompat ke bagian terkini siaran langsung. */
+    fun goLive() {
+        exo.seekToDefaultPosition()
+        exo.play()
+    }
+
     var subtitleCues by mutableStateOf<List<com.lumitube.app.data.SubCue>>(emptyList())
         private set
     /** Dipanggil saat video selesai & autoplay aktif (mis. putar video terkait berikutnya). */
@@ -226,7 +236,8 @@ object PlaybackManager {
                         stuckSince = now
                     } else if (stuckSince > 0 && now - stuckSince > 10_000) {
                         stuckSince = 0
-                        StreamResolver.invalidate(item.id)
+                        // Macet total: klien ini kemungkinan dibatasi -> pakai klien lain.
+                        if (!StreamResolver.markRejected(item.id, currentClient)) StreamResolver.resetRejected(item.id)
                         load(item, exo.currentPosition.coerceAtLeast(0))
                     }
                 } else {
@@ -565,6 +576,7 @@ object PlaybackManager {
             try {
                 val local = item.localUri
                 if (local != null) {
+                    isLiveStream = false
                     qualities = emptyList()
                     val meta = MediaMetadata.Builder().setTitle(item.title).setArtist(item.channelName ?: "")
                         .apply { item.thumbnail?.let { setArtworkUri(Uri.parse(it)) } }.build()
@@ -590,7 +602,13 @@ object PlaybackManager {
                     captions = stream.captions
                     translations = stream.translations
                     queue.getOrNull(index + 1)?.let { if (it.localUri == null) prefetchMedia(it.id, video = isVideo) }
-                    exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
+                    isLiveStream = stream.isLive
+                    if (stream.isLive) {
+                        // Live: mulai dari bagian terkini, bukan dari awal siaran.
+                        exo.setMediaSource(buildSource(item, stream, audioOnly), true)
+                    } else {
+                        exo.setMediaSource(buildSource(item, stream, audioOnly), startPosition)
+                    }
                 }
                 exo.prepare()
                 exo.play()

@@ -903,7 +903,7 @@ fun WatchScreen(
         if (!full) {
             WatchDetails(
                 current, info, onOpen, onChannel, onLogin, onPlayInMusic,
-                onComments = { panel = 1 },
+                onComments = { panel = if (info?.liveChatToken != null) 3 else 1 },
                 onSettings = { panel = 2 },
                 onDownload = { downloadItem = current },
             )
@@ -915,6 +915,9 @@ fun WatchScreen(
             onClose = { panel = 0 }, onChannel = { panel = 0; onChannel(it) },
         )
         2 -> YtSettingsSheet(onListenMusic = { panel = 0; onPlayInMusic(current) }) { panel = 0 }
+        3 -> info?.liveChatToken?.let { t ->
+            com.lumitube.app.ui.common.LiveChatPanel(t, ytPanelColors()) { panel = 0 }
+        }
     }
     }
     downloadItem?.let { DownloadDialog(it) { downloadItem = null } }
@@ -1074,7 +1077,9 @@ private fun WatchDetails(
                     WatchIcon(Icons.Outlined.Download, "Unduh") { onDownload() }
                 }
             }
-            item {
+            if (i?.liveChatToken != null) item {
+                com.lumitube.app.ui.common.LiveChatCard(ytPanelColors(), onComments)
+            } else item {
                 Row(
                     Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp)).background(yt.surface)

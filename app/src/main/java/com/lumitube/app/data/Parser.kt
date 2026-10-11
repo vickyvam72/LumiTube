@@ -55,6 +55,9 @@ object Parser {
             ?: findFirst(v.arr("thumbnailOverlays"), "thumbnailOverlayTimeStatusRenderer")
                 ?.let { text(it.obj("text")) }
         val isShort = v.obj("navigationEndpoint", "reelWatchEndpoint") != null
+        val overlay = findFirst(v.arr("thumbnailOverlays"), "thumbnailOverlayTimeStatusRenderer")
+        val live = overlay?.str("style") == "LIVE" ||
+            v.arr("badges")?.objects()?.any { it.str("metadataBadgeRenderer", "style")?.contains("LIVE_NOW") == true } == true
         val chThumb = bestThumb(findFirst(v.obj("channelThumbnailSupportedRenderers"), "thumbnail"))
             ?: bestThumb(v.obj("channelThumbnail"))
         return if (music) {
@@ -74,10 +77,11 @@ object Parser {
                 title = title,
                 subtitle = listOfNotNull(channel, views, published).joinToString(" • "),
                 thumbnail = bestThumb(v.obj("thumbnail")) ?: "https://i.ytimg.com/vi/$id/hqdefault.jpg",
-                duration = duration,
+                duration = if (live) null else duration,
                 channelName = channel,
                 channelId = channelId,
                 channelThumb = chThumb,
+                live = live,
             )
         }
     }
@@ -95,7 +99,10 @@ object Parser {
         val image = v.obj("contentImage")
         val thumb = bestThumb(findFirst(image, "image"))
         val avatar = bestThumb(findFirst(meta.obj("image"), "image"))
-        val badge = findFirst(image, "thumbnailBadgeViewModel")?.str("text")
+        val badgeVm = findFirst(image, "thumbnailBadgeViewModel")
+        val badge = badgeVm?.str("text")
+        val live = badgeVm?.str("badgeStyle")?.contains("LIVE") == true ||
+            badge?.trim()?.uppercase() in setOf("LIVE", "LANGSUNG", "EN DIRECT", "EN VIVO")
         val channelId = findFirst(meta.obj("image"), "browseEndpoint")?.str("browseId")
         return when {
             type.contains("VIDEO") -> Item(
@@ -104,10 +111,11 @@ object Parser {
                 title = title,
                 subtitle = rows.joinToString(" • "),
                 thumbnail = thumb ?: "https://i.ytimg.com/vi/$id/hqdefault.jpg",
-                duration = badge,
+                duration = if (live) null else badge,
                 channelName = rows.firstOrNull(),
                 channelId = channelId,
                 channelThumb = avatar,
+                live = live,
             )
             type.contains("PLAYLIST") || type.contains("ALBUM") || type.contains("PODCAST") -> {
                 if (id.startsWith("RD")) return null
@@ -492,8 +500,12 @@ object Parser {
                 ?: text(primary.obj("viewCount", "videoViewCountRenderer", "viewCount")),
             date = text(primary.obj("relativeDateText")) ?: text(primary.obj("dateText")),
             channel = text(owner.obj("title")),
-            channelId = owner.str("navigationEndpoint", "browseEndpoint", "browseId"),
-            channelThumb = bestThumb(owner.obj("thumbnail")),
+            // Video kolaborasi: data channel ada di dalam dialog/avatar stack, cari lebih dalam.
+            channelId = owner.str("navigationEndpoint", "browseEndpoint", "browseId")
+                ?: findFirst(owner, "browseEndpoint")?.str("browseId")?.takeIf { it.startsWith("UC") },
+            channelThumb = bestThumb(owner.obj("thumbnail"))
+                ?: findFirst(owner, "avatarViewModel")?.let { bestThumb(it.obj("image")) }
+                ?: bestThumb(findFirst(owner, "thumbnail")),
             subscribers = text(owner.obj("subscriberCountText")),
             likes = likes,
             description = secondary.str("attributedDescription", "content") ?: text(secondary.obj("description")),
@@ -503,6 +515,10 @@ object Parser {
             commentsToken = commentsToken,
             commentCount = commentCount,
             descriptionLinks = descriptionLinks(secondary.obj("attributedDescription")),
+            liveChatToken = findFirst(next.obj("contents"), "liveChatRenderer")?.let { lc ->
+                findFirst(lc.arr("continuations"), "reloadContinuationData")?.str("continuation")
+            },
+            isLive = primary.obj("viewCount", "videoViewCountRenderer")?.optBoolean("isLive", false) == true,
         )
     }
 
@@ -604,5 +620,42 @@ object Parser {
                 ?: return@mapNotNull null
             Triple(start, len, target)
         }
+    }
+
+    /** Satu halaman live chat (pesan baru + token berikutnya). */
+    fun liveChat(r: JSONObject): LiveChatPage {
+        val c = r.obj("continuationContents", "liveChatContinuation") ?: return LiveChatPage(emptyList(), null, 5000, null, null)
+        val msgs = c.arr("actions")?.objects()?.mapNotNull { a ->
+            val item = a.obj("addChatItemAction", "item") ?: a.obj("replayChatItemAction")?.let { findFirst(it, "item") }
+                ?: return@mapNotNull null
+            val m = item.obj("liveChatTextMessageRenderer") ?: item.obj("liveChatPaidMessageRenderer")
+                ?: return@mapNotNull null
+            val textOut = buildString {
+                m.arr("message", "runs")?.objects()?.forEach { run ->
+                    val t = run.str("text")
+                    if (t != null) append(t) else run.obj("emoji")?.let { e ->
+                        if (e.optBoolean("isCustomEmoji")) append(e.arr("shortcuts")?.optString(0) ?: "") else append(e.str("emojiId") ?: "")
+                    }
+                }
+            }
+            ChatMessage(
+                id = m.str("id") ?: return@mapNotNull null,
+                author = text(m.obj("authorName")) ?: "",
+                photo = bestThumb(m.obj("authorPhoto")),
+                text = textOut,
+                paid = text(m.obj("purchaseAmountText")),
+                member = m.arr("authorBadges")?.toString()?.contains("member", ignoreCase = true) == true,
+            )
+        } ?: emptyList()
+        val cont = c.arr("continuations")?.objects()?.firstOrNull()
+        val data = cont?.let { it.obj("invalidationContinuationData") ?: it.obj("timedContinuationData") ?: it.obj("reloadContinuationData") }
+        val panel = c.obj("actionPanel")
+        return LiveChatPage(
+            messages = msgs,
+            continuation = data?.str("continuation"),
+            timeoutMs = data?.optLong("timeoutMs", 5000) ?: 5000,
+            sendParams = findFirst(panel, "sendLiveChatMessageEndpoint")?.str("params"),
+            notice = panel?.obj("liveChatRestrictedParticipationRenderer")?.let { text(it.obj("message")) },
+        )
     }
 }

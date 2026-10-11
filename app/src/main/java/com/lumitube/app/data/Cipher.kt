@@ -134,7 +134,8 @@ object Cipher {
                 }
             }
             val stale = now - tableTime > 6 * 60 * 60 * 1000L
-            if (table[hash] == null || stale) {
+            val recentlyMissing = missingHash == hash && now - missingTime < 15 * 60 * 1000L
+            if ((table[hash] == null && !recentlyMissing) || stale) {
                 for (u in listOf(TABLE_URL, TABLE_MIRROR)) {
                     try {
                         val text = get(u)
@@ -149,9 +150,18 @@ object Cipher {
                     }
                 }
             }
-            table[hash]
+            table[hash] ?: run {
+                missingHash = hash
+                missingTime = now
+                // Versi pemutar terbaru belum masuk tabel: pakai versi terbaru yang dikenal
+                // (YouTube masih menerima pemutar lama beberapa waktu, seperti opsi player_js_version yt-dlp).
+                table.values.maxByOrNull { it.sts }
+            }
         }
     }
+
+    private var missingHash: String? = null
+    private var missingTime = 0L
 
     private suspend fun playerScript(hash: String): String = withContext(Dispatchers.IO) {
         val f = cacheDir?.let { File(it, "player_$hash.js") }

@@ -97,6 +97,26 @@ object Repo {
         )
     }
 
+    /** Ambil pesan live chat (token awal dari halaman tonton, lalu token berikutnya). */
+    suspend fun liveChat(continuation: String): LiveChatPage =
+        Parser.liveChat(
+            InnerTube.post(Client.WEB, "live_chat/get_live_chat", org.json.JSONObject().put("continuation", continuation))
+        )
+
+    /** Kirim pesan ke live chat (harus login). */
+    suspend fun sendLiveChat(params: String, text: String) {
+        InnerTube.post(
+            Client.WEB, "live_chat/send_message",
+            org.json.JSONObject()
+                .put("params", params)
+                .put("clientMessageId", "lumi" + System.currentTimeMillis())
+                .put(
+                    "richMessage",
+                    org.json.JSONObject().put("textSegments", org.json.JSONArray().put(org.json.JSONObject().put("text", text)))
+                )
+        )
+    }
+
     /** Hapus dari "Tonton nanti". */
     suspend fun removeWatchLater(videoId: String) {
         InnerTube.post(

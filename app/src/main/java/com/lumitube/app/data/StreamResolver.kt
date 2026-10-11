@@ -350,7 +350,7 @@ object StreamResolver {
         if (c.kind == Kind.EMBED) {
             ctx.put("thirdParty", JSONObject().put("embedUrl", "https://www.reddit.com/"))
             val cpc = JSONObject().put("html5Preference", "HTML5_PREF_WANTS")
-                .put("signatureTimestamp", embed?.sts ?: cipherCfg?.sts)
+                .put("signatureTimestamp", cipherCfg?.sts ?: embed?.sts)
             embed?.hostFlags?.let { cpc.put("encryptedHostFlags", it) }
             body.put("playbackContext", JSONObject().put("contentPlaybackContext", cpc))
                 .put("thirdParty", JSONObject().put("embedUrl", "https://www.youtube.com/embed/$videoId"))
@@ -372,6 +372,8 @@ object StreamResolver {
         val sd = json.obj("streamingData") ?: throw IOException("Tidak ada data stream")
         val isLive = json.obj("videoDetails")?.optBoolean("isLive", false) == true
         val hls = sd.str("hlsManifestUrl")
+        // Siaran langsung diputar lewat HLS; klien tanpa HLS dilewati.
+        if (isLive && hls == null) throw IOException("Live tanpa HLS")
         val raw = sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null || it.str("signatureCipher") != null } ?: emptyList()
         if (raw.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
             throw IOException("Format stream tidak tersedia")
