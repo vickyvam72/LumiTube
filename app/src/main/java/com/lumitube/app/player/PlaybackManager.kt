@@ -347,6 +347,11 @@ object PlaybackManager {
                     load(item, exo.currentPosition.coerceAtLeast(0))
                 } else {
                     error = "Gagal memutar: ${e.errorCodeName}"
+                    // Lanjutkan otomatis begitu gangguan selesai (internet kembali / server pulih).
+                    if (item != null && item.localUri == null) {
+                        resumeFor = item.id
+                        resumePos = exo.currentPosition.coerceAtLeast(0)
+                    }
                 }
             }
         })
@@ -354,6 +359,7 @@ object PlaybackManager {
         exo.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
         player = QueuePlayer(exo)
         startWatchdog()
+        startAutoResume(context)
         // Saat lagu di-download, lirik terbaik ikut disimpan (untuk diputar offline).
         if (com.lumitube.app.CrossApp.isMusic) {
             com.lumitube.app.data.Downloader.lyricsFetcher = { item ->
@@ -387,6 +393,84 @@ object PlaybackManager {
      * Penjaga "stuck": jika buffering lebih dari 10 detik tanpa data baru,
      * muat ulang stream dari posisi saat ini.
      */
+    // ---------------- Lanjut otomatis setelah gangguan ----------------
+
+    /** Lagu/video yang terhenti karena gangguan dan harus diputar lagi otomatis. */
+    private var resumeFor: String? = null
+    private var resumePos = 0L
+    private var lastResumeTry = 0L
+
+    private fun online(ctx: Context): Boolean = try {
+        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
+        val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
+        caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    } catch (_: Exception) {
+        true
+    }
+
+    /**
+     * Begitu internet tersambung lagi (atau gangguan selesai), putar ulang otomatis dari posisi
+     * terakhir dan cari lirik yang tadi gagal dimuat. Berlaku untuk video maupun lagu.
+     */
+    private fun startAutoResume(context: Context) {
+        val app = context.applicationContext
+        try {
+            app.getSystemService(android.net.ConnectivityManager::class.java)?.registerDefaultNetworkCallback(
+                object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) {
+                        scope.launch {
+                            kotlinx.coroutines.delay(1500)
+                            tryResume(force = true)
+                        }
+                    }
+                }
+            )
+        } catch (_: Exception) {
+        }
+        // Cadangan: periksa berkala (mis. gangguan dari server, bukan internet putus).
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(5000)
+                if (resumeFor != null && online(app)) tryResume(force = false)
+                // Lirik yang gagal dimuat karena gangguan: cari lagi saat sudah online.
+                val cur = current
+                if (cur != null && !isVideo && lyricsList.isEmpty() && !lyricsLoading && lyricsFor == null &&
+                    exo.playbackState == Player.STATE_READY && online(app)
+                ) {
+                    loadLyrics()
+                }
+            }
+        }
+    }
+
+    private fun tryResume(force: Boolean) {
+        val item = current ?: return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastResumeTry < 15_000) return
+        val stalled = resumeFor == item.id || (error != null && item.localUri == null) ||
+            (exo.playbackState == Player.STATE_IDLE && exo.playWhenReady && item.localUri == null && !loading)
+        if (!stalled) {
+            // Lagu tetap jalan tapi liriknya tadi gagal: cari lagi.
+            if (!isVideo && lyricsList.isEmpty() && !lyricsLoading) {
+                lyricsTries.remove(item.id)
+                lyricsFor = null
+                loadLyrics()
+            }
+            return
+        }
+        lastResumeTry = now
+        val pos = if (resumeFor == item.id) resumePos else exo.currentPosition.coerceAtLeast(0)
+        resumeFor = null
+        error = null
+        retries = 0
+        netRetries = 0
+        lyricsTries.remove(item.id)
+        if (lyricsList.isEmpty()) lyricsFor = null
+        StreamResolver.invalidate(item.id)
+        load(item, pos)
+        // Lirik dicari otomatis saat lagu siap diputar (STATE_READY).
+    }
+
     private fun startWatchdog() {
         scope.launch {
             var lastBuffered = -1L
