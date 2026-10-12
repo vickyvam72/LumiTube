@@ -261,7 +261,8 @@ object Repo {
             .put("browseId", channelId)
             .put("params", "EgZzZWFyY2jyBgQKAloA")
             .put("query", query)
-        val r = InnerTube.post(Client.WEB, "browse", body)
+        // Tanpa akun supaya tidak tercatat di histori pencarian YouTube.
+        val r = InnerTube.post(Client.WEB, "browse", body, auth = false)
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
@@ -292,6 +293,33 @@ object Repo {
             }
         }
         emptyList()
+    }
+
+    private var subsCache: Pair<Long, MutableSet<String>>? = null
+
+    /** Apakah channel ini di-subscribe (daftar channel akun, disimpan 10 menit). */
+    suspend fun isSubscribed(channelId: String): Boolean {
+        if (!Session.loggedIn) return false
+        val c = subsCache
+        val set = if (c != null && System.currentTimeMillis() - c.first < 10 * 60 * 1000L) c.second else {
+            val ids = mutableSetOf<String>()
+            var r = InnerTube.browse(Client.WEB, "FEchannels")
+            var pages = 0
+            while (true) {
+                Parser.items(r, false).filter { it.type == ItemType.CHANNEL }.forEach { ids.add(it.id) }
+                val next = Parser.continuation(r) ?: break
+                if (++pages >= 8) break
+                r = InnerTube.continuation(Client.WEB, "browse", next)
+            }
+            subsCache = System.currentTimeMillis() to ids
+            ids
+        }
+        return channelId in set
+    }
+
+    /** Catat perubahan subscribe supaya status di hasil pencarian langsung benar. */
+    fun markSubscribed(channelId: String, subscribed: Boolean) {
+        subsCache?.second?.let { if (subscribed) it.add(channelId) else it.remove(channelId) }
     }
 
     suspend fun ytSubscriptionChannels(): List<Item> {

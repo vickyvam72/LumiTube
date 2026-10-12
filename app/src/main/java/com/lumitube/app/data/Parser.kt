@@ -193,8 +193,10 @@ object Parser {
 
     /** Filter hasil pencarian YouTube (Semua, Shorts, Video, Belum ditonton, Ditonton, Baru diupload, …). */
     fun ytSearchChips(root: Any?): List<Chip> {
+        val hidden = setOf("baru diupload", "recently uploaded")
         val a = findAll(root, "chipCloudChipRenderer").mapNotNull { c ->
             val t = text(c.obj("text")) ?: return@mapNotNull null
+            if (t.lowercase() in hidden) return@mapNotNull null
             val nav = c.obj("navigationEndpoint")
             val e = findFirst(nav, "searchEndpoint")
             // Filter pencarian sekarang berupa token lanjutan (continuationCommand), bukan params.
@@ -204,6 +206,7 @@ object Parser {
         if (a.isNotEmpty()) return a
         return findAll(root, "chipViewModel").mapNotNull { c ->
             val t = c.str("text") ?: return@mapNotNull null
+            if (t.lowercase() in hidden) return@mapNotNull null
             val e = findFirst(c.obj("tapCommand"), "searchEndpoint")
             val tok = findFirst(c.obj("tapCommand"), "continuationCommand")?.str("token")
             Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("selected", false))

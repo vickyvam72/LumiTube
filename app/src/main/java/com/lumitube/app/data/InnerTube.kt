@@ -283,18 +283,24 @@ object InnerTube {
      * prefix "b:" dikirim di body.
      */
     suspend fun continuation(client: Client, endpoint: String, token: String): JSONObject {
+        // Pencarian dikirim tanpa akun (lihat search()), lanjutannya juga.
+        val auth = endpoint != "search"
         return if (token.startsWith("q:")) {
             val t = java.net.URLEncoder.encode(token.substring(2), "UTF-8")
-            post(client, endpoint, JSONObject(), "&ctoken=$t&continuation=$t&type=next")
+            post(client, endpoint, JSONObject(), "&ctoken=$t&continuation=$t&type=next", auth = auth)
         } else {
-            post(client, endpoint, JSONObject().put("continuation", token.removePrefix("b:")))
+            post(client, endpoint, JSONObject().put("continuation", token.removePrefix("b:")), auth = auth)
         }
     }
 
+    /**
+     * Pencarian dikirim TANPA akun: kalau memakai akun, setiap pencarian (termasuk pencarian
+     * otomatis untuk feed Shorts) tercatat di histori pencarian aplikasi YouTube / YT Music asli.
+     */
     suspend fun search(client: Client, query: String, params: String? = null): JSONObject {
         val body = JSONObject().put("query", query)
         if (params != null) body.put("params", params)
-        return post(client, "search", body)
+        return post(client, "search", body, auth = false)
     }
 
     suspend fun next(client: Client, videoId: String, playlistId: String? = null): JSONObject {
@@ -316,6 +322,7 @@ object InnerTube {
             if (subscribe) "subscription/subscribe" else "subscription/unsubscribe",
             JSONObject().put("channelIds", JSONArray().put(channelId))
         )
+        Repo.markSubscribed(channelId, subscribe)
     }
 
     suspend fun dislike(videoId: String, dislike: Boolean) {

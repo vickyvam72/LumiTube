@@ -425,6 +425,15 @@ fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var subscribed by androidx.compose.runtime.saveable.rememberSaveable(item.id) { androidx.compose.runtime.mutableStateOf(item.subscribed == true) }
+    // Pencarian dikirim tanpa akun, jadi status subscribe dicek dari daftar channel akun.
+    androidx.compose.runtime.LaunchedEffect(item.id) {
+        if (item.subscribed == null && com.lumitube.app.data.Session.loggedIn) {
+            try {
+                if (com.lumitube.app.data.Repo.isSubscribed(item.id)) subscribed = true
+            } catch (_: Exception) {
+            }
+        }
+    }
     val parts = item.subtitle.split(" • ").filter { it.isNotBlank() }
     val handle = parts.firstOrNull { it.startsWith("@") }
     val stats = parts.filter { !it.startsWith("@") }.joinToString(" • ")
@@ -450,6 +459,7 @@ fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
                             com.lumitube.app.ui.common.EditScope.scope.launch {
                                 try {
                                     com.lumitube.app.data.InnerTube.subscribe(item.id, target)
+                                    com.lumitube.app.data.Repo.markSubscribed(item.id, target)
                                 } catch (e: Exception) {
                                     if (e is kotlinx.coroutines.CancellationException) throw e
                                     subscribed = !target

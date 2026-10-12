@@ -145,7 +145,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
             if (!ci.subscribed && Session.loggedIn) {
                 scope.launch {
                     try {
-                        if (Repo.ytSubscriptionChannels().any { it.id == channelId }) subscribed = true
+                        if (Repo.isSubscribed(channelId)) subscribed = true
                     } catch (_: Exception) {
                     }
                 }
@@ -303,6 +303,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                                     com.lumitube.app.ui.common.EditScope.scope.launch {
                                         try {
                                             InnerTube.subscribe(channelId, target)
+                                            Repo.markSubscribed(channelId, target)
                                         } catch (_: Exception) {
                                             subscribed = !target
                                             android.widget.Toast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
