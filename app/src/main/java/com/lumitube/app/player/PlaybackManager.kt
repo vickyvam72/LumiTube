@@ -248,7 +248,7 @@ object PlaybackManager {
     private lateinit var appContext: Context
     var repeat by mutableStateOf(RepeatMode.OFF)
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + com.lumitube.app.CrashLog.handler)
     private lateinit var trackSelector: androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
     /** Batas kualitas untuk stream adaptif (live HLS) sesuai setelan kualitas. */

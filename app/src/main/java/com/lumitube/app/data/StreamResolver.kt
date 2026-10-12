@@ -211,7 +211,7 @@ object StreamResolver {
     }
 
     private val inFlight = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Stream>>()
-    private val prefetchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+    private val prefetchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + com.lumitube.app.CrashLog.handler)
 
     /** Ambil data stream lebih awal (Shorts berikutnya, lagu berikutnya). */
     fun prefetch(videoId: String) {

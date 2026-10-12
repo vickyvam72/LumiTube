@@ -68,7 +68,7 @@ object Downloader {
 
     private lateinit var ctx: Context
     private lateinit var prefs: SharedPreferences
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + com.lumitube.app.CrashLog.handler)
     private const val CHANNEL = "downloads"
     private var notifId = 2000
 

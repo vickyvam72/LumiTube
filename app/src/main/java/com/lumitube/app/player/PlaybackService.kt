@@ -13,6 +13,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        com.lumitube.app.CrashLog.install(this)
         PlaybackManager.init(this)
         val intent = PendingIntent.getActivity(
             this, 0,

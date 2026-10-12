@@ -1,5 +1,8 @@
 package com.lumitube.app
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.ComponentName
@@ -49,9 +52,12 @@ class MainActivity : ComponentActivity() {
     private var inPip by mutableStateOf(false)
     /** Item yang dikirim aplikasi pasangan (YouTube Lumi <-> YT Music Lumi). */
     private var incoming by mutableStateOf<Item?>(null)
+    private var crashReport by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
+        crashReport = CrashLog.take()
         enableEdgeToEdge()
         if (savedInstanceState == null) incoming = CrossApp.itemFrom(intent)
         setContent { Root() }
@@ -64,6 +70,36 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Root() {
+        // Aplikasi sempat tertutup paksa: tampilkan penyebabnya supaya bisa dilaporkan.
+        crashReport?.let { report ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { crashReport = null },
+                title = { androidx.compose.material3.Text("Aplikasi sempat tertutup sendiri") },
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.material3.Text("Salin laporan ini dan kirimkan supaya penyebabnya bisa diperbaiki.")
+                        androidx.compose.material3.Text(
+                            report.take(1500),
+                            fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
+                            modifier = androidx.compose.ui.Modifier.padding(top = androidx.compose.ui.unit.Dp(8f))
+                                .heightIn(max = androidx.compose.ui.unit.Dp(260f))
+                                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                        )
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        val cm = getSystemService(android.content.ClipboardManager::class.java)
+                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("Laporan crash LumiTube", report))
+                        android.widget.Toast.makeText(this, "Laporan disalin", android.widget.Toast.LENGTH_SHORT).show()
+                        crashReport = null
+                    }) { androidx.compose.material3.Text("Salin laporan") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { crashReport = null }) { androidx.compose.material3.Text("Tutup") }
+                },
+            )
+        }
         val mode = CrossApp.mode
         var showLogin by rememberSaveable { mutableStateOf(false) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }

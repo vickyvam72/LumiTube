@@ -406,5 +406,5 @@ fun Spacer8() = androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
  * saat layar ditutup (misalnya langsung menekan kembali setelah menggeser).
  */
 object EditScope {
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main + com.lumitube.app.CrashLog.handler)
 }
