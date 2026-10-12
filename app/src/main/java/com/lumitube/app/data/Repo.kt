@@ -55,6 +55,12 @@ object Repo {
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
+    /** Hasil pencarian dengan filter (chip) — token lanjutan dari chip. */
+    suspend fun ytSearchChip(token: String): Page {
+        val r = InnerTube.continuation(Client.WEB, "search", "b:${token.removePrefix("b:")}")
+        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    }
+
     suspend fun ytSearch(query: String, params: String? = null): Page {
         val r = InnerTube.search(Client.WEB, query, params)
         return Page(items = Parser.items(r, false), chips = Parser.ytSearchChips(r), continuation = Parser.continuation(r))

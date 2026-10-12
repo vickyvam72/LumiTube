@@ -195,14 +195,18 @@ object Parser {
     fun ytSearchChips(root: Any?): List<Chip> {
         val a = findAll(root, "chipCloudChipRenderer").mapNotNull { c ->
             val t = text(c.obj("text")) ?: return@mapNotNull null
-            val e = findFirst(c.obj("navigationEndpoint"), "searchEndpoint") ?: c.obj("navigationEndpoint", "searchEndpoint")
-            Chip(t, null, e.str("params"), selected = c.optBoolean("isSelected", false))
+            val nav = c.obj("navigationEndpoint")
+            val e = findFirst(nav, "searchEndpoint")
+            // Filter pencarian sekarang berupa token lanjutan (continuationCommand), bukan params.
+            val tok = findFirst(nav, "continuationCommand")?.str("token")
+            Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("isSelected", false))
         }
         if (a.isNotEmpty()) return a
         return findAll(root, "chipViewModel").mapNotNull { c ->
             val t = c.str("text") ?: return@mapNotNull null
             val e = findFirst(c.obj("tapCommand"), "searchEndpoint")
-            Chip(t, null, e.str("params"), selected = c.optBoolean("selected", false))
+            val tok = findFirst(c.obj("tapCommand"), "continuationCommand")?.str("token")
+            Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("selected", false))
         }
     }
 

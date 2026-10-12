@@ -1191,11 +1191,14 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
             )
         } else {
             val params = YtSearchState.params
-            val feed = rememberFeed(key = query to params, more = { Repo.ytMore(it, "search") }) { Repo.ytSearch(query, params) }
+            val chipToken = YtSearchState.chips.getOrNull(YtSearchState.chipIndex)?.continuation
+            val feed = rememberFeed(key = Triple(query, params, chipToken), more = { Repo.ytMore(it, "search") }) {
+                if (chipToken != null) Repo.ytSearchChip(chipToken) else Repo.ytSearch(query, params)
+            }
             // Daftar filter diambil dari hasil "Semua" supaya tetap sama saat filter lain dipilih.
             LaunchedEffect(feed.page) {
                 val c = feed.page?.chips.orEmpty()
-                if (c.isNotEmpty() && (YtSearchState.chips.isEmpty() || params == null)) {
+                if (c.isNotEmpty() && chipToken == null && (YtSearchState.chips.isEmpty() || params == null)) {
                     YtSearchState.chips = c
                     if (params == null) YtSearchState.chipIndex = c.indexOfFirst { it.selected }.coerceAtLeast(0)
                 }
