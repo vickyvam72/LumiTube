@@ -46,17 +46,23 @@ jobs:
               r1=post("reel/reel_item_watch",body)
               out.append("== item_watch params=%s keys=%s"%(pr,list(r1.keys())))
               seqkeys(r1)
-          # direct sequence with proto-ish params
           import base64
-          def b64(bs): return base64.urlsafe_b64encode(bs).decode()
           vid=seed.encode()
-          cand=[b64(b"\x0a"+bytes([len(vid)])+vid), b64(b"\x0a"+bytes([len(vid)+2])+b"\x0a"+bytes([len(vid)])+vid)]
-          for c in cand:
-              r2=post("reel/reel_watch_sequence",{"sequenceParams":c})
-              s2=json.dumps(r2)
-              out.append("== seq cand %s keys=%s ids=%s"%(c,list(r2.keys()),re.findall(r'"videoId": "([^"]+)"',s2)[:10]))
-              seqkeys(r2)
-              out.append("   sample "+json.dumps({k:v for k,v in r2.items() if k not in ("responseContext",)})[:1500])
+          c=base64.urlsafe_b64encode(b"\x0a"+bytes([len(vid)])+vid).decode()
+          r2=post("reel/reel_watch_sequence",{"sequenceParams":c})
+          ents=r2.get("entries",[])
+          out.append("entries %d"%len(ents))
+          for e in ents[:3]:
+              rw=e.get("command",{}).get("reelWatchEndpoint",{})
+              vd=rw.get("unserializedPrefetchData",{}).get("playerResponse",{}).get("videoDetails",{})
+              out.append("  %s | %s | %s | %s | views=%s len=%s"%(rw.get("videoId"),vd.get("title"),vd.get("author"),vd.get("channelId"),vd.get("viewCount"),vd.get("lengthSeconds")))
+              out.append("  entry keys "+str(list(e.keys()))+" cmd keys "+str(list(e.get("command",{}).keys())) + " rw keys "+str(list(rw.keys())))
+          out.append("contEndpoint "+json.dumps(r2.get("continuationEndpoint"))[:500])
+          tok=r2.get("continuationEndpoint",{}).get("continuationCommand",{}).get("token")
+          for mode in ("sequenceParams","continuation"):
+              r3=post("reel/reel_watch_sequence",{mode:tok})
+              ids3=[e.get("command",{}).get("reelWatchEndpoint",{}).get("videoId") for e in r3.get("entries",[])]
+              out.append("page2 via %s keys=%s ids=%s err=%s"%(mode,list(r3.keys()),ids3[:8],str(r3.get("ERR"))[:150]))
           open("probe2.txt","w").write("\n".join(x for x in out if x))
           PY
           python3 p.py > log.txt 2>&1 || true
