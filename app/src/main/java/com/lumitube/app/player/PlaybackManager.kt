@@ -286,12 +286,15 @@ object PlaybackManager {
                 true
             )
             .setHandleAudioBecomingNoisy(true)
+            // Layar mati: tahan CPU + Wi-Fi tetap aktif selama memutar. Tanpa ini Android
+            // menidurkan jaringan, data berhenti mengalir, dan lagu berhenti sendiri.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             // Mulai putar lebih cepat: cukup 0,7 detik data untuk mulai
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
                     // Mulai cepat (0,5 dtk), tapi setelah sempat buffering tunggu 2,5 dtk supaya tidak
                     // putus-putus; simpan cadangan 30-60 dtk di depan (seperti NewPipe/YouTube).
-                    .setBufferDurationsMs(30_000, 60_000, 500, 2_500)
+                    .setBufferDurationsMs(30_000, 120_000, 500, 2_500)
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .build()
             )
