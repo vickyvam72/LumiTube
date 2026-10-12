@@ -99,6 +99,8 @@ class FeedLoader(
     var continuation: String? = null
         private set
     private var loadingMore = false
+    /** Berapa kali berturut-turut halaman lanjutan tidak membawa item baru. */
+    private var emptyStreak = 0
 
     private data class Cached(val page: Page?, val items: List<Item>, val continuation: String?, val time: Long)
 
@@ -160,6 +162,7 @@ class FeedLoader(
         scope.launch {
             loading = true
             error = null
+            emptyStreak = 0
             try {
                 val p = first()
                 page = p
@@ -186,10 +189,13 @@ class FeedLoader(
             try {
                 val p = m(c)
                 val keys = items.map { it.key }.toHashSet()
-                items.addAll(p.items.filter { keys.add(it.key) })
+                val fresh = p.items.filter { keys.add(it.key) }
+                items.addAll(fresh)
+                emptyStreak = if (fresh.isEmpty()) emptyStreak + 1 else 0
                 val old = page
                 if (old != null && p.shelves.isNotEmpty()) page = old.copy(shelves = old.shelves + p.shelves)
-                continuation = p.continuation?.takeIf { it != c }
+                // Tiga halaman berturut-turut kosong = anggap sudah habis (hindari loading tanpa akhir).
+                continuation = p.continuation?.takeIf { it != c && emptyStreak < 3 }
                 store()
             } catch (e: CancellationException) {
                 throw e
@@ -235,7 +241,8 @@ fun rememberFeed(
 /** Panggil loadMore saat daftar hampir mencapai akhir. */
 @Composable
 fun LoadMoreEffect(state: LazyListState, feed: FeedLoader) {
-    val nearEnd by remember {
+    // Kunci "state": daftar bisa diganti (mis. filter pencarian), jangan terus mengamati daftar lama.
+    val nearEnd by remember(state) {
         derivedStateOf {
             val info = state.layoutInfo
             val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0

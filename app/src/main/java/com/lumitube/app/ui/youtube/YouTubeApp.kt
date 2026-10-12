@@ -352,6 +352,7 @@ private fun FeedList(
     empty: @Composable () -> Unit = {},
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
     channelCard: (@Composable (Item) -> Unit)? = null,
+    endText: String? = null,
 ) {
     val yt = LocalYt.current
     // Posisi gulir disimpan per feed: buka video lalu kembali = tetap di posisi yang sama.
@@ -410,8 +411,20 @@ private fun FeedList(
             }
         }
         if (feed.continuation != null && feed.items.isNotEmpty()) item { LoadingBox() }
+        if (endText != null && feed.continuation == null && feed.items.isNotEmpty() && !feed.loading) {
+            item { EndOfResults(endText) }
+        }
     }
     }
+}
+
+@Composable
+private fun EndOfResults(text: String) {
+    val yt = LocalYt.current
+    Text(
+        text, color = yt.sub, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp, horizontal = 16.dp),
+    )
 }
 
 @Composable
@@ -1251,6 +1264,7 @@ private fun SearchScreen(
                 FeedList(
                     feed, open, openChannel, listState = YtSearchState.list,
                     channelCard = { c -> SearchChannelCard(c, { open(c) }, onLogin) },
+                    endText = "Tidak ada hasil lain lagi",
                 )
             }
         }
@@ -1297,6 +1311,9 @@ private fun SearchShortsGrid(feed: FeedLoader, openShorts: (List<Item>, Int) -> 
         }
         if (feed.continuation != null && list.isNotEmpty()) {
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) { LoadingBox() }
+        }
+        if (feed.continuation == null && list.isNotEmpty() && !feed.loading) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) { EndOfResults("Tidak ada Shorts lain lagi") }
         }
     }
 }
