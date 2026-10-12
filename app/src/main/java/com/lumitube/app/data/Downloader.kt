@@ -142,7 +142,8 @@ object Downloader {
                 if (com.lumitube.app.data.lyrics.LyricsStore.has(rec.videoId)) continue
                 try {
                     val item = Item(ItemType.SONG, rec.videoId, rec.title, rec.author, rec.thumbnail, channelName = rec.author)
-                    fetch(item)?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
+                    kotlinx.coroutines.withTimeoutOrNull(25_000) { fetch(item) }
+                        ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
                 } catch (_: Exception) {
                 }
             }
@@ -225,18 +226,24 @@ object Downloader {
                     size = finalFile.length(),
                     time = System.currentTimeMillis(),
                 )
-                // Lagu (YT Music Lumi): simpan juga liriknya supaya tampil saat offline.
-                if (!com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
-                    try {
-                        lyricsFetcher?.invoke(item)?.let { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, it) }
-                    } catch (_: Exception) {
-                    }
-                }
                 withContext(Dispatchers.Main) {
                     records.add(0, rec)
                     save()
                 }
                 notify(id, item.title, "Selesai • ${option.label}", 100, true)
+                // Lagu: lirik untuk offline dicari terpisah (maks. 25 detik) supaya download
+                // berikutnya tidak tertahan di 100% menunggu penyedia lirik yang lambat.
+                if (!com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
+                    lyricsFetcher?.let { fetchLyrics ->
+                        scope.launch {
+                            try {
+                                kotlinx.coroutines.withTimeoutOrNull(25_000) { fetchLyrics(item) }
+                                    ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, it) }
+                            } catch (_: Exception) {
+                            }
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 notify(id, item.title, "Gagal: ${e.message}", 0, true)
             } finally {
@@ -275,24 +282,32 @@ object Downloader {
                 return
             }
             var lastReport = 0L
+            var failures = 0
             while (pos < total) {
                 val end = min(pos + chunk, total) - 1
                 val req = Request.Builder().url(url).media()
                     .header("Range", "bytes=$pos-$end")
                     .build()
-                InnerTube.http.newCall(req).execute().use { r ->
-                    if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
-                    val input = r.body?.byteStream() ?: throw IOException("Kosong")
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n < 0) break
-                        os.write(buf, 0, n)
-                        pos += n
-                        if (pos - lastReport > 256 * 1024) {
-                            lastReport = pos
-                            progress(pos)
+                try {
+                    InnerTube.http.newCall(req).execute().use { r ->
+                        if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
+                        val input = r.body?.byteStream() ?: throw IOException("Kosong")
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            os.write(buf, 0, n)
+                            pos += n
+                            if (pos - lastReport > 256 * 1024) {
+                                lastReport = pos
+                                progress(pos)
+                            }
                         }
                     }
+                    failures = 0
+                } catch (e: IOException) {
+                    // Sinyal putus sesaat: lanjutkan dari posisi terakhir (bukan gagal total).
+                    if (e.message?.startsWith("HTTP 4") == true || ++failures > 5) throw e
+                    Thread.sleep(1500L * failures)
                 }
             }
             progress(pos)
