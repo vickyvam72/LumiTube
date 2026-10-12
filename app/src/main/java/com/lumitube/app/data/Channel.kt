@@ -79,11 +79,19 @@ fun realUrl(u: String): String {
 }
 
 object ChannelRepo {
-    private val keepTabs = listOf("Beranda", "Home", "Video", "Videos", "Shorts", "Live", "Rilis", "Releases", "Playlist", "Playlists", "Postingan", "Posts", "Komunitas", "Community", "Podcast", "Podcasts")
+    private val keepTabs = listOf("Video", "Videos", "Shorts", "Live", "Rilis", "Releases", "Playlist", "Playlists", "Postingan", "Posts", "Komunitas", "Community", "Podcast", "Podcasts")
 
     /** Halaman channel: header lengkap + daftar tab + isi tab pertama (Beranda). */
+    /** Parameter tab "Video" — halaman channel langsung dibuka di tab Video (tanpa Beranda). */
+    private const val VIDEOS_PARAMS = "EgZ2aWRlb3PyBgQKAjoA"
+
     suspend fun channel(channelId: String): Pair<ChannelInfo, ChannelTabPage> {
-        val r = InnerTube.browse(InnerTube.Client.WEB, channelId)
+        val r = try {
+            InnerTube.browse(InnerTube.Client.WEB, channelId, VIDEOS_PARAMS)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            InnerTube.browse(InnerTube.Client.WEB, channelId)
+        }
         return parseInfo(channelId, r) to parseTab(r)
     }
 

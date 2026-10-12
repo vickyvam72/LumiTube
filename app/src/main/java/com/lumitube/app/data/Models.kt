@@ -25,6 +25,8 @@ data class Item(
     val progress: Int? = null,
     /** ID item di dalam playlist (setVideoId), untuk mengubah urutan. */
     val setVideoId: String? = null,
+    /** Status subscribe channel (hasil pencarian), null bila tidak diketahui. */
+    val subscribed: Boolean? = null,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"

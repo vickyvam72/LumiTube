@@ -30,9 +30,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.ThumbUp
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -135,11 +133,14 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
             val (ci, first) = ChannelRepo.channel(channelId)
             info = ci
             subscribed = ci.subscribed
-            tabIndex = ci.tabs.indexOfFirst { it.selected }.coerceAtLeast(0)
-            items.clear(); items.addAll(first.items)
-            posts.clear(); posts.addAll(first.posts)
-            continuation = first.continuation
-            setChips(first.chips)
+            val sel = ci.tabs.indexOfFirst { it.selected }
+            tabIndex = sel.coerceAtLeast(0)
+            // Isi yang datang adalah Beranda (channel tanpa tab Video): muat tab pertama yang tersedia.
+            val page = if (sel < 0 && ci.tabs.isNotEmpty()) ChannelRepo.tab(channelId, ci.tabs[0].params) else first
+            items.clear(); items.addAll(page.items)
+            posts.clear(); posts.addAll(page.posts)
+            continuation = page.continuation
+            setChips(page.chips)
             // Cadangan: cek daftar channel yang di-subscribe kalau header tidak memberi status.
             if (!ci.subscribed && Session.loggedIn) {
                 scope.launch {
@@ -312,11 +313,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                         contentAlignment = Alignment.Center,
                     ) {
                         if (subscribed) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Notifications, null, tint = yt.text, modifier = Modifier.size(22.dp))
-                                Text("Disubscribe", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
-                                Icon(Icons.Filled.KeyboardArrowDown, null, tint = yt.text, modifier = Modifier.size(22.dp))
-                            }
+                            Text("Disubscribe", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                         } else {
                             Text("Subscribe", color = yt.bg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                         }

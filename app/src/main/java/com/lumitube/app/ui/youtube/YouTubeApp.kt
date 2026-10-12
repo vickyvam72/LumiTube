@@ -247,7 +247,7 @@ fun YouTubeApp(
                 } else {
                     BrowseScreen(top.id, top.title, { stack.removeAt(stack.lastIndex) }, open)
                 }
-                YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel)
+                YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel, onLogin)
                 is YtRoute.Shorts -> ShortsPlayer(
                     items = top.items, startIndex = top.index, onLoadMore = null,
                     onChannel = openChannel, onLogin = onLogin,
@@ -350,6 +350,7 @@ private fun FeedList(
     header: @Composable () -> Unit = {},
     empty: @Composable () -> Unit = {},
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
+    channelCard: (@Composable (Item) -> Unit)? = null,
 ) {
     val yt = LocalYt.current
     // Posisi gulir disimpan per feed: buka video lalu kembali = tetap di posisi yang sama.
@@ -400,7 +401,7 @@ private fun FeedList(
                 is FeedRow.Single -> {
                     val v = row.item
                     when (v.type) {
-                        ItemType.CHANNEL -> ChannelRow(v) { open(v) }
+                        ItemType.CHANNEL -> if (channelCard != null) channelCard(v) else ChannelRow(v) { open(v) }
                         ItemType.PLAYLIST -> VideoRow(v) { open(v) }
                         else -> VideoCard(v, { open(v) }, v.channelId?.let { id -> { openChannel(id) } })
                     }
@@ -1128,15 +1129,22 @@ private object YtSearchState {
     var query by mutableStateOf("")
     var editing by mutableStateOf(true)
     var list = androidx.compose.foundation.lazy.LazyListState()
+    /** Filter yang dipilih (Semua, Shorts, Video, …) dan daftar filter dari pencarian pertama. */
+    var params by mutableStateOf<String?>(null)
+    var chips by mutableStateOf<List<com.lumitube.app.data.Chip>>(emptyList())
+    var chipIndex by mutableIntStateOf(0)
     fun reset() {
         query = ""
+        params = null
+        chips = emptyList()
+        chipIndex = 0
         editing = true
         list = androidx.compose.foundation.lazy.LazyListState()
     }
 }
 
 @Composable
-private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: (String) -> Unit) {
+private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: (String) -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
     var field by remember { mutableStateOf(TextFieldValue("")) }
     var query by YtSearchState::query
@@ -1150,7 +1158,12 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
         val t = q.trim()
         if (t.isEmpty()) return
         field = TextFieldValue(t, TextRange(t.length))
-        if (query != t) YtSearchState.list = androidx.compose.foundation.lazy.LazyListState()
+        if (query != t) {
+            YtSearchState.list = androidx.compose.foundation.lazy.LazyListState()
+            YtSearchState.params = null
+            YtSearchState.chips = emptyList()
+            YtSearchState.chipIndex = 0
+        }
         query = t
         Session.addSearch(t)
         editing = false
@@ -1177,8 +1190,46 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
                 onFill = { field = TextFieldValue("$it ", TextRange(it.length + 1)); focus.requestFocus() },
             )
         } else {
-            val feed = rememberFeed(key = query, more = { Repo.ytMore(it, "search") }) { Repo.ytSearch(query) }
-            FeedList(feed, open, openChannel, listState = YtSearchState.list)
+            val params = YtSearchState.params
+            val feed = rememberFeed(key = query to params, more = { Repo.ytMore(it, "search") }) { Repo.ytSearch(query, params) }
+            // Daftar filter diambil dari hasil "Semua" supaya tetap sama saat filter lain dipilih.
+            LaunchedEffect(feed.page) {
+                val c = feed.page?.chips.orEmpty()
+                if (c.isNotEmpty() && (YtSearchState.chips.isEmpty() || params == null)) {
+                    YtSearchState.chips = c
+                    if (params == null) YtSearchState.chipIndex = c.indexOfFirst { it.selected }.coerceAtLeast(0)
+                }
+            }
+            val chips = YtSearchState.chips
+            if (chips.size > 1) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                ) {
+                    items(chips.size) { i ->
+                        val on = i == YtSearchState.chipIndex
+                        Box(
+                            Modifier.clip(RoundedCornerShape(8.dp))
+                                .background(if (on) yt.text else yt.chip)
+                                .clickable {
+                                    if (!on) {
+                                        YtSearchState.chipIndex = i
+                                        YtSearchState.params = chips[i].params
+                                        YtSearchState.list = androidx.compose.foundation.lazy.LazyListState()
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) {
+                            Text(chips[i].title, color = if (on) yt.bg else yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+            FeedList(
+                feed, open, openChannel, listState = YtSearchState.list,
+                channelCard = { c -> SearchChannelCard(c, { open(c) }, onLogin) },
+            )
         }
     }
 }

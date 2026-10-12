@@ -1,5 +1,6 @@
 package com.lumitube.app.ui.youtube
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -414,5 +415,66 @@ private fun androidx.compose.foundation.layout.RowScope.NavCell(spec: NavSpec, s
     ) {
         Icon(if (selected) spec.on else spec.off, spec.label, tint = yt.text, modifier = Modifier.size(26.dp))
         Text(spec.label, color = yt.text, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+
+/** Kartu channel di hasil pencarian: foto besar, nama, @handle, subscriber, tombol Subscribe + Lihat Channel. */
+@Composable
+fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
+    val yt = LocalYt.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var subscribed by androidx.compose.runtime.saveable.rememberSaveable(item.id) { androidx.compose.runtime.mutableStateOf(item.subscribed == true) }
+    val parts = item.subtitle.split(" • ").filter { it.isNotBlank() }
+    val handle = parts.firstOrNull { it.startsWith("@") }
+    val stats = parts.filter { !it.startsWith("@") }.joinToString(" • ")
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Img(item.thumbnail, Modifier.size(80.dp).clip(CircleShape))
+            Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                Text(item.title, color = yt.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                handle?.let { Text(it, color = yt.sub, fontSize = 13.sp, maxLines = 1) }
+                if (stats.isNotBlank()) Text(stats, color = yt.sub, fontSize = 13.sp, maxLines = 2)
+            }
+        }
+        Row(Modifier.padding(top = 14.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+            Box(
+                Modifier.height(38.dp).clip(RoundedCornerShape(19.dp))
+                    .background(if (subscribed) yt.chip else yt.text)
+                    .clickable {
+                        if (!com.lumitube.app.data.Session.loggedIn) {
+                            onLogin()
+                        } else {
+                            val target = !subscribed
+                            subscribed = target
+                            com.lumitube.app.ui.common.EditScope.scope.launch {
+                                try {
+                                    com.lumitube.app.data.InnerTube.subscribe(item.id, target)
+                                } catch (e: Exception) {
+                                    if (e is kotlinx.coroutines.CancellationException) throw e
+                                    subscribed = !target
+                                    android.widget.Toast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (subscribed) "Disubscribe" else "Subscribe",
+                    color = if (subscribed) yt.text else yt.bg, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                )
+            }
+            Box(
+                Modifier.height(38.dp).clip(RoundedCornerShape(19.dp))
+                    .border(1.dp, yt.sub.copy(alpha = 0.4f), RoundedCornerShape(19.dp))
+                    .clickable(onClick = onOpen)
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Lihat Channel", color = yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
     }
 }

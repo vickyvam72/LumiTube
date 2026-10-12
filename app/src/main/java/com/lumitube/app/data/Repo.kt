@@ -55,9 +55,9 @@ object Repo {
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
-    suspend fun ytSearch(query: String): Page {
-        val r = InnerTube.search(Client.WEB, query)
-        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+    suspend fun ytSearch(query: String, params: String? = null): Page {
+        val r = InnerTube.search(Client.WEB, query, params)
+        return Page(items = Parser.items(r, false), chips = Parser.ytSearchChips(r), continuation = Parser.continuation(r))
     }
 
     private val shortQueries = listOf(

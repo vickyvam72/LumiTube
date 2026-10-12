@@ -186,7 +186,24 @@ object Parser {
             text(v.obj("subscriberCountText")),
             text(v.obj("videoCountText")),
         ).joinToString(" • ")
-        return Item(ItemType.CHANNEL, id, title, sub, bestThumb(v.obj("thumbnail")))
+        val subscribed = v.obj("subscriptionButton")?.let { if (it.has("subscribed")) it.optBoolean("subscribed") else null }
+            ?: findFirst(v.obj("subscribeButton"), "subscribeButtonRenderer")?.let { if (it.has("subscribed")) it.optBoolean("subscribed") else null }
+        return Item(ItemType.CHANNEL, id, title, sub, bestThumb(v.obj("thumbnail")), subscribed = subscribed)
+    }
+
+    /** Filter hasil pencarian YouTube (Semua, Shorts, Video, Belum ditonton, Ditonton, Baru diupload, …). */
+    fun ytSearchChips(root: Any?): List<Chip> {
+        val a = findAll(root, "chipCloudChipRenderer").mapNotNull { c ->
+            val t = text(c.obj("text")) ?: return@mapNotNull null
+            val e = findFirst(c.obj("navigationEndpoint"), "searchEndpoint") ?: c.obj("navigationEndpoint", "searchEndpoint")
+            Chip(t, null, e.str("params"), selected = c.optBoolean("isSelected", false))
+        }
+        if (a.isNotEmpty()) return a
+        return findAll(root, "chipViewModel").mapNotNull { c ->
+            val t = c.str("text") ?: return@mapNotNull null
+            val e = findFirst(c.obj("tapCommand"), "searchEndpoint")
+            Chip(t, null, e.str("params"), selected = c.optBoolean("selected", false))
+        }
     }
 
     private fun playlist(v: JSONObject): Item? {
