@@ -1,0 +1,55 @@
+name: probe
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          cat > p.py <<'PY'
+          import json, urllib.request, re
+          CTX={"client":{"clientName":"WEB","clientVersion":"2.20251001.00.00","hl":"id","gl":"ID"}}
+          def post(ep,body):
+              body["context"]=CTX
+              req=urllib.request.Request("https://www.youtube.com/youtubei/v1/"+ep+"?prettyPrint=false",data=json.dumps(body).encode(),headers={"Content-Type":"application/json"})
+              try: return json.load(urllib.request.urlopen(req))
+              except Exception as e: return {"ERR":str(e)+" "+(e.read().decode()[:300] if hasattr(e,'read') else '')}
+          out=[]
+          def summ(name,r):
+              s=json.dumps(r)
+              out.append("== %s keys=%s len=%d"%(name,list(r.keys()),len(s)))
+              out.append("   ERR "+str(r.get("ERR"))[:400]) if "ERR" in r else None
+              out.append("   seqCont="+str(r.get("sequenceContinuation"))[:80])
+              out.append("   reelIds=%s"%re.findall(r'"reelWatchEndpoint": \{"videoId": "([^"]+)"',s)[:12])
+              out.append("   tokens=%s"%[t[:40] for t in re.findall(r'"token": "([^"]+)"',s)[:4]])
+          # seed via search for a short id
+          s=post("search",{"query":"tretan muslim shorts","params":"EgIYAQ=="})
+          ids=re.findall(r'"reelWatchEndpoint": \{"videoId": "([^"]+)"',json.dumps(s)) or re.findall(r'"videoId": "([^"]+)"',json.dumps(s))
+          seed=ids[0] if ids else "dQw4w9WgXcQ"
+          out.append("seed "+seed)
+          r1=post("reel/reel_item_watch",{"playerRequest":{"videoId":seed},"params":"CAUwAg%3D%3D","disablePlayerResponse":True})
+          summ("item_watch",r1)
+          seq=r1.get("sequenceContinuation")
+          if seq:
+              r2=post("reel/reel_watch_sequence",{"sequenceParams":seq})
+              summ("sequence",r2)
+              out.append("   entry0 "+json.dumps((r2.get("entries") or [{}])[0])[:2500])
+              out.append("   contEndpoint "+json.dumps(r2.get("continuationEndpoint"))[:600])
+              ce=r2.get("continuationEndpoint",{}).get("continuationCommand",{}).get("token")
+              if ce:
+                  r3=post("reel/reel_watch_sequence",{"sequenceParams":ce})
+                  summ("seq2 via sequenceParams",r3)
+                  r4=post("reel/reel_watch_sequence",{"continuation":ce})
+                  summ("seq2 via continuation",r4)
+          # no seed variant
+          r5=post("reel/reel_item_watch",{"params":"CA8%3D","disablePlayerResponse":True})
+          summ("item_watch noseed",r5)
+          out.append("   r1 sample "+json.dumps(r1)[:1500])
+          open("probe2.txt","w").write("\n".join(x for x in out if x))
+          PY
+          python3 p.py > log.txt 2>&1 || true
+          cat log.txt >> probe2.txt || cp log.txt probe2.txt
+          gh api -X PUT repos/${{ github.repository }}/contents/probe-${{ github.run_id }}.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe2.txt)"
+        env:
+          GH_TOKEN: ${{ github.token }}
