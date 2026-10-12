@@ -216,7 +216,12 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
                     maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            Icon(Icons.Outlined.MoreVert, null, tint = yt.text, modifier = Modifier.padding(top = 2.dp).size(20.dp))
+            val actions = VideoActions.menuFor(item)
+            if (actions.isNotEmpty()) {
+                Box(Modifier.offset(x = 10.dp, y = (-10).dp)) { com.lumitube.app.ui.common.ItemMenu(actions, yt.text) }
+            } else {
+                Icon(Icons.Outlined.MoreVert, null, tint = yt.text, modifier = Modifier.padding(top = 2.dp).size(20.dp))
+            }
         }
     }
 }
@@ -255,7 +260,9 @@ fun VideoRow(item: Item, menu: List<Pair<String, () -> Unit>>? = null, onClick: 
             Text(item.title, color = yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(item.subtitle, color = yt.sub, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
         }
-        if (menu != null) com.lumitube.app.ui.common.ItemMenu(menu, yt.text)
+        // Menu: aksi khusus (mis. hapus dari playlist) + aksi standar video.
+        val all = (menu ?: emptyList()) + VideoActions.menuFor(item)
+        if (all.isNotEmpty()) com.lumitube.app.ui.common.ItemMenu(all, yt.text)
     }
 }
 

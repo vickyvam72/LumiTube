@@ -209,6 +209,7 @@ fun YouTubeApp(
 
     val top = stack.lastOrNull()
     if (top is YtRoute.Watch) {
+        Box(Modifier.fillMaxSize()) {
         WatchScreen(
             item = top.item,
             onBack = { stack.removeAt(stack.lastIndex) },
@@ -217,6 +218,8 @@ fun YouTubeApp(
             onLogin = onLogin,
             onPlayInMusic = onPlayInMusic,
         )
+        VideoActionsHost()
+        }
         return
     }
 
@@ -235,10 +238,15 @@ fun YouTubeApp(
         LocalYt provides if (shortsMode) com.lumitube.app.ui.common.YtDark else yt
     ) {
     val colors = LocalYt.current
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().background(if (shortsMode) Color.Black else colors.bg)) {
         Box(Modifier.weight(1f).fillMaxWidth().statusBarsPadding()) {
             when (top) {
-                is YtRoute.Browse -> BrowseScreen(top.id, top.title, { stack.removeAt(stack.lastIndex) }, open)
+                is YtRoute.Browse -> if (top.id.startsWith("UC")) {
+                    ChannelScreen(top.id, { stack.removeAt(stack.lastIndex) }, open, onLogin)
+                } else {
+                    BrowseScreen(top.id, top.title, { stack.removeAt(stack.lastIndex) }, open)
+                }
                 YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel)
                 is YtRoute.Shorts -> ShortsPlayer(
                     items = top.items, startIndex = top.index, onLoadMore = null,
@@ -286,6 +294,8 @@ fun YouTubeApp(
             onSelect = { stack.clear(); tab = it },
             onSwitchMusic = onSwitchMusic,
         )
+    }
+    VideoActionsHost()
     }
     }
 }
@@ -659,7 +669,7 @@ private fun BackBar(title: String?, onBack: () -> Unit, actions: @Composable () 
 
 /** Kotak cari gaya YouTube (dipakai di halaman cari & cari di channel). */
 @Composable
-private fun YtSearchField(
+internal fun YtSearchField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     placeholder: String,
