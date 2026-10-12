@@ -195,7 +195,7 @@ fun YouTubeApp(
 
     val loggedIn = Session.loggedIn
     val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
-    val shorts = rememberFeed(key = "shorts", more = { Repo.ytMore(it, "search") }) { Repo.ytShorts() }
+    val shorts = rememberFeed(key = "shorts", more = { Repo.ytShortsMore(it) }) { Repo.ytShorts() }
     // Tiap kali tab Shorts dibuka lagi, ambil Shorts baru (seperti aplikasi asli).
     var shortsSeen by remember { mutableStateOf(false) }
     LaunchedEffect(tab) {

@@ -111,12 +111,15 @@ object Repo {
      * Selera dari Histori: tagar & channel dari Shorts/video yang baru ditonton
      * (disimpan 30 menit). Dipakai supaya feed Shorts mirip rekomendasi YouTube asli.
      */
+    private var recentShortIds: List<String> = emptyList()
+
     private suspend fun shortsTaste(): List<String> {
         tasteCache?.let { (t, list) -> if (System.currentTimeMillis() - t < 30 * 60 * 1000L) return list }
         if (!Session.loggedIn) return emptyList()
         val list = try {
             val r = InnerTube.browse(Client.WEB, "FEhistory")
             val items = Parser.items(r, false).take(40)
+            recentShortIds = items.filter { it.type == ItemType.SHORT }.map { it.id }.distinct()
             val generic = setOf("shorts", "short", "fyp", "foryou", "foryoupage", "viral", "youtubeshorts", "trending", "reels", "tiktok", "explore", "fypシ")
             val tags = items.flatMap { Regex("#([\\p{L}\\p{N}_]{3,30})").findAll(it.title).map { m -> m.groupValues[1].lowercase() }.toList() }
                 .filter { it !in generic }
@@ -131,16 +134,80 @@ object Repo {
         return list
     }
 
+    /**
+     * Feed Shorts memakai jalur rekomendasi asli YouTube (reel_watch_sequence, sama seperti
+     * youtube.com/shorts) dengan akun — bukan pencarian, jadi tidak menambah histori pencarian.
+     * Titik awalnya Shorts yang baru ditonton (Histori) atau Shorts dari Beranda.
+     * Bila gagal, kembali ke cara lama (pencarian selera Histori).
+     */
     suspend fun ytShorts(): Page {
-        // 2 pencarian dari selera Histori (bila ada) + 1 tagar umum, lalu dicampur.
-        val taste = shortsTaste().shuffled().take(2)
-        val queries = (taste + shortQueries.random()).distinct()
+        try {
+            shortsTaste()
+            val home = try {
+                ytHomeCached()?.items?.filter { it.type == ItemType.SHORT }?.map { it.id } ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val seeds = (recentShortIds.take(5).shuffled() + home.shuffled()).distinct()
+            for (seed in seeds.take(3).ifEmpty { listOf("") }) {
+                try {
+                    val p = reelSequence(seedParams(seed.ifEmpty { null }))
+                    if (p.items.size >= 3) return p
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                }
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
+        return ytShortsBySearch()
+    }
+
+    /** Lanjutan feed Shorts: token "r:" = jalur rekomendasi asli, lainnya = pencarian (cara lama). */
+    suspend fun ytShortsMore(token: String): Page =
+        if (token.startsWith("r:")) reelSequence(token.removePrefix("r:")) else ytMore(token, "search")
+
+    private fun seedParams(videoId: String?): String? {
+        if (videoId == null) return null
+        val id = videoId.toByteArray()
+        val bytes = byteArrayOf(0x0a, id.size.toByte()) + id
+        return android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+    }
+
+    private suspend fun reelSequence(sequenceParams: String?): Page {
+        val body = org.json.JSONObject()
+        if (sequenceParams != null) body.put("sequenceParams", sequenceParams)
+        val r = InnerTube.post(Client.WEB, "reel/reel_watch_sequence", body)
+        val items = r.arr("entries")?.objects()?.mapNotNull { e ->
+            val rw = findFirst(e, "reelWatchEndpoint") ?: return@mapNotNull null
+            val id = rw.str("videoId") ?: return@mapNotNull null
+            val vd = rw.obj("unserializedPrefetchData", "playerResponse", "videoDetails")
+            Item(
+                type = ItemType.SHORT,
+                id = id,
+                title = vd.str("title") ?: "",
+                thumbnail = bestThumb(rw.obj("thumbnail")) ?: "https://i.ytimg.com/vi/$id/oar2.jpg",
+                channelName = vd.str("author"),
+                channelId = vd.str("channelId"),
+            )
+        }?.distinctBy { it.id } ?: emptyList()
+        val tok = findFirst(r.obj("continuationEndpoint"), "continuationCommand")?.str("token")
+            ?: r.obj("continuationEndpoint", "continuationCommand").str("token")
+        synchronized(servedShorts) { items.forEach { servedShorts.add(it.id) } }
+        return Page(items = items, continuation = tok?.let { "r:$it" })
+    }
+
+    private suspend fun ytShortsBySearch(): Page {
+        // Cara cadangan: pencarian dari selera Histori; tagar umum hanya bila selera kosong.
+        val taste = shortsTaste().shuffled().take(3)
+        val queries = taste.ifEmpty { listOf(shortQueries.random()) }
         var r: org.json.JSONObject? = null
         val fromSearch = mutableListOf<Item>()
-        for ((qi, q) in queries.withIndex()) {
+        for (q in queries) {
             try {
                 val res = InnerTube.search(Client.WEB, q)
-                if (qi == queries.lastIndex || r == null) r = res
+                // Lanjutan diambil dari pencarian selera pertama, bukan tagar acak.
+                if (r == null) r = res
                 fromSearch += Parser.items(res, false).filter { it.type == ItemType.SHORT }
             } catch (_: Exception) {
             }
