@@ -527,6 +527,14 @@ object PlaybackManager {
 
     fun togglePlay() {
         if (exo.playbackState == Player.STATE_ENDED) exo.seekTo(0)
+        // Pemutar berhenti karena gangguan (IDLE): tombol play memuat ulang dari posisi terakhir,
+        // bukan diam saja.
+        val item = current
+        if (!exo.isPlaying && item != null && exo.playbackState == Player.STATE_IDLE && !loading) {
+            error = null
+            load(item, exo.currentPosition.coerceAtLeast(0))
+            return
+        }
         if (exo.isPlaying) exo.pause() else exo.play()
     }
 
@@ -611,6 +619,12 @@ object PlaybackManager {
             } finally {
                 if (gen == lyricsGen) {
                     lyricsLoading = false
+                    // Tidak ketemu (mis. internet putus saat mencari): boleh dicoba lagi sekali
+                    // saat lagu ini siap diputar lagi / internet kembali.
+                    if (lyricsList.isEmpty() && (lyricsTries[item.id] ?: 0) < 2) {
+                        lyricsTries[item.id] = (lyricsTries[item.id] ?: 0) + 1
+                        if (lyricsFor == item.id) lyricsFor = null
+                    }
                 }
             }
         }
@@ -648,6 +662,7 @@ object PlaybackManager {
     }
 
     private var lyricsJob: kotlinx.coroutines.Job? = null
+    private val lyricsTries = HashMap<String, Int>()
     private var lyricsGen = 0
 
     private var chosenSource: String? = null
