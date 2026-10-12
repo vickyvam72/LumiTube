@@ -560,19 +560,18 @@ private fun YouTab(
             item { MenuRow(Icons.Filled.ThumbUp, "Video yang disukai") { browse("VLLL", "Video yang disukai") } }
         }
         item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
-        item { MenuRow(Icons.Filled.MusicNote, "Buka YT Music Lumi", onSwitchMusic) }
         item {
             var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
-            MenuRow(Icons.Filled.Settings, "Tutup aplikasi saat PiP ditutup: ${if (closePip) "Aktif" else "Nonaktif"}") {
-                closePip = !closePip
-                Session.closeOnPipClose = closePip
+            SwitchRow(Icons.Filled.Settings, "Tutup aplikasi saat PiP ditutup", closePip) {
+                closePip = it
+                Session.closeOnPipClose = it
             }
         }
         item {
             val ctx = LocalContext.current
             var links by remember { mutableStateOf(com.lumitube.app.CrossApp.linksEnabled(ctx)) }
-            MenuRow(Icons.Filled.Share, "Buka link YouTube di YouTube Lumi: ${if (links) "Aktif" else "Nonaktif"}") {
-                links = !links
+            SwitchRow(Icons.Filled.Share, "Buka link YouTube di YouTube Lumi", links) {
+                links = it
                 com.lumitube.app.CrossApp.setLinksEnabled(ctx, links)
                 if (links) com.lumitube.app.CrossApp.startLinkSetup(ctx)
             }
@@ -604,6 +603,30 @@ private fun SectionHeader(title: String, onMore: () -> Unit) {
         Box(
             Modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onMore).padding(horizontal = 12.dp, vertical = 6.dp)
         ) { Text("Lihat semua", color = yt.text, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+    }
+}
+
+/** Baris setelan dengan sakelar (gaya Android/Google). */
+@Composable
+private fun SwitchRow(icon: ImageVector, label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val yt = LocalYt.current
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = yt.text)
+        Text(label, color = yt.text, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 20.dp, end = 12.dp))
+        androidx.compose.material3.Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = androidx.compose.material3.SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF1A73E8),
+                uncheckedThumbColor = yt.sub,
+                uncheckedTrackColor = yt.chip,
+                uncheckedBorderColor = yt.sub,
+            ),
+        )
     }
 }
 

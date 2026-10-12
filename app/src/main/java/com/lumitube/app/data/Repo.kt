@@ -332,10 +332,24 @@ object Repo {
         } else {
             org.json.JSONObject().put("removedVideoId", videoId).put("action", "ACTION_REMOVE_VIDEO_BY_VIDEO_ID")
         }
-        InnerTube.post(
-            Client.WEB, "browse/edit_playlist",
-            org.json.JSONObject().put("playlistId", playlistId).put("actions", org.json.JSONArray().put(action))
-        )
+        // Beberapa klien dicoba bergantian (playlist khusus seperti "Tonton nanti" kadang ditolak satu klien).
+        var last: Exception? = null
+        for (c in listOf(Client.WEB, Client.MWEB, Client.MUSIC)) {
+            try {
+                val r = InnerTube.post(
+                    c, "browse/edit_playlist",
+                    org.json.JSONObject().put("playlistId", playlistId).put("actions", org.json.JSONArray().put(action))
+                )
+                if (r.optString("status") == "STATUS_FAILED") throw java.io.IOException("ditolak YouTube")
+                return
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                // Video sudah ada di playlist (409) = sudah tersimpan.
+                if (add && e.message?.contains("409") == true) return
+                last = e
+            }
+        }
+        throw last ?: java.io.IOException("Gagal")
     }
 
     private val moveMutex = kotlinx.coroutines.sync.Mutex()

@@ -101,10 +101,10 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
                     if (target) "Disimpan ke ${o.title}" else "Dihapus dari ${o.title}",
                     Toast.LENGTH_SHORT,
                 ).show()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 val k = options.indexOfFirst { it.id == o.id }
                 if (k >= 0) options[k] = options[k].copy(contains = !target)
-                Toast.makeText(context, "Gagal menyimpan", Toast.LENGTH_SHORT).show()
+Toast.makeText(context, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).show()
             }
         }
     }
