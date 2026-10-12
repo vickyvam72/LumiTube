@@ -424,12 +424,16 @@ private fun androidx.compose.foundation.layout.RowScope.NavCell(spec: NavSpec, s
 fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    var subscribed by androidx.compose.runtime.saveable.rememberSaveable(item.id) { androidx.compose.runtime.mutableStateOf(item.subscribed == true) }
+    // Hasil pencarian datang tanpa akun, jadi "subscribed" di dalamnya selalu false — abaikan,
+    // pakai daftar channel akun.
+    var subscribed by androidx.compose.runtime.saveable.rememberSaveable(item.id) {
+        androidx.compose.runtime.mutableStateOf(com.lumitube.app.data.Repo.cachedSubscribed(item.id) == true)
+    }
     // Pencarian dikirim tanpa akun, jadi status subscribe dicek dari daftar channel akun.
     androidx.compose.runtime.LaunchedEffect(item.id) {
-        if (item.subscribed == null && com.lumitube.app.data.Session.loggedIn) {
+        if (com.lumitube.app.data.Session.loggedIn) {
             try {
-                if (com.lumitube.app.data.Repo.isSubscribed(item.id)) subscribed = true
+                subscribed = com.lumitube.app.data.Repo.isSubscribed(item.id)
             } catch (_: Exception) {
             }
         }

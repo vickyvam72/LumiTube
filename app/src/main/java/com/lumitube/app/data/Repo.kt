@@ -317,6 +317,13 @@ object Repo {
         return channelId in set
     }
 
+    /** Status dari daftar yang sudah tersimpan (tanpa jaringan), null bila belum ada / kedaluwarsa. */
+    fun cachedSubscribed(channelId: String): Boolean? {
+        val c = subsCache ?: return null
+        if (System.currentTimeMillis() - c.first >= 10 * 60 * 1000L) return null
+        return channelId in c.second
+    }
+
     /** Catat perubahan subscribe supaya status di hasil pencarian langsung benar. */
     fun markSubscribed(channelId: String, subscribed: Boolean) {
         subsCache?.second?.let { if (subscribed) it.add(channelId) else it.remove(channelId) }
