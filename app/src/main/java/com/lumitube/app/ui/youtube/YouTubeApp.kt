@@ -77,6 +77,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -247,7 +248,7 @@ fun YouTubeApp(
                 } else {
                     BrowseScreen(top.id, top.title, { stack.removeAt(stack.lastIndex) }, open)
                 }
-                YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel, onLogin)
+                YtRoute.Search -> SearchScreen({ stack.removeAt(stack.lastIndex) }, open, openChannel, onLogin, openShorts)
                 is YtRoute.Shorts -> ShortsPlayer(
                     items = top.items, startIndex = top.index, onLoadMore = null,
                     onChannel = openChannel, onLogin = onLogin,
@@ -1144,7 +1145,13 @@ private object YtSearchState {
 }
 
 @Composable
-private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: (String) -> Unit, onLogin: () -> Unit) {
+private fun SearchScreen(
+    onBack: () -> Unit,
+    open: (Item) -> Unit,
+    openChannel: (String) -> Unit,
+    onLogin: () -> Unit,
+    openShorts: (List<Item>, Int) -> Unit,
+) {
     val yt = LocalYt.current
     var field by remember { mutableStateOf(TextFieldValue("")) }
     var query by YtSearchState::query
@@ -1191,9 +1198,18 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
             )
         } else {
             val params = YtSearchState.params
-            val chipToken = YtSearchState.chips.getOrNull(YtSearchState.chipIndex)?.continuation
-            val feed = rememberFeed(key = Triple(query, params, chipToken), more = { Repo.ytMore(it, "search") }) {
-                if (chipToken != null) Repo.ytSearchChip(chipToken) else Repo.ytSearch(query, params)
+            val selChip = YtSearchState.chips.getOrNull(YtSearchState.chipIndex)
+            val chipToken = selChip?.continuation
+            val shortsMode = chipToken != null && selChip.title.equals("Shorts", ignoreCase = true)
+            val feed = rememberFeed(
+                key = Triple(query, params, chipToken),
+                more = { if (shortsMode) Repo.ytSearchShorts(query, chipToken!!, it) else Repo.ytMore(it, "search") },
+            ) {
+                when {
+                    shortsMode -> Repo.ytSearchShorts(query, chipToken!!, null)
+                    chipToken != null -> Repo.ytSearchChip(chipToken)
+                    else -> Repo.ytSearch(query, params)
+                }
             }
             // Daftar filter diambil dari hasil "Semua" supaya tetap sama saat filter lain dipilih.
             LaunchedEffect(feed.page) {
@@ -1229,10 +1245,58 @@ private fun SearchScreen(onBack: () -> Unit, open: (Item) -> Unit, openChannel: 
                     }
                 }
             }
-            FeedList(
-                feed, open, openChannel, listState = YtSearchState.list,
-                channelCard = { c -> SearchChannelCard(c, { open(c) }, onLogin) },
-            )
+            if (shortsMode) {
+                SearchShortsGrid(feed, openShorts)
+            } else {
+                FeedList(
+                    feed, open, openChannel, listState = YtSearchState.list,
+                    channelCard = { c -> SearchChannelCard(c, { open(c) }, onLogin) },
+                )
+            }
+        }
+    }
+}
+
+/** Hasil filter Shorts: kisi 3 kolom seperti aplikasi YouTube, terus dimuat saat digulir. */
+@Composable
+private fun SearchShortsGrid(feed: FeedLoader, openShorts: (List<Item>, Int) -> Unit) {
+    val yt = LocalYt.current
+    val state = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = state.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 7
+        }
+    }
+    LaunchedEffect(nearEnd, feed.items.size, feed.continuation) {
+        if (nearEnd || feed.items.size < 12) feed.loadMore()
+    }
+    val list = feed.items.toList()
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+        state = state,
+        contentPadding = PaddingValues(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (feed.loading && list.isEmpty()) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) { LoadingBox() }
+        }
+        feed.error?.let { err ->
+            if (list.isEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
+                MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() }
+            }
+        }
+        if (!feed.loading && feed.error == null && list.isEmpty() && feed.continuation == null) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) { MessageBox("Tidak ada Shorts.", yt.sub) }
+        }
+        items(list.size, key = { list[it].key }) { i ->
+            ShortCard(list[i]) { openShorts(list, i) }
+        }
+        if (feed.continuation != null && list.isNotEmpty()) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) { LoadingBox() }
         }
     }
 }

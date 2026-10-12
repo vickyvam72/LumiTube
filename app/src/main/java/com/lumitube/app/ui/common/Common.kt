@@ -242,7 +242,8 @@ fun LoadMoreEffect(state: LazyListState, feed: FeedLoader) {
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 4
         }
     }
-    LaunchedEffect(nearEnd, feed.items.size) {
+    // Ikut "continuation": halaman tanpa item baru tetap memicu halaman berikutnya (tidak macet loading).
+    LaunchedEffect(nearEnd, feed.items.size, feed.continuation) {
         if (nearEnd) feed.loadMore()
     }
 }

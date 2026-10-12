@@ -55,6 +55,33 @@ object Repo {
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
+    /**
+     * Filter "Shorts" di pencarian: hasil asli YouTube hanya satu rak berisi beberapa Shorts,
+     * jadi setelah habis dilanjutkan dengan pencarian "<kata> shorts" (diambil Shorts-nya saja).
+     * Token: "x:" = mulai pencarian tambahan, "y:" = lanjutan pencarian tambahan.
+     */
+    suspend fun ytSearchShorts(query: String, chipToken: String, token: String?): Page {
+        fun shorts(p: Page) = p.items.filter { it.type == ItemType.SHORT }
+        return when {
+            token == null -> {
+                val p = ytSearchChip(chipToken)
+                Page(items = shorts(p), continuation = p.continuation ?: "x:")
+            }
+            token == "x:" -> {
+                val p = ytSearch("$query shorts")
+                Page(items = shorts(p), continuation = p.continuation?.let { "y:$it" })
+            }
+            token.startsWith("y:") -> {
+                val p = ytMore(token.removePrefix("y:"), "search")
+                Page(items = shorts(p), continuation = p.continuation?.let { "y:$it" })
+            }
+            else -> {
+                val p = ytMore(token, "search")
+                Page(items = shorts(p), continuation = p.continuation ?: "x:")
+            }
+        }
+    }
+
     /** Hasil pencarian dengan filter (chip) — token lanjutan dari chip. */
     suspend fun ytSearchChip(token: String): Page {
         val r = InnerTube.continuation(Client.WEB, "search", "b:${token.removePrefix("b:")}")
