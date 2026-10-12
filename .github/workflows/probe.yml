@@ -27,7 +27,9 @@ jobs:
           ss=json.dumps(s)
           ids=re.findall(r'"reelWatchEndpoint": \{[^{}]*?"videoId": "([^"]+)"',ss) or re.findall(r'shorts-shelf-item-([A-Za-z0-9_-]{11})',ss)
           out.append("search reel ids %s"%ids[:5])
-          seed=ids[0] if ids else None
+          allv=re.findall(r'"videoId": "([A-Za-z0-9_-]{11})"',ss)
+          out.append("any ids %s; has shortsLockup=%s reelWatch=%s"%(allv[:5], "shortsLockupViewModel" in ss, "reelWatchEndpoint" in ss))
+          seed=ids[0] if ids else (allv[0] if allv else "dQw4w9WgXcQ")
           if seed:
               m=re.search(r'"reelWatchEndpoint": (\{"videoId": "%s".*?\})\s*[,}]'%seed, ss)
               i=ss.find('"reelWatchEndpoint"'); out.append("reelWatchEndpoint sample "+ss[i:i+900])
