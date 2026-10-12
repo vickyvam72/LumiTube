@@ -98,6 +98,19 @@ object Downloader {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             nm?.createNotificationChannel(NotificationChannel(CHANNEL, "Download", NotificationManager.IMPORTANCE_LOW))
         }
+        // Begitu internet tersambung lagi, lengkapi lirik offline yang belum ada.
+        try {
+            val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java)
+            cm?.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    scope.launch {
+                        kotlinx.coroutines.delay(5_000)
+                        backfillLyrics()
+                    }
+                }
+            })
+        } catch (_: Exception) {
+        }
         // Bersihkan notifikasi download yang menggantung dari sesi sebelumnya.
         try {
             val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -154,17 +167,36 @@ object Downloader {
      * Lengkapi lirik untuk download lama yang belum punya lirik tersimpan
      * (dijalankan diam-diam saat ada internet).
      */
+    @Volatile private var backfilling = false
+
     fun backfillLyrics() {
         val fetch = lyricsFetcher ?: return
+        if (backfilling) return
+        backfilling = true
         scope.launch {
-            for (rec in records.toList()) {
-                if (com.lumitube.app.data.lyrics.LyricsStore.has(rec.videoId)) continue
-                try {
-                    val item = Item(ItemType.SONG, rec.videoId, rec.title, rec.author, rec.thumbnail, channelName = rec.author)
-                    kotlinx.coroutines.withTimeoutOrNull(45_000) { fetch(item) }
-                        ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
-                } catch (_: Exception) {
+            try {
+                // 3 lagu sekaligus supaya cepat lengkap sebelum HP offline lagi.
+                val sem = kotlinx.coroutines.sync.Semaphore(3)
+                kotlinx.coroutines.coroutineScope {
+                    for (rec in records.toList().filter { it.audioOnly }.distinctBy { it.videoId }) {
+                        if (com.lumitube.app.data.lyrics.LyricsStore.has(rec.videoId)) continue
+                        launch {
+                            sem.acquire()
+                            try {
+                                val item = Item(ItemType.SONG, rec.videoId, rec.title, rec.author, rec.thumbnail, channelName = rec.author)
+                                kotlinx.coroutines.withTimeoutOrNull(45_000) { fetch(item) }
+                                    ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                            } finally {
+                                sem.release()
+                            }
+                        }
+                    }
                 }
+            } finally {
+                backfilling = false
             }
         }
     }

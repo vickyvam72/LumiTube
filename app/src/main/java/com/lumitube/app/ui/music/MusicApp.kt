@@ -717,12 +717,18 @@ private fun MusicBrowseScreen(
                                                 }
                                             } catch (_: Exception) {
                                             }
-                                            val songs = all.distinctBy { it.id }.map { it.copy(thumbnail = it.thumbnail ?: page.thumbnail) }
+                                            // Playlist: hanya lagu milik playlist (punya setVideoId), bukan lagu saran di bawahnya.
+                                            val inPlaylist = all.filter { it.setVideoId != null }
+                                            val base = if (route.id.startsWith("VL") && inPlaylist.isNotEmpty()) inPlaylist else all
+                                            val songs = base.distinctBy { it.id }.map { it.copy(thumbnail = it.thumbnail ?: page.thumbnail) }
                                             val todo = songs.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, true) }
                                             com.lumitube.app.data.Downloader.downloadAll(
                                                 songs, audioOnly = true,
                                                 playlistId = route.id.takeIf { it.startsWith("VL") || it.startsWith("MPRE") }, playlistTitle = page.title ?: route.title,
-                                                playlistAuthor = page.subtitle?.substringBefore(" • "),
+                                                playlistAuthor = page.subtitle?.split(" • ")?.map { it.trim() }?.firstOrNull { p ->
+                                                    p.isNotBlank() && p !in setOf("Playlist", "Album", "Single", "EP") &&
+                                                        !Regex("^\\d[\\d.,]*\\s").containsMatchIn(p) && !Regex("^\\d{4}$").matches(p)
+                                                },
                                             )
                                             android.widget.Toast.makeText(
                                                 context,
