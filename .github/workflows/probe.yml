@@ -25,12 +25,12 @@ jobs:
               out.append("   tokens=%s"%[t[:40] for t in re.findall(r'"token": "([^"]+)"',s)[:4]])
           s=post("search",{"query":"tretan muslim #shorts"})
           ss=json.dumps(s)
-          ids=re.findall(r'"reelWatchEndpoint": \{"videoId": "([^"]+)"',ss)
+          ids=re.findall(r'"reelWatchEndpoint": \{[^{}]*?"videoId": "([^"]+)"',ss) or re.findall(r'shorts-shelf-item-([A-Za-z0-9_-]{11})',ss)
           out.append("search reel ids %s"%ids[:5])
           seed=ids[0] if ids else None
           if seed:
               m=re.search(r'"reelWatchEndpoint": (\{"videoId": "%s".*?\})\s*[,}]'%seed, ss)
-              out.append("reelWatchEndpoint sample "+ss[ss.find('"reelWatchEndpoint": {"videoId": "%s"'%seed):][:900])
+              i=ss.find('"reelWatchEndpoint"'); out.append("reelWatchEndpoint sample "+ss[i:i+900])
           def seqkeys(o,path=""):
               if isinstance(o,dict):
                   for k,v in o.items():
