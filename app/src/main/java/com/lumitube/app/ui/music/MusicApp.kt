@@ -284,7 +284,7 @@ private fun MusicHome(
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 2
         }
     }
-    LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) feed.loadMore() }
+    LaunchedEffect(nearEnd, shelves.size, feed.continuation) { if (nearEnd) feed.loadMore() }
 
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
         item { MusicTopBar(onSwitchVideo, onLogin, onSettings, onOffline) }
@@ -463,7 +463,7 @@ private fun ShelfList(
                 info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
             }
         }
-        LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) feed.loadMore() }
+        LaunchedEffect(nearEnd, shelves.size, feed.continuation) { if (nearEnd) feed.loadMore() }
     }
     LazyColumn(Modifier.fillMaxSize(), state = state) {
         item { header() }
@@ -560,7 +560,7 @@ private fun MusicBrowseScreen(
             info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
         }
     }
-    LaunchedEffect(nearEnd, feed.items.size, page?.shelves?.size) { if (nearEnd) feed.loadMore() }
+    LaunchedEffect(nearEnd, feed.items.size, page?.shelves?.size, feed.continuation) { if (nearEnd) feed.loadMore() }
 
     val shelves = page?.shelves ?: emptyList()
     val isArtist = route.id.startsWith("UC") || route.id.startsWith("MPAD")

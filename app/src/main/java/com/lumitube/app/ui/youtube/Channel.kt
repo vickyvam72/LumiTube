@@ -228,20 +228,31 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
 
     val state = rememberLazyListState()
     val nearEnd by remember { derivedStateOf { (state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= state.layoutInfo.totalItemsCount - 3 } }
-    LaunchedEffect(nearEnd, continuation) {
+    // Muat halaman berikutnya di scope layar, BUKAN di dalam LaunchedEffect: munculnya indikator
+    // loading mengubah "nearEnd" dan membatalkan effect, yang dulu dianggap error lalu menghentikan
+    // pemuatan (video channel berhenti di ±30, Shorts di ±48).
+    LaunchedEffect(nearEnd, continuation, tabLoading) {
         val c = continuation
         if (nearEnd && c != null && !loadingMore && !tabLoading) {
             loadingMore = true
-            try {
-                val p = ChannelRepo.more(c)
-                val keys = items.map { it.key }.toHashSet()
-                items.addAll(p.items.filter { keys.add(it.key) })
-                posts.addAll(p.posts.filter { np -> posts.none { it.id == np.id } })
-                continuation = p.continuation?.takeIf { it != c }
-            } catch (_: Exception) {
-                continuation = null
-            } finally {
-                loadingMore = false
+            val tab = tabIndex
+            val chip = chipIndex
+            scope.launch {
+                try {
+                    val p = ChannelRepo.more(c)
+                    if (tabIndex == tab && chipIndex == chip && continuation == c) {
+                        val keys = items.map { it.key }.toHashSet()
+                        items.addAll(p.items.filter { keys.add(it.key) })
+                        posts.addAll(p.posts.filter { np -> posts.none { it.id == np.id } })
+                        continuation = p.continuation?.takeIf { it != c }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    if (continuation == c) continuation = null
+                } finally {
+                    loadingMore = false
+                }
             }
         }
     }
@@ -386,7 +397,16 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                     }
                 }
             }
-            if (loadingMore) item { LoadingBox() }
+            if (loadingMore || (continuation != null && rows.isNotEmpty() && !tabLoading)) item { LoadingBox() }
+            if (!tabLoading && continuation == null && rows.isNotEmpty()) {
+                item {
+                    Text(
+                        "Tidak ada konten lain lagi", color = yt.sub, fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    )
+                }
+            }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
