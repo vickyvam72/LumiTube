@@ -719,7 +719,11 @@ private fun MusicBrowseScreen(
                                             }
                                             val songs = all.distinctBy { it.id }.map { it.copy(thumbnail = it.thumbnail ?: page.thumbnail) }
                                             val todo = songs.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, true) }
-                                            com.lumitube.app.data.Downloader.downloadAll(songs, audioOnly = true)
+                                            com.lumitube.app.data.Downloader.downloadAll(
+                                                songs, audioOnly = true,
+                                                playlistId = route.id.takeIf { it.startsWith("VL") || it.startsWith("MPRE") }, playlistTitle = page.title ?: route.title,
+                                                playlistAuthor = page.subtitle?.substringBefore(" • "),
+                                            )
                                             android.widget.Toast.makeText(
                                                 context,
                                                 if (todo == 0) "Semua lagu sudah di-download" else "Mendownload $todo lagu + lirik…",

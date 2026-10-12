@@ -2,6 +2,7 @@ package com.lumitube.app.ui.common
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -650,7 +651,20 @@ fun DownloadDialog(item: Item, onDismiss: () -> Unit) {
     )
 }
 
-/** Daftar download aktif & selesai. Ketuk untuk memutar offline. */
+/** Kumpulan di halaman Download: lagu/video yang didownload (otomatis) atau playlist yang didownload. */
+private data class DlCollection(
+    val key: String,
+    val title: String,
+    val subtitle: String,
+    val records: List<DownloadRecord>,
+    val auto: Boolean,
+    val playlist: com.lumitube.app.data.DownloadedPlaylist? = null,
+)
+
+/**
+ * Halaman Download seperti YT Music asli: "Lagu yang didownload" / "Video yang didownload"
+ * (playlist otomatis) dan playlist yang di-download. Ketuk untuk membuka isinya.
+ */
 @Composable
 fun DownloadsList(
     colors: PanelColors,
@@ -658,52 +672,26 @@ fun DownloadsList(
     onPlay: (DownloadRecord) -> Unit,
 ) {
     var confirm by remember { mutableStateOf<DownloadRecord?>(null) }
-    var filter by remember { mutableStateOf(0) } // 0 semua, 1 video, 2 musik
-    val shown = when (filter) {
-        1 -> Downloader.records.filter { !it.audioOnly }
-        2 -> Downloader.records.filter { it.audioOnly }
-        else -> Downloader.records.toList()
-    }
-    LazyColumn(Modifier.fillMaxSize()) {
-        if (Downloader.records.isNotEmpty()) {
-            item(key = "offline-head") {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Semua", "Video", "Musik").forEachIndexed { i, label ->
-                            val sel = i == filter
-                            Box(
-                                Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) colors.text else colors.chip)
-                                    .clickable { filter = i }.padding(horizontal = 14.dp, vertical = 7.dp)
-                            ) { Text(label, color = if (sel) colors.bg else colors.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
-                        }
-                    }
-                    if (onPlayAll != null && shown.isNotEmpty()) {
-                        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.text)
-                                    .clickable { onPlayAll(shown, 0) },
-                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Filled.PlayArrow, null, tint = colors.bg)
-                                Text("Putar semua", color = colors.bg, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
-                            }
-                            Row(
-                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.chip)
-                                    .clickable { onPlayAll(shown.shuffled(), 0) },
-                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Filled.Shuffle, null, tint = colors.text)
-                                Text("Acak", color = colors.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
-                            }
-                        }
-                        Text(
-                            "Bisa diputar tanpa internet",
-                            color = colors.sub, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                }
-            }
+    var confirmPl by remember { mutableStateOf<com.lumitube.app.data.DownloadedPlaylist?>(null) }
+    var openKey by remember { mutableStateOf<String?>(null) }
+    val all = Downloader.records.toList()
+    val songs = all.filter { it.audioOnly }
+    val videos = all.filter { !it.audioOnly }
+    val collections = buildList {
+        if (songs.isNotEmpty()) add(DlCollection("auto-songs", "Lagu yang didownload", "Playlist otomatis • ${songs.size} lagu", songs, true))
+        if (videos.isNotEmpty()) add(DlCollection("auto-videos", "Video yang didownload", "Playlist otomatis • ${videos.size} video", videos, true))
+        for (pl in Downloader.playlists) {
+            val recs = pl.videoIds.mapNotNull { id -> all.firstOrNull { it.videoId == id && it.audioOnly == pl.audioOnly } }
+            val unit = if (pl.audioOnly) "lagu" else "video"
+            val count = if (recs.size < pl.videoIds.size) "${recs.size}/${pl.videoIds.size} $unit" else "${recs.size} $unit"
+            add(DlCollection("pl-${pl.id}-${pl.audioOnly}", pl.title, listOf("Playlist", pl.author.takeIf { it.isNotBlank() }, count).filterNotNull().joinToString(" • "), recs, false, pl))
         }
+    }
+    val opened = collections.firstOrNull { it.key == openKey }
+    BackHandler(enabled = opened != null) { openKey = null }
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        // Download yang sedang berjalan selalu terlihat di atas.
         val active = Downloader.active.values.toList()
         items(active, key = { "a" + it.key }) { a ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -716,30 +704,100 @@ fun DownloadsList(
                 )
             }
         }
-        if (active.isEmpty() && Downloader.records.isEmpty()) {
-            item {
-                Text(
-                    "Belum ada download. Ketuk tombol Download di halaman video atau pemutar musik.",
-                    color = colors.sub, modifier = Modifier.padding(24.dp),
-                )
-            }
-        }
-        items(shown, key = { it.id }) { r ->
-            Row(
-                Modifier.fillMaxWidth().clickable {
-                    if (onPlayAll != null) onPlayAll(shown, shown.indexOf(r)) else onPlay(r)
-                }.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Img(
-                    r.thumbnail,
-                    Modifier.size(width = if (r.audioOnly) 56.dp else 96.dp, height = 56.dp).clip(RoundedCornerShape(6.dp))
-                )
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(r.title, color = colors.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("${r.label} • ${formatSize(r.size)}", color = colors.sub, fontSize = 12.sp, maxLines = 1)
+        if (opened == null) {
+            if (active.isEmpty() && collections.isEmpty()) {
+                item {
+                    Text(
+                        "Belum ada download. Ketuk tombol Download di halaman video atau pemutar musik, atau \"Download semua\" di playlist.",
+                        color = colors.sub, modifier = Modifier.padding(24.dp),
+                    )
                 }
-                IconButton(onClick = { confirm = r }) { Icon(Icons.Filled.Delete, "Hapus", tint = colors.sub) }
+            }
+            items(collections, key = { it.key }) { c ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { openKey = c.key }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (c.auto) {
+                        Box(
+                            Modifier.size(64.dp).clip(RoundedCornerShape(6.dp))
+                                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF9F8CFF), Color(0xFF5B5BD6)))),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Check, null, tint = Color(0xFF5B5BD6), modifier = Modifier.size(22.dp))
+                            }
+                        }
+                    } else {
+                        DlMosaic(c.records.mapNotNull { it.thumbnail }, Modifier.size(64.dp).clip(RoundedCornerShape(6.dp)))
+                    }
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        Text(c.title, color = colors.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(16.dp).clip(androidx.compose.foundation.shape.CircleShape).background(colors.sub), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Check, null, tint = colors.bg, modifier = Modifier.size(12.dp))
+                            }
+                            Text(c.subtitle, color = colors.sub, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
+                        }
+                    }
+                    if (c.playlist != null) {
+                        ItemMenu(listOf("Hapus dari Download" to { confirmPl = c.playlist }), colors.sub)
+                    }
+                }
+            }
+        } else {
+            item(key = "open-head") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { openKey = null }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = colors.text)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(opened.title, color = colors.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(opened.subtitle, color = colors.sub, fontSize = 12.sp, maxLines = 1)
+                        }
+                    }
+                    if (onPlayAll != null && opened.records.isNotEmpty()) {
+                        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.text)
+                                    .clickable { onPlayAll(opened.records, 0) },
+                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, null, tint = colors.bg)
+                                Text("Putar semua", color = colors.bg, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                            }
+                            Row(
+                                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(colors.chip)
+                                    .clickable { onPlayAll(opened.records.shuffled(), 0) },
+                                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.Shuffle, null, tint = colors.text)
+                                Text("Acak", color = colors.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp))
+                            }
+                        }
+                        Text("Bisa diputar tanpa internet", color = colors.sub, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp))
+                    }
+                }
+            }
+            val shown = opened.records
+            items(shown, key = { "r" + it.id }) { r ->
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        if (onPlayAll != null) onPlayAll(shown, shown.indexOf(r)) else onPlay(r)
+                    }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Img(
+                        r.thumbnail,
+                        Modifier.size(width = if (r.audioOnly) 56.dp else 96.dp, height = 56.dp).clip(RoundedCornerShape(6.dp))
+                    )
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(r.title, color = colors.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${r.label} • ${formatSize(r.size)}", color = colors.sub, fontSize = 12.sp, maxLines = 1)
+                    }
+                    IconButton(onClick = { confirm = r }) { Icon(Icons.Filled.Delete, "Hapus", tint = colors.sub) }
+                }
             }
         }
     }
@@ -751,6 +809,35 @@ fun DownloadsList(
             confirmButton = { TextButton(onClick = { Downloader.delete(r); confirm = null }) { Text("Hapus") } },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Batal") } },
         )
+    }
+    confirmPl?.let { pl ->
+        AlertDialog(
+            onDismissRequest = { confirmPl = null },
+            title = { Text("Hapus \"${pl.title}\" dari Download?") },
+            text = { Text("Pilih apakah ${if (pl.audioOnly) "lagu" else "video"} di dalamnya ikut dihapus dari HP.") },
+            confirmButton = {
+                TextButton(onClick = { Downloader.deletePlaylist(pl, withFiles = true); confirmPl = null; openKey = null }) { Text("Hapus beserta file") }
+            },
+            dismissButton = {
+                TextButton(onClick = { Downloader.deletePlaylist(pl, withFiles = false); confirmPl = null; openKey = null }) { Text("Hapus playlist saja") }
+            },
+        )
+    }
+}
+
+/** Sampul playlist 2x2 dari gambar lagu/video di dalamnya. */
+@Composable
+private fun DlMosaic(thumbs: List<String>, modifier: Modifier) {
+    if (thumbs.size < 4) {
+        Img(thumbs.firstOrNull(), modifier)
+        return
+    }
+    Column(modifier) {
+        for (r in 0..1) {
+            Row(Modifier.weight(1f)) {
+                for (c in 0..1) Img(thumbs[r * 2 + c], Modifier.weight(1f).fillMaxHeight())
+            }
+        }
     }
 }
 

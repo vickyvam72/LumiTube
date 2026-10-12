@@ -937,7 +937,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     Text("Putar semua", color = yt.bg, fontWeight = FontWeight.Medium)
                                 }
                             }
-                            PlaylistOfflineRow(feed, videos, open, plCount)
+                            PlaylistOfflineRow(feed, videos, open, plCount, id.takeIf { it.startsWith("VL") })
                         }
                     }
                 }
@@ -1049,7 +1049,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
 
 /** Tombol "Download semua" dan "Putar offline" untuk playlist. */
 @Composable
-private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item) -> Unit, limit: Int?) {
+private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item) -> Unit, limit: Int?, playlistId: String? = null) {
     val yt = LocalYt.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1073,7 +1073,11 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
                     val list = (if (limit != null) all.take(limit) else all).filter { it.type == ItemType.VIDEO }
                     all.clear(); all.addAll(list)
                     val todo = all.distinctBy { it.id }.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, false) }
-                    com.lumitube.app.data.Downloader.downloadAll(all, audioOnly = false)
+                    com.lumitube.app.data.Downloader.downloadAll(
+                        all, audioOnly = false,
+                        playlistId = playlistId, playlistTitle = feed.page?.title,
+                        playlistAuthor = feed.page?.subtitle?.substringBefore(" • "),
+                    )
                     android.widget.Toast.makeText(
                         context,
                         if (todo == 0) "Semua video sudah di-download" else "Mendownload $todo video… (lihat di Download)",

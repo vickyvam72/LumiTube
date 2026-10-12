@@ -57,6 +57,16 @@ data class DownloadRecord(
     val time: Long,
 )
 
+/** Playlist yang di-download lewat "Download semua" (isinya tetap disimpan per lagu/video). */
+data class DownloadedPlaylist(
+    val id: String,
+    val title: String,
+    val author: String,
+    val videoIds: List<String>,
+    val audioOnly: Boolean,
+    val time: Long,
+)
+
 data class ActiveDownload(val key: String, val title: String, val label: String, val progress: Float, val status: String)
 
 /**
@@ -74,6 +84,7 @@ object Downloader {
 
     val active = mutableStateMapOf<String, ActiveDownload>()
     val records = mutableStateListOf<DownloadRecord>()
+    val playlists = mutableStateListOf<DownloadedPlaylist>()
 
     fun init(context: Context) {
         com.lumitube.app.data.lyrics.LyricsStore.dir = context.filesDir
@@ -81,6 +92,8 @@ object Downloader {
         prefs = ctx.getSharedPreferences("downloads", Context.MODE_PRIVATE)
         records.clear()
         records.addAll(load())
+        playlists.clear()
+        playlists.addAll(loadPlaylists())
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             nm?.createNotificationChannel(NotificationChannel(CHANNEL, "Download", NotificationManager.IMPORTANCE_LOW))
@@ -157,7 +170,17 @@ object Downloader {
      * Download semua isi playlist satu per satu. Video memakai kualitas setelan (MP4),
      * lagu memakai audio M4A terbaik (beserta liriknya). Yang sudah ada dilewati.
      */
-    fun downloadAll(items: List<Item>, audioOnly: Boolean) {
+    fun downloadAll(items: List<Item>, audioOnly: Boolean, playlistId: String? = null, playlistTitle: String? = null, playlistAuthor: String? = null) {
+        // Catat playlist-nya supaya tampil sebagai satu playlist di halaman Download.
+        if (playlistId != null && items.isNotEmpty()) {
+            val pl = DownloadedPlaylist(
+                playlistId.removePrefix("VL"), playlistTitle ?: "Playlist", playlistAuthor ?: "",
+                items.map { it.id }.distinct(), audioOnly, System.currentTimeMillis(),
+            )
+            playlists.removeAll { it.id == pl.id && it.audioOnly == audioOnly }
+            playlists.add(0, pl)
+            savePlaylists()
+        }
         val todo = items.filter { !isDownloaded(it.id, audioOnly) }.distinctBy { it.id }
         if (todo.isEmpty()) return
         scope.launch {
@@ -395,6 +418,41 @@ object Downloader {
             ctx.getSystemService(NotificationManager::class.java)?.notify(id, n)
         } catch (_: Exception) {
         }
+    }
+
+    /** Hapus playlist dari daftar Download. [withFiles] = hapus juga lagu/videonya. */
+    fun deletePlaylist(pl: DownloadedPlaylist, withFiles: Boolean) {
+        playlists.remove(pl)
+        savePlaylists()
+        if (withFiles) {
+            // Lagu yang juga ada di playlist download lain tetap disimpan.
+            val keep = playlists.filter { it.audioOnly == pl.audioOnly }.flatMap { it.videoIds }.toSet()
+            records.filter { it.audioOnly == pl.audioOnly && it.videoId in pl.videoIds && it.videoId !in keep }.forEach { delete(it) }
+        }
+    }
+
+    private fun loadPlaylists(): List<DownloadedPlaylist> = try {
+        JSONArray(prefs.getString("playlists", "[]")).objects().map { o ->
+            val ids = o.optJSONArray("ids")
+            DownloadedPlaylist(
+                o.optString("id"), o.optString("title"), o.optString("author"),
+                (0 until (ids?.length() ?: 0)).map { ids!!.optString(it) },
+                o.optBoolean("audioOnly"), o.optLong("time"),
+            )
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    private fun savePlaylists() {
+        val arr = JSONArray()
+        playlists.forEach {
+            arr.put(
+                JSONObject().put("id", it.id).put("title", it.title).put("author", it.author)
+                    .put("ids", JSONArray(it.videoIds)).put("audioOnly", it.audioOnly).put("time", it.time)
+            )
+        }
+        prefs.edit().putString("playlists", arr.toString()).apply()
     }
 
     private fun load(): List<DownloadRecord> = try {
