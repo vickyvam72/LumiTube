@@ -1,0 +1,58 @@
+name: probe
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          cat > p.py <<'PY'
+          import json, urllib.request
+          CTX={"client":{"clientName":"WEB","clientVersion":"2.20251001.00.00","hl":"id","gl":"ID"}}
+          def post(body):
+              body["context"]=CTX
+              req=urllib.request.Request("https://www.youtube.com/youtubei/v1/search?prettyPrint=false",data=json.dumps(body).encode(),headers={"Content-Type":"application/json"})
+              return json.load(urllib.request.urlopen(req))
+          out=[]
+          def keys(o,path="",depth=0):
+              if isinstance(o,dict):
+                  for k,v in o.items():
+                      if k.endswith(("Renderer","ViewModel","Command")) and depth<40:
+                          out.append("  "*0+path+"/"+k)
+                      if k=="continuationCommand": out.append("   TOKEN "+str(v.get("token"))[:60])
+                      keys(v,path+"/"+k,depth+1)
+              elif isinstance(o,list):
+                  for i,v in enumerate(o[:4]): keys(v,path+"[%d]"%i,depth+1)
+          d=post({"query":"gadget in"})
+          tok=None
+          def find(o):
+              global tok
+              if isinstance(o,dict):
+                  c=o.get("chipCloudChipRenderer")
+                  if c and c.get("text",{}).get("simpleText")=="Shorts":
+                      tok=c["navigationEndpoint"]["continuationCommand"]["token"]
+                  for v in o.values(): find(v)
+              elif isinstance(o,list):
+                  for v in o: find(v)
+          find(d)
+          out.append("SHORTS TOKEN "+str(tok)[:50])
+          r=post({"continuation":tok})
+          out.append("==== SHORTS PAGE")
+          keys(r)
+          open("r1.json","w").write(json.dumps(r)[:200000])
+          # next page
+          import re
+          toks=re.findall(r'"continuationItemRenderer".*?"token": ?"([^"]+)"',json.dumps(r))
+          out.append("NEXT TOKENS %d"%len(toks))
+          if toks:
+              r2=post({"continuation":toks[-1]})
+              out.append("==== PAGE2")
+              keys(r2)
+          open("probe2.txt","w").write("\n".join(dict.fromkeys(out)))
+          PY
+          python3 p.py
+          sha=$(gh api "repos/${{ github.repository }}/contents/probe2.txt?ref=probe-out" -q .sha 2>/dev/null || true)
+          gh api -X PUT repos/${{ github.repository }}/contents/probe2.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe2.txt)" ${sha:+-f sha=$sha}
+        env:
+          GH_TOKEN: ${{ github.token }}
