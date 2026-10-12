@@ -51,8 +51,8 @@ jobs:
               keys(r2)
           open("probe2.txt","w").write("\n".join(dict.fromkeys(out)))
           PY
-          python3 p.py
-          sha=$(gh api "repos/${{ github.repository }}/contents/probe2.txt?ref=probe-out" -q .sha 2>/dev/null || true)
-          gh api -X PUT repos/${{ github.repository }}/contents/probe2.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe2.txt)" ${sha:+-f sha=$sha}
+          python3 p.py > log.txt 2>&1 || true
+          cat log.txt >> probe2.txt || cp log.txt probe2.txt
+          gh api -X PUT repos/${{ github.repository }}/contents/probe-${{ github.run_id }}.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe2.txt)"
         env:
           GH_TOKEN: ${{ github.token }}
