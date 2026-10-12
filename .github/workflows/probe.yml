@@ -25,7 +25,7 @@ jobs:
                   if isinstance(o,dict):
                       for k,v in o.items():
                           if k in ("chipCloudRenderer","header","searchHeaderRenderer"): continue
-                          if k=="continuationItemRenderer": res.append(json.dumps(v)[:200])
+                          if k=="continuationItemRenderer": res.append(json.dumps(v))
                           w(v)
                   elif isinstance(o,list):
                       for v in o: w(v)
@@ -43,12 +43,12 @@ jobs:
               if not tok: continue
               r=post({"continuation":tok})
               i1=ids(r); c1=conts(r)
-              out.append("== %s page1 ids=%d top=%s keys=%s"%(name,len(i1),list(r.keys()),c1[:2]))
+              out.append("== %s page1 ids=%d top=%s conts=%d"%(name,len(i1),list(r.keys()),len(c1)))
               t2=re.findall(r'"token": "([^"]+)"', " ".join(c1))
               if t2:
                   r2=post({"continuation":t2[-1]})
                   i2=ids(r2)
-                  out.append("   page2 ids=%d new=%d top=%s conts=%s"%(len(i2),len(set(i2)-set(i1)),list(r2.keys()),conts(r2)[:1]))
+                  out.append("   page2 ids=%d new=%d top=%s conts=%d"%(len(i2),len(set(i2)-set(i1)),list(r2.keys()),len(conts(r2))))
                   out.append("   page2 sample "+json.dumps(r2)[:1500])
           open("probe2.txt","w").write("\n".join(out))
           PY
