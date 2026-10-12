@@ -358,7 +358,15 @@ object PlaybackManager {
         if (com.lumitube.app.CrossApp.isMusic) {
             com.lumitube.app.data.Downloader.lyricsFetcher = { item ->
                 val dur = try { StreamResolver.resolve(item.id, true).lengthSeconds.toInt() } catch (_: Exception) { 0 }
-                com.lumitube.app.data.lyrics.LyricsRepo.fetchAll(songQuery(item, dur)).firstOrNull { it.lines.isNotEmpty() }
+                val q = songQuery(item, dur)
+                // Ambil lirik yang sudah ketemu walau penyedia lain belum selesai (tidak menunggu yang lambat).
+                var best: com.lumitube.app.data.lyrics.Lyrics? = null
+                fun pick(list: List<com.lumitube.app.data.lyrics.Lyrics>) =
+                    list.firstOrNull { it.synced && it.lines.isNotEmpty() } ?: list.firstOrNull { it.lines.isNotEmpty() }
+                val all = kotlinx.coroutines.withTimeoutOrNull(35_000) {
+                    com.lumitube.app.data.lyrics.LyricsRepo.fetchAll(q) { partial -> pick(partial)?.let { best = it } }
+                }
+                all?.let { pick(it) } ?: best
             }
             // Download lama (sebelum fitur ini) dilengkapi liriknya di latar belakang.
             scope.launch {
@@ -593,7 +601,8 @@ object PlaybackManager {
                 if (gen == lyricsGen && current?.id == item.id && list.isNotEmpty()) applyLyrics(list)
                 // Lagu yang sudah di-download: simpan lirik terbaik untuk diputar offline.
                 val best = list.firstOrNull { it.lines.isNotEmpty() }
-                if (best != null && com.lumitube.app.data.Downloader.records.any { it.videoId == item.id }) {
+                // Simpan juga untuk lagu yang belum di-download: kalau nanti di-download/diputar offline, liriknya sudah ada.
+                if (best != null) {
                     kotlinx.coroutines.withContext(Dispatchers.IO) { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, best) }
                 }
             } catch (e: CancellationException) {

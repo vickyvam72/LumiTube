@@ -161,7 +161,7 @@ object Downloader {
                 if (com.lumitube.app.data.lyrics.LyricsStore.has(rec.videoId)) continue
                 try {
                     val item = Item(ItemType.SONG, rec.videoId, rec.title, rec.author, rec.thumbnail, channelName = rec.author)
-                    kotlinx.coroutines.withTimeoutOrNull(25_000) { fetch(item) }
+                    kotlinx.coroutines.withTimeoutOrNull(45_000) { fetch(item) }
                         ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(rec.videoId, it) }
                 } catch (_: Exception) {
                 }
@@ -215,6 +215,8 @@ object Downloader {
                     active.remove(waitKey)
                 }
             }
+            // Coba lagi lirik yang tadi belum ketemu.
+            backfillLyrics()
             finish(batchId, "Download playlist selesai", "$ok dari ${todo.size} ${if (audioOnly) "lagu" else "video"} tersimpan")
         }
     }
@@ -289,7 +291,7 @@ object Downloader {
                     lyricsFetcher?.let { fetchLyrics ->
                         scope.launch {
                             try {
-                                kotlinx.coroutines.withTimeoutOrNull(25_000) { fetchLyrics(item) }
+                                kotlinx.coroutines.withTimeoutOrNull(45_000) { fetchLyrics(item) }
                                     ?.let { com.lumitube.app.data.lyrics.LyricsStore.save(item.id, it) }
                             } catch (_: Exception) {
                             }
