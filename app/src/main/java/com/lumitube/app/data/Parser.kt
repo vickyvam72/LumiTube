@@ -193,24 +193,28 @@ object Parser {
 
     /** Filter hasil pencarian YouTube (Semua, Shorts, Video, Belum ditonton, Ditonton, Baru diupload, …). */
     fun ytSearchChips(root: Any?): List<Chip> {
-        val hidden = setOf("baru diupload", "recently uploaded")
-        val a = findAll(root, "chipCloudChipRenderer").mapNotNull { c ->
+        val all = findAll(root, "chipCloudChipRenderer").mapNotNull { c ->
             val t = text(c.obj("text")) ?: return@mapNotNull null
-            if (t.lowercase() in hidden) return@mapNotNull null
             val nav = c.obj("navigationEndpoint")
             val e = findFirst(nav, "searchEndpoint")
             // Filter pencarian sekarang berupa token lanjutan (continuationCommand), bukan params.
             val tok = findFirst(nav, "continuationCommand")?.str("token")
             Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("isSelected", false))
+        }.ifEmpty {
+            findAll(root, "chipViewModel").mapNotNull { c ->
+                val t = c.str("text") ?: return@mapNotNull null
+                val e = findFirst(c.obj("tapCommand"), "searchEndpoint")
+                val tok = findFirst(c.obj("tapCommand"), "continuationCommand")?.str("token")
+                Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("selected", false))
+            }
         }
-        if (a.isNotEmpty()) return a
-        return findAll(root, "chipViewModel").mapNotNull { c ->
-            val t = c.str("text") ?: return@mapNotNull null
-            if (t.lowercase() in hidden) return@mapNotNull null
-            val e = findFirst(c.obj("tapCommand"), "searchEndpoint")
-            val tok = findFirst(c.obj("tapCommand"), "continuationCommand")?.str("token")
-            Chip(t, null, e.str("params"), continuation = tok, selected = c.optBoolean("selected", false))
-        }
+        if (all.isEmpty()) return all
+        // Hanya Semua, Video, Shorts (seperti halaman Histori), dengan urutan itu.
+        fun pick(vararg names: String) = all.firstOrNull { c -> names.any { it.equals(c.title, ignoreCase = true) } }
+        val semua = pick("Semua", "All") ?: Chip("Semua", selected = true)
+        val video = pick("Video", "Videos") ?: Chip("Video", params = "EgIQAQ==")
+        val shorts = pick("Shorts")
+        return listOfNotNull(semua, video, shorts)
     }
 
     private fun playlist(v: JSONObject): Item? {
