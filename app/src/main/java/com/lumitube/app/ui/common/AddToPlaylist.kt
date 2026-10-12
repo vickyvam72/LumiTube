@@ -59,7 +59,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onClose: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    // Simpan di scope aplikasi: menutup sheet tidak membatalkan penyimpanan.
+    val scope = EditScope.scope
+    val appCtx = context.applicationContext
     val options = remember(videoId) { mutableStateListOf<PlaylistOption>() }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -97,14 +99,15 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
                 Repo.setInPlaylist(o.id, videoId, target)
                 FeedLoader.invalidate("VL${o.id}")
                 Toast.makeText(
-                    context,
+                    appCtx,
                     if (target) "Disimpan ke ${o.title}" else "Dihapus dari ${o.title}",
                     Toast.LENGTH_SHORT,
                 ).show()
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 val k = options.indexOfFirst { it.id == o.id }
                 if (k >= 0) options[k] = options[k].copy(contains = !target)
-Toast.makeText(context, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).show()
+Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -228,10 +231,10 @@ Toast.makeText(context, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG)
                     scope.launch {
                         try {
                             Repo.createPlaylist(title, privacy, videoId)
-                            Toast.makeText(context, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(appCtx, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()
                             onClose()
                         } catch (_: Exception) {
-                            Toast.makeText(context, "Gagal membuat playlist", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(appCtx, "Gagal membuat playlist", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }) { Text("Buat") }

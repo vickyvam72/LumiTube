@@ -621,7 +621,7 @@ private fun SwitchRow(icon: ImageVector, label: String, checked: Boolean, onChan
             onCheckedChange = onChange,
             colors = androidx.compose.material3.SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF1A73E8),
+                checkedTrackColor = YtRed,
                 uncheckedThumbColor = yt.sub,
                 uncheckedTrackColor = yt.chip,
                 uncheckedBorderColor = yt.sub,
