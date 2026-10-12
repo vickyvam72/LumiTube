@@ -11,7 +11,9 @@ data class ChannelPost(
     val authorThumb: String?,
     val published: String,
     val text: String,
-    val image: String?,
+    /** Rentang [start, end) di [text] yang berupa link, beserta url tujuannya. */
+    val links: List<Triple<Int, Int, String>>,
+    val images: List<String>,
     val likes: String?,
 )
 
@@ -41,7 +43,40 @@ data class ChannelAbout(
     val videos: String?,
 )
 
-data class ChannelTabPage(val items: List<Item>, val posts: List<ChannelPost>, val continuation: String?)
+/** Filter urutan di tab Video/Shorts/Live: Terbaru, Populer, Terlama. */
+data class ChannelChip(val title: String, val token: String, val selected: Boolean)
+
+data class ChannelTabPage(
+    val items: List<Item>,
+    val posts: List<ChannelPost>,
+    val continuation: String?,
+    val chips: List<ChannelChip> = emptyList(),
+)
+
+/** Teks dari runs + rentang link (urlEndpoint / watchEndpoint). */
+fun linkedText(node: Any?): Pair<String, List<Triple<Int, Int, String>>> {
+    val runs = node.arr("runs")?.objects() ?: return (text(node) ?: "") to emptyList()
+    val sb = StringBuilder()
+    val links = mutableListOf<Triple<Int, Int, String>>()
+    for (r in runs) {
+        val t = r.str("text") ?: continue
+        val start = sb.length
+        sb.append(t)
+        val ep = r.obj("navigationEndpoint")
+        val url = ep.str("urlEndpoint", "url")?.let { realUrl(it) }
+            ?: ep.str("watchEndpoint", "videoId")?.let { "https://www.youtube.com/watch?v=$it" }
+            ?: ep.str("commandMetadata", "webCommandMetadata", "url")?.let { if (it.startsWith("/")) "https://www.youtube.com$it" else it }
+        if (url != null) links.add(Triple(start, sb.length, url))
+    }
+    return sb.toString() to links
+}
+
+/** "youtube.com/redirect?…&q=<url>" → url aslinya. */
+fun realUrl(u: String): String {
+    if (!u.contains("/redirect")) return if (u.startsWith("/")) "https://www.youtube.com$u" else u
+    val q = Regex("[?&]q=([^&]+)").find(u)?.groupValues?.get(1) ?: return u
+    return try { java.net.URLDecoder.decode(q, "UTF-8") } catch (_: Exception) { u }
+}
 
 object ChannelRepo {
     private val keepTabs = listOf("Beranda", "Home", "Video", "Videos", "Shorts", "Live", "Rilis", "Releases", "Playlist", "Playlists", "Postingan", "Posts", "Komunitas", "Community", "Podcast", "Podcasts")
@@ -108,11 +143,54 @@ object ChannelRepo {
             ChannelTab(tt, t.obj("endpoint", "browseEndpoint").str("params"), t.optBoolean("selected"))
         }.filter { tab -> keepTabs.any { it.equals(tab.title, ignoreCase = true) } }
         // Status subscribe: entitas subscriptionState (format baru) atau tombol lama.
-        val subscribed = findFirst(r.obj("frameworkUpdates"), "subscriptionStateEntity")?.optBoolean("subscribed")
+        val subscribed = subscriptionState(id, h, r)
             ?: findFirst(c4, "subscribeButtonRenderer")?.optBoolean("subscribed")
             ?: findFirst(h, "subscribeButtonViewModel")?.let { findFirst(it, "subscribeButtonContent")?.optBoolean("isSubscribed") }
             ?: false
         return ChannelInfo(id, title, handle, avatar, banner, stats, description, link, aboutToken, tabs, subscribed)
+    }
+
+    /**
+     * Respons channel bisa memuat banyak subscriptionStateEntity (channel lain di Beranda).
+     * Pilih yang kuncinya cocok dengan tombol subscribe di header, atau yang kuncinya memuat ID channel.
+     */
+    private fun subscriptionState(id: String, header: JSONObject?, r: JSONObject): Boolean? {
+        val fu = r.obj("frameworkUpdates")
+        val muts = findAll(fu, "entityBatchUpdate").flatMap { it.arr("mutations")?.objects() ?: emptyList() }
+            .mapNotNull { m -> m.obj("payload", "subscriptionStateEntity")?.let { m.str("entityKey") to it } }
+            .ifEmpty { findAll(fu, "subscriptionStateEntity").map { it.str("key") to it } }
+        if (muts.isEmpty()) return null
+        val wanted = findFirst(header, "subscribeButtonViewModel")?.let { vm ->
+            vm.str("stateEntityStoreKey") ?: findFirst(vm, "subscribeButtonContent")?.str("subscribeStateEntityStoreKey")
+        }
+        fun norm(k: String?) = k?.replace("%3D", "=")?.trimEnd('=')
+        if (wanted != null) {
+            muts.firstOrNull { norm(it.first) == norm(wanted) || norm(it.second.str("key")) == norm(wanted) }
+                ?.let { return it.second.optBoolean("subscribed") }
+        }
+        // Kunci entitas = protobuf base64 yang berisi ID channel.
+        for ((k, e) in muts) {
+            val key = norm(k ?: e.str("key")) ?: continue
+            val raw = try {
+                String(android.util.Base64.decode(key.replace('-', '+').replace('_', '/'), android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP), Charsets.ISO_8859_1)
+            } catch (_: Exception) { "" }
+            if (raw.contains(id)) return e.optBoolean("subscribed")
+        }
+        return if (muts.size == 1) muts[0].second.optBoolean("subscribed") else null
+    }
+
+    private fun parseChips(content: Any?): List<ChannelChip> {
+        val a = findAll(content, "chipCloudChipRenderer").mapNotNull { c ->
+            val t = text(c.obj("text")) ?: return@mapNotNull null
+            val tok = findFirst(c.obj("navigationEndpoint"), "continuationCommand")?.str("token") ?: return@mapNotNull null
+            ChannelChip(t, tok, c.optBoolean("isSelected"))
+        }
+        if (a.isNotEmpty()) return a
+        return findAll(content, "chipViewModel").mapNotNull { c ->
+            val t = c.str("text") ?: return@mapNotNull null
+            val tok = findFirst(c.obj("tapCommand"), "continuationCommand")?.str("token") ?: return@mapNotNull null
+            ChannelChip(t, tok, c.optBoolean("selected"))
+        }
     }
 
     private fun parseTab(r: JSONObject): ChannelTabPage {
@@ -121,17 +199,22 @@ object ChannelRepo {
             ?: r.obj("onResponseReceivedActions") ?: r
         val posts = (findAll(content, "backstagePostRenderer") + findAll(content, "postRenderer")).mapNotNull { p ->
             val pid = p.str("postId") ?: return@mapNotNull null
+            val (body, links) = linkedText(p.obj("contentText"))
+            val att = p.obj("backstageAttachment")
+            val images = findAll(att, "backstageImageRenderer").mapNotNull { bestThumb(it.obj("image")) }
+                .ifEmpty { listOfNotNull(bestThumb(findFirst(att, "image"))) }
             ChannelPost(
                 id = pid,
                 author = text(p.obj("authorText")) ?: "",
                 authorThumb = bestThumb(p.obj("authorThumbnail")),
                 published = text(p.obj("publishedTimeText")) ?: "",
-                text = text(p.obj("contentText")) ?: "",
-                image = bestThumb(findFirst(p.obj("backstageAttachment"), "image")),
+                text = body,
+                links = links,
+                images = images,
                 likes = text(p.obj("voteCount")),
             )
         }
         val items = if (posts.isNotEmpty()) emptyList() else Parser.items(content, false)
-        return ChannelTabPage(items, posts, Parser.continuation(content) ?: Parser.continuation(r))
+        return ChannelTabPage(items, posts, Parser.continuation(content) ?: Parser.continuation(r), parseChips(content))
     }
 }

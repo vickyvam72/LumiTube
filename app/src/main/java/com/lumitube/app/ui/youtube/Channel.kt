@@ -30,6 +30,26 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -55,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumitube.app.data.ChannelAbout
+import com.lumitube.app.data.ChannelChip
 import com.lumitube.app.data.ChannelInfo
 import com.lumitube.app.data.ChannelPost
 import com.lumitube.app.data.ChannelRepo
@@ -99,6 +120,15 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
     var subscribed by remember(channelId) { mutableStateOf(false) }
     var showAbout by remember(channelId) { mutableStateOf(false) }
     var searching by remember(channelId) { mutableStateOf(false) }
+    val chips = remember(channelId) { mutableStateListOf<ChannelChip>() }
+    var chipIndex by remember(channelId) { mutableIntStateOf(0) }
+    var viewer by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
+    viewer?.let { (imgs, start) -> ImageViewer(imgs, start) { viewer = null } }
+
+    fun setChips(list: List<ChannelChip>) {
+        chips.clear(); chips.addAll(list)
+        chipIndex = list.indexOfFirst { it.selected }.coerceAtLeast(0)
+    }
 
     LaunchedEffect(channelId) {
         try {
@@ -109,6 +139,16 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
             items.clear(); items.addAll(first.items)
             posts.clear(); posts.addAll(first.posts)
             continuation = first.continuation
+            setChips(first.chips)
+            // Cadangan: cek daftar channel yang di-subscribe kalau header tidak memberi status.
+            if (!ci.subscribed && Session.loggedIn) {
+                scope.launch {
+                    try {
+                        if (Repo.ytSubscriptionChannels().any { it.id == channelId }) subscribed = true
+                    } catch (_: Exception) {
+                    }
+                }
+            }
         } catch (e: Exception) {
             error = e.message ?: "Gagal memuat channel"
         } finally {
@@ -121,16 +161,37 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
         if (i == tabIndex) return
         tabIndex = i
         tabLoading = true
-        items.clear(); posts.clear(); continuation = null
+        items.clear(); posts.clear(); continuation = null; chips.clear()
         scope.launch {
             try {
                 val p = ChannelRepo.tab(channelId, ci.tabs.getOrNull(i)?.params)
                 if (tabIndex == i) {
                     items.addAll(p.items); posts.addAll(p.posts); continuation = p.continuation
+                    setChips(p.chips)
                 }
             } catch (_: Exception) {
             } finally {
                 if (tabIndex == i) tabLoading = false
+            }
+        }
+    }
+
+    fun selectChip(i: Int) {
+        val chip = chips.getOrNull(i) ?: return
+        if (i == chipIndex) return
+        chipIndex = i
+        val tab = tabIndex
+        tabLoading = true
+        items.clear(); posts.clear(); continuation = null
+        scope.launch {
+            try {
+                val p = ChannelRepo.more(chip.token)
+                if (tabIndex == tab && chipIndex == i) {
+                    items.addAll(p.items); posts.addAll(p.posts); continuation = p.continuation
+                }
+            } catch (_: Exception) {
+            } finally {
+                if (tabIndex == tab && chipIndex == i) tabLoading = false
             }
         }
     }
@@ -146,8 +207,9 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
 
     val tabTitle = info?.tabs?.getOrNull(tabIndex)?.title ?: ""
     val isShortsTab = tabTitle.equals("Shorts", true)
+    val isHomeTab = tabTitle.equals("Beranda", true) || tabTitle.equals("Home", true)
     // Shorts berurutan jadi rak geser (Beranda) atau kisi 3 kolom (tab Shorts).
-    val rows = remember(items.size, posts.size, tabIndex) {
+    val rows = remember(items.size, posts.size, tabIndex, chipIndex) {
         val out = mutableListOf<ChRow>()
         posts.forEach { out.add(ChRow.Post(it)) }
         val buf = mutableListOf<Item>()
@@ -249,10 +311,15 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            if (subscribed) "Disubscribe" else "Subscribe",
-                            color = if (subscribed) yt.text else yt.bg, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                        )
+                        if (subscribed) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Notifications, null, tint = yt.text, modifier = Modifier.size(22.dp))
+                                Text("Disubscribe", color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
+                                Icon(Icons.Filled.KeyboardArrowDown, null, tint = yt.text, modifier = Modifier.size(22.dp))
+                            }
+                        } else {
+                            Text("Subscribe", color = yt.bg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             }
@@ -280,11 +347,32 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                     Box(Modifier.fillMaxWidth().height(0.5.dp).background(yt.sub.copy(alpha = 0.3f)))
                 }
             }
+            if (chips.size > 1) {
+                item(key = "chips") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 12.dp).fillMaxWidth(),
+                    ) {
+                        items(chips.size) { i ->
+                            val on = i == chipIndex
+                            Box(
+                                Modifier.clip(RoundedCornerShape(8.dp))
+                                    .background(if (on) yt.text else yt.chip)
+                                    .clickable { selectChip(i) }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                            ) {
+                                Text(chips[i].title, color = if (on) yt.bg else yt.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            }
             if (tabLoading) item { LoadingBox() }
             if (!tabLoading && rows.isEmpty()) item { MessageBox("Belum ada konten di sini.", yt.sub) }
             items(rows.size) { i ->
                 when (val r = rows[i]) {
-                    is ChRow.Post -> PostCard(r.post)
+                    is ChRow.Post -> PostCard(r.post) { imgs, i -> viewer = imgs to i }
                     is ChRow.Shorts -> ShortsShelf(r.items) { open(it) }
                     is ChRow.Grid -> Row(
                         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -294,7 +382,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                         repeat(3 - r.items.size) { Spacer(Modifier.weight(1f)) }
                     }
                     is ChRow.One -> when (r.item.type) {
-                        ItemType.VIDEO -> VideoCard(r.item, { open(r.item) }, null)
+                        ItemType.VIDEO -> if (isHomeTab) VideoCard(r.item, { open(r.item) }, null) else VideoRow(r.item) { open(r.item) }
                         ItemType.CHANNEL -> ChannelRow(r.item) { open(r.item) }
                         else -> VideoRow(r.item) { open(r.item) }
                     }
@@ -307,7 +395,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
 }
 
 @Composable
-private fun PostCard(p: ChannelPost) {
+private fun PostCard(p: ChannelPost, onImage: (List<String>, Int) -> Unit) {
     val yt = LocalYt.current
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -319,13 +407,27 @@ private fun PostCard(p: ChannelPost) {
         }
         if (p.text.isNotBlank()) {
             var expanded by remember { mutableStateOf(false) }
-            Text(
-                p.text, color = yt.text, fontSize = 14.sp, maxLines = if (expanded) Int.MAX_VALUE else 4,
-                overflow = TextOverflow.Ellipsis,
+            LinkText(
+                p.text, p.links, color = yt.text, fontSize = 15.sp,
+                maxLines = if (expanded) Int.MAX_VALUE else 6,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clickable { expanded = !expanded },
             )
         }
-        p.image?.let { Img(it, Modifier.fillMaxWidth().aspectRatio(1f)) }
+        if (p.images.size == 1) {
+            Img(p.images[0], Modifier.fillMaxWidth().aspectRatio(1f).clickable { onImage(p.images, 0) })
+        } else if (p.images.size > 1) {
+            val pager = rememberPagerState { p.images.size }
+            Box {
+                HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(1f)) { i ->
+                    Img(p.images[i], Modifier.fillMaxSize().clickable { onImage(p.images, i) })
+                }
+                Text(
+                    "${pager.currentPage + 1}/${p.images.size}", color = Color.White, fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+        }
         p.likes?.let {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.ThumbUp, null, tint = yt.sub, modifier = Modifier.size(18.dp))
@@ -333,6 +435,105 @@ private fun PostCard(p: ChannelPost) {
             }
         }
         Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(6.dp).background(yt.chip))
+    }
+}
+
+private val LinkBlue = Color(0xFF3EA6FF)
+private val urlRegex = Regex("""(https?://|www\.)[^\s<>"]+""")
+
+/** Teks dengan link yang bisa diklik: link dari YouTube (runs) + url yang tertulis polos. */
+@Composable
+internal fun LinkText(
+    text: String,
+    links: List<Triple<Int, Int, String>> = emptyList(),
+    color: Color,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    val annotated = remember(text, links) {
+        val style = TextLinkStyles(SpanStyle(color = LinkBlue))
+        buildAnnotatedString {
+            append(text)
+            val taken = mutableListOf<IntRange>()
+            links.forEach { (s, e, url) ->
+                if (s in 0..text.length && e in s..text.length && e > s) {
+                    addLink(LinkAnnotation.Url(url, style), s, e)
+                    taken.add(s until e)
+                }
+            }
+            urlRegex.findAll(text).forEach { m ->
+                var end = m.range.last + 1
+                while (end > m.range.first && text[end - 1] in ".,;:!?)]}'") end--
+                val r = m.range.first until end
+                if (r.isEmpty() || taken.any { it.first <= r.last && r.first <= it.last }) return@forEach
+                val raw = text.substring(r.first, end)
+                addLink(LinkAnnotation.Url(if (raw.startsWith("www.")) "https://$raw" else raw, style), r.first, end)
+            }
+        }
+    }
+    Text(annotated, color = color, fontSize = fontSize, lineHeight = fontSize * 1.45f, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = modifier)
+}
+
+/** Gambar layar penuh (bisa dicubit untuk zoom, geser untuk gambar berikutnya). */
+@Composable
+internal fun ImageViewer(images: List<String>, start: Int, onClose: () -> Unit) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            val pager = rememberPagerState(start.coerceIn(0, (images.size - 1).coerceAtLeast(0))) { images.size }
+            HorizontalPager(pager, Modifier.fillMaxSize()) { i -> ZoomImage(images[i]) }
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 16.dp).size(44.dp)
+                    .clip(CircleShape).background(Color(0x55FFFFFF)),
+            ) { Icon(Icons.Filled.Close, "Tutup", tint = Color.White) }
+            if (images.size > 1) {
+                Text(
+                    "${pager.currentPage + 1}/${images.size}", color = Color.White, fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomImage(url: String) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    Box(
+        Modifier.fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = {
+                    if (scale > 1f) { scale = 1f; offset = Offset.Zero } else scale = 2.5f
+                })
+            }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val ev = awaitPointerEvent()
+                        if (ev.changes.size > 1 || scale > 1f) {
+                            scale = (scale * ev.calculateZoom()).coerceIn(1f, 5f)
+                            offset = if (scale > 1f) offset + ev.calculatePan() else Offset.Zero
+                            ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    } while (ev.changes.any { it.pressed })
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Img(
+            url,
+            Modifier.fillMaxSize().graphicsLayer {
+                scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y
+            },
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+            placeholder = Color.Transparent,
+        )
     }
 }
 
@@ -366,9 +567,7 @@ private fun ChannelAboutScreen(ci: ChannelInfo, onBack: () -> Unit) {
             if (!desc.isNullOrBlank()) {
                 item {
                     Text("Deskripsi", color = yt.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    androidx.compose.foundation.text.selection.SelectionContainer {
-                        Text(desc, color = yt.text, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
-                    }
+                    LinkText(desc, color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
                 }
             }
             if (loading) item { LoadingBox() }
@@ -380,7 +579,7 @@ private fun ChannelAboutScreen(ci: ChannelInfo, onBack: () -> Unit) {
                         else Icon(Icons.Filled.Link, null, tint = yt.text, modifier = Modifier.size(28.dp))
                         Column(Modifier.padding(start = 16.dp)) {
                             Text(title, color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            Text(url, color = Color(0xFF3EA6FF), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(url, color = LinkBlue, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
