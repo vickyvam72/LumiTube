@@ -246,11 +246,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                         Icon(Icons.Filled.SkipNext, "Berikutnya", tint = Color.White, modifier = Modifier.size(38.dp))
                     }
                     IconButton(onClick = {
-                        PlaybackManager.repeat = when (PlaybackManager.repeat) {
-                            RepeatMode.OFF -> RepeatMode.ALL
-                            RepeatMode.ALL -> RepeatMode.ONE
-                            RepeatMode.ONE -> RepeatMode.OFF
-                        }
+                        PlaybackManager.cycleRepeat()
                     }) {
                         Icon(
                             if (PlaybackManager.repeat == RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,

@@ -248,6 +248,26 @@ object PlaybackManager {
     private lateinit var appContext: Context
     var repeat by mutableStateOf(RepeatMode.OFF)
 
+    /** Antrean berasal dari playlist/album (bukan radio satu lagu): ulangi-semua berlaku. */
+    var playlistQueue by mutableStateOf(false)
+        private set
+
+    /**
+     * Tombol ulangi. Playlist: Mati → Ulangi playlist → Ulangi 1 lagu → Mati.
+     * Satu lagu / radio: Mati → Ulangi 1 lagu → Mati (ikon ulangi-semua tidak dipakai).
+     */
+    fun cycleRepeat() {
+        repeat = if (playlistQueue) {
+            when (repeat) {
+                RepeatMode.OFF -> RepeatMode.ALL
+                RepeatMode.ALL -> RepeatMode.ONE
+                RepeatMode.ONE -> RepeatMode.OFF
+            }
+        } else {
+            if (repeat == RepeatMode.ONE) RepeatMode.OFF else RepeatMode.ONE
+        }
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + com.lumitube.app.CrashLog.handler)
     private lateinit var trackSelector: androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
@@ -510,6 +530,8 @@ object PlaybackManager {
         queue.addAll(items)
         index = start.coerceIn(0, items.size - 1)
         isVideo = true
+        playlistQueue = items.size > 1
+        if (!playlistQueue && repeat == RepeatMode.ALL) repeat = RepeatMode.OFF
         load(queue[index])
     }
 
@@ -530,6 +552,8 @@ object PlaybackManager {
         queue.addAll(items)
         index = start.coerceIn(0, items.size - 1)
         isVideo = false
+        playlistQueue = !radio && items.size > 1
+        if (!playlistQueue && repeat == RepeatMode.ALL) repeat = RepeatMode.OFF
         val item = queue[index]
         load(item)
         if (radio) {
@@ -572,7 +596,7 @@ object PlaybackManager {
         if (index + 1 < queue.size) {
             index++
             load(queue[index])
-        } else if (repeat == RepeatMode.ALL && queue.isNotEmpty()) {
+        } else if (repeat == RepeatMode.ALL && playlistQueue && queue.isNotEmpty()) {
             index = 0
             load(queue[0])
         }
@@ -713,6 +737,9 @@ object PlaybackManager {
             }
         }
     }
+
+    /** Judul asli per video (dari respons pemutar, tanpa terjemahan otomatis). */
+    val originalTitles = androidx.compose.runtime.mutableStateMapOf<String, String>()
 
     private var historyFor: String? = null
     private var historyWarned = false
@@ -871,6 +898,10 @@ object PlaybackManager {
         if (loop) {
             exo.seekTo(0)
             exo.play()
+        } else if (repeat == RepeatMode.ALL && playlistQueue && index + 1 >= queue.size && queue.isNotEmpty()) {
+            // Ulangi playlist: kembali ke item pertama.
+            index = 0
+            load(queue[0])
         } else if (isVideo && index + 1 >= queue.size && Session.autoplay && relatedNext != null &&
             current?.type != ItemType.SHORT
         ) {
@@ -928,6 +959,14 @@ object PlaybackManager {
                 } else {
                     val stream = StreamResolver.resolve(item.id, audioOnly, short = item.type == ItemType.SHORT)
                     lastStream = item.id to stream
+                    // Judul asli dari pemutar (bukan judul terjemahan otomatis di daftar YouTube).
+                    stream.title?.takeIf { it.isNotBlank() }?.let { originalTitles[item.id] = it }
+                    stream.title?.takeIf { it.isNotBlank() && it != item.title }?.let { original ->
+                        if (current?.id == item.id) {
+                            current = current!!.copy(title = original)
+                            if (index in queue.indices && queue[index].id == item.id) queue[index] = queue[index].copy(title = original)
+                        }
+                    }
                     currentClient = stream.client
                     if (!stream.isLive) {
                         com.lumitube.app.data.Storyboard.parse(stream.storyboardSpec, stream.lengthSeconds * 1000)?.let { storyboard = it }

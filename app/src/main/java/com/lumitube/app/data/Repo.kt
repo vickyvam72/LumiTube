@@ -72,9 +72,47 @@ object Repo {
      * Feed Shorts: campuran Shorts pilihan untuk akun (dari Beranda) dan pencarian dengan
      * tagar acak, diacak dan tanpa yang sudah pernah tampil — jadi tidak "itu-itu saja".
      */
+    private var tasteCache: Pair<Long, List<String>>? = null
+
+    /**
+     * Selera dari Histori: tagar & channel dari Shorts/video yang baru ditonton
+     * (disimpan 30 menit). Dipakai supaya feed Shorts mirip rekomendasi YouTube asli.
+     */
+    private suspend fun shortsTaste(): List<String> {
+        tasteCache?.let { (t, list) -> if (System.currentTimeMillis() - t < 30 * 60 * 1000L) return list }
+        if (!Session.loggedIn) return emptyList()
+        val list = try {
+            val r = InnerTube.browse(Client.WEB, "FEhistory")
+            val items = Parser.items(r, false).take(40)
+            val generic = setOf("shorts", "short", "fyp", "foryou", "foryoupage", "viral", "youtubeshorts", "trending", "reels", "tiktok", "explore", "fypシ")
+            val tags = items.flatMap { Regex("#([\\p{L}\\p{N}_]{3,30})").findAll(it.title).map { m -> m.groupValues[1].lowercase() }.toList() }
+                .filter { it !in generic }
+                .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { "#${it.key} #shorts" }.take(12)
+            val channels = items.filter { it.type == ItemType.SHORT }.mapNotNull { it.channelName ?: it.subtitle.substringBefore(" • ").takeIf { s -> s.isNotBlank() && !s.first().isDigit() } }
+                .distinct().take(6).map { "$it shorts" }
+            (tags + channels).distinct()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        tasteCache = System.currentTimeMillis() to list
+        return list
+    }
+
     suspend fun ytShorts(): Page {
-        val r = InnerTube.search(Client.WEB, shortQueries.random())
-        val fromSearch = Parser.items(r, false).filter { it.type == ItemType.SHORT }
+        // 2 pencarian dari selera Histori (bila ada) + 1 tagar umum, lalu dicampur.
+        val taste = shortsTaste().shuffled().take(2)
+        val queries = (taste + shortQueries.random()).distinct()
+        var r: org.json.JSONObject? = null
+        val fromSearch = mutableListOf<Item>()
+        for ((qi, q) in queries.withIndex()) {
+            try {
+                val res = InnerTube.search(Client.WEB, q)
+                if (qi == queries.lastIndex || r == null) r = res
+                fromSearch += Parser.items(res, false).filter { it.type == ItemType.SHORT }
+            } catch (_: Exception) {
+            }
+        }
+        if (r == null) r = InnerTube.search(Client.WEB, shortQueries.random())
         val fromHome = try {
             ytHomeCached()?.items?.filter { it.type == ItemType.SHORT } ?: emptyList()
         } catch (_: Exception) {
@@ -87,7 +125,7 @@ object Repo {
             list.forEach { servedShorts.add(it.id) }
             while (servedShorts.size > 500) servedShorts.remove(servedShorts.first())
         }
-        return Page(items = list, continuation = Parser.continuation(r))
+        return Page(items = list, continuation = r?.let { Parser.continuation(it) })
     }
 
     suspend fun ytBrowse(browseId: String, params: String? = null): Page {
@@ -266,7 +304,7 @@ object Repo {
     suspend fun addToPlaylistOptions(videoId: String, music: Boolean): List<PlaylistOption> {
         val r = InnerTube.post(
             Client.WEB, "playlist/get_add_to_playlist",
-            org.json.JSONObject().put("videoIds", org.json.JSONArray().put(videoId)).put("excludeWatchLater", true)
+            org.json.JSONObject().put("videoIds", org.json.JSONArray().put(videoId)).put("excludeWatchLater", music)
         )
         // Thumbnail & jumlah dari halaman koleksi (dialog bawaan YouTube tidak menyertakan gambar).
         val lib: List<Item> = try {

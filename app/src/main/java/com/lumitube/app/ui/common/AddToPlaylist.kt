@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.AlertDialog
@@ -73,7 +74,12 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
         }
         try {
             options.clear()
-            options.addAll(Repo.addToPlaylistOptions(videoId, music))
+            val list = Repo.addToPlaylistOptions(videoId, music)
+            options.addAll(list)
+            // YouTube: "Tonton nanti" selalu ada di atas daftar playlist.
+            if (!music && list.none { it.id == "WL" }) {
+                options.add(0, PlaylistOption(id = "WL", title = "Tonton nanti", count = null, thumbnail = null, contains = false))
+            }
         } catch (e: Exception) {
             error = "Gagal memuat playlist"
         } finally {
@@ -89,6 +95,7 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
         scope.launch {
             try {
                 Repo.setInPlaylist(o.id, videoId, target)
+                FeedLoader.invalidate("VL${o.id}")
                 Toast.makeText(
                     context,
                     if (target) "Disimpan ke ${o.title}" else "Dihapus dari ${o.title}",
@@ -107,7 +114,7 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
             loading -> LoadingBox(color = colors.text)
             error != null -> Text(error ?: "", color = colors.sub, modifier = Modifier.padding(24.dp))
             else -> LazyColumn(Modifier.fillMaxSize()) {
-                val recent = options.filter { it.thumbnail != null }.take(6)
+                val recent = options.filter { it.thumbnail != null && it.id != "WL" }.take(6)
                 if (recent.isNotEmpty()) {
                     item {
                         Text("Terbaru", color = colors.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(16.dp))
@@ -135,6 +142,25 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
                         Box(Modifier.padding(top = 16.dp).fillMaxWidth().height(0.5.dp).background(colors.sub.copy(alpha = 0.25f)))
                     }
                 }
+                // "Tonton nanti" (YouTube) di atas "Semua playlist".
+                options.firstOrNull { it.id == "WL" }?.let { wl ->
+                    item(key = "wl") {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { toggle(wl) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)).background(colors.chip), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.WatchLater, null, tint = colors.text, modifier = Modifier.size(28.dp))
+                            }
+                            Text("Tonton nanti", color = colors.text, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
+                            Icon(
+                                if (wl.contains) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank, null,
+                                tint = if (wl.contains) colors.accent else colors.sub,
+                            )
+                        }
+                        Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(0.5.dp).background(colors.sub.copy(alpha = 0.25f)))
+                    }
+                }
                 item {
                     Text("Semua playlist", color = colors.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(16.dp))
                     Row(
@@ -147,7 +173,7 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
                         Text("Playlist baru", color = colors.text, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp))
                     }
                 }
-                items(options, key = { it.id }) { o ->
+                items(options.filter { it.id != "WL" }, key = { it.id }) { o ->
                     Row(
                         Modifier.fillMaxWidth().clickable { toggle(o) }.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,

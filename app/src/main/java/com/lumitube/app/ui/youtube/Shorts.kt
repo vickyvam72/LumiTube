@@ -309,7 +309,7 @@ private fun ShortPage(
                 }
             }
             Text(
-                info?.title ?: item.title, color = Color.White, fontSize = 15.sp, maxLines = 2,
+                PlaybackManager.originalTitles[item.id] ?: info?.title ?: item.title, color = Color.White, fontSize = 15.sp, maxLines = 2,
                 overflow = TextOverflow.Ellipsis, style = overlayShadow, modifier = Modifier.padding(top = 10.dp),
             )
         }

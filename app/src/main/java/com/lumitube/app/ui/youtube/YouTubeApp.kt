@@ -117,6 +117,8 @@ import com.lumitube.app.ui.common.MessageBox
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.common.YtRed
 import androidx.compose.material.icons.filled.SlowMotionVideo
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.SmartDisplay
 import com.lumitube.app.ui.common.findActivity
 import com.lumitube.app.ui.common.rememberFeed
@@ -532,13 +534,6 @@ private fun YouTab(
             }
         }
     }
-    val history = rememberFeed(key = "hist${Session.loggedIn}") {
-        if (Session.loggedIn) {
-            val p = Repo.ytBrowse("FEhistory")
-            // Kartu Histori di halaman Anda: per hari, video dulu lalu Shorts.
-            if (p.shelves.isEmpty()) p else p.copy(items = p.shelves.flatMap { it.items }.distinctBy { it.key })
-        } else Page()
-    }
     var quality by remember { mutableIntStateOf(Session.maxQuality) }
 
     LazyColumn(Modifier.fillMaxSize()) {
@@ -558,23 +553,7 @@ private fun YouTab(
         if (!Session.loggedIn) {
             item { MessageBox("Login agar bisa mengambil subscription, histori, dan playlist dari akun YouTube kamu.", yt.sub, "Login", onLogin) }
         } else {
-            if (history.items.isNotEmpty()) {
-                item {
-                    SectionHeader("Histori") { browse("FEhistory", "Histori") }
-                    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(history.items.take(15), key = { it.key }) { v ->
-                            Column(Modifier.width(160.dp).clickable { open(v) }) {
-                                Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
-                                    Img(v.thumbnail, Modifier.fillMaxSize())
-                                    v.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp)) }
-                                }
-                                Text(v.title, color = yt.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                                Text(v.channelName ?: "", color = yt.sub, fontSize = 11.sp, maxLines = 1)
-                            }
-                        }
-                    }
-                }
-            }
+            // Kartu Histori tidak ditampilkan; Histori dibuka lewat tombol di bawah.
             item { MenuRow(Icons.Filled.History, "Histori") { browse("FEhistory", "Histori") } }
             item { MenuRow(Icons.Filled.PlaylistPlay, "Playlist") { browse("FEplaylist_aggregation", "Playlist") } }
             item { MenuRow(Icons.Filled.WatchLater, "Tonton nanti") { browse("VLWL", "Tonton nanti") } }
@@ -1315,7 +1294,7 @@ private fun WatchDetails(
             item {
                 Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp).animateContentSize()) {
                     Text(
-                        i?.title ?: current.title, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        PlaybackManager.originalTitles[current.id] ?: i?.title ?: current.title, color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
                         maxLines = if (expanded) 10 else 2, overflow = TextOverflow.Ellipsis, lineHeight = 24.sp,
                     )
                     val meta = listOfNotNull(i?.views, i?.date).joinToString("  ")
@@ -1463,11 +1442,22 @@ private fun WatchDetails(
             }
             if (PlaybackManager.queue.size > 1) {
                 item {
-                    Text(
-                        "Playlist • ${PlaybackManager.index + 1}/${PlaybackManager.queue.size}",
-                        color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    )
+                    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Playlist • ${PlaybackManager.index + 1}/${PlaybackManager.queue.size}",
+                            color = yt.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        )
+                        // Ulangi playlist / ulangi video ini (seperti YouTube Music).
+                        val rep = PlaybackManager.repeat
+                        IconButton(onClick = { PlaybackManager.cycleRepeat() }) {
+                            Icon(
+                                if (rep == com.lumitube.app.player.RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                                "Ulangi",
+                                tint = if (rep == com.lumitube.app.player.RepeatMode.OFF) yt.sub else yt.text,
+                            )
+                        }
+                    }
                 }
                 items(PlaybackManager.queue.size) { idx ->
                     val q = PlaybackManager.queue[idx]
