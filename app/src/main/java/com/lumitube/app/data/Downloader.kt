@@ -98,6 +98,12 @@ object Downloader {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             nm?.createNotificationChannel(NotificationChannel(CHANNEL, "Download", NotificationManager.IMPORTANCE_LOW))
         }
+        // Bersihkan notifikasi download yang menggantung dari sesi sebelumnya.
+        try {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            for (i in 2000 until 2600) nm?.cancel(i)
+        } catch (_: Exception) {
+        }
     }
 
     // ---------------- Pilihan kualitas ----------------
@@ -184,31 +190,48 @@ object Downloader {
         val todo = items.filter { !isDownloaded(it.id, audioOnly) }.distinctBy { it.id }
         if (todo.isEmpty()) return
         scope.launch {
+            val batchId = notifId++
+            var ok = 0
             todo.forEachIndexed { n, item ->
                 val waitKey = "batch:${item.id}"
-                active[waitKey] = ActiveDownload(waitKey, item.title, "${n + 1}/${todo.size}", 0f, "Menyiapkan…")
+                val step = "${n + 1}/${todo.size}"
+                active[waitKey] = ActiveDownload(waitKey, item.title, step, 0f, "Menyiapkan…")
+                notify(batchId, "Download playlist $step", item.title, 0, false)
                 try {
                     val opts = options(item.id)
+                    // YT Music: MP4 144p (kecil & paling lancar), disimpan sebagai lagu.
+                    // YouTube: MP4 maksimal 720p (atau kualitas setelan bila lebih rendah).
                     val opt = if (audioOnly) {
-                        opts.firstOrNull { it.audioOnly && it.ext == "m4a" } ?: opts.firstOrNull { it.audioOnly }
+                        opts.filter { it.video != null }.minByOrNull { it.video?.quality ?: 9999 }
+                            ?: opts.firstOrNull { it.audioOnly && it.ext == "m4a" } ?: opts.firstOrNull { it.audioOnly }
                     } else {
-                        val max = Session.maxQuality
+                        val max = minOf(Session.maxQuality, 720)
                         opts.filter { it.video != null }.firstOrNull { (it.video?.quality ?: 0) <= max }
                             ?: opts.lastOrNull { it.video != null }
                     }
                     active.remove(waitKey)
-                    if (opt != null) perform(item, opt)
+                    if (opt != null && perform(item, opt, asSong = audioOnly, batch = batchId to step)) ok++
                 } catch (_: Exception) {
                     active.remove(waitKey)
                 }
             }
+            finish(batchId, "Download playlist selesai", "$ok dari ${todo.size} ${if (audioOnly) "lagu" else "video"} tersimpan")
         }
     }
 
-    private suspend fun perform(item: Item, option: DownloadOption) {
+    /**
+     * @param asSong simpan sebagai lagu (tampil di "Lagu yang didownload") walau file-nya MP4.
+     * @param batch notifikasi gabungan untuk "Download semua" (id, "3/19"); null = notifikasi sendiri.
+     * @return true bila berhasil.
+     */
+    private suspend fun perform(item: Item, option: DownloadOption, asSong: Boolean = false, batch: Pair<Int, String>? = null): Boolean {
         val key = "${item.id}:${option.label}:${option.detail}"
-        if (active.containsKey(key)) return
-        val id = notifId++
+        if (active.containsKey(key)) return false
+        val id = batch?.first ?: notifId++
+        val notifTitle = if (batch != null) "Download playlist ${batch.second}" else item.title
+        val notifText = if (batch != null) item.title else option.label
+        var lastNotify = 0L
+        var ok = false
         active[key] = ActiveDownload(key, item.title, option.label, 0f, "Menyiapkan…")
         run {
             val tmpDir = File(ctx.cacheDir, "dl").apply { mkdirs() }
@@ -221,7 +244,13 @@ object Downloader {
                 val report: (Long) -> Unit = { done ->
                     val p = if (total > 0) done.toFloat() / total else 0f
                     active[key] = ActiveDownload(key, item.title, option.label, p, "${(p * 100).toInt()}%")
-                    notify(id, item.title, option.label, (p * 100).toInt(), false)
+                    // Android membuang update notifikasi yang terlalu sering (termasuk update "Selesai"),
+                    // sehingga notifikasi bisa menggantung. Batasi maksimal sekali per detik.
+                    val now = System.currentTimeMillis()
+                    if (now - lastNotify > 1000) {
+                        lastNotify = now
+                        notify(id, notifTitle, notifText, (p * 100).toInt().coerceAtLeast(1), false)
+                    }
                 }
                 option.video?.let { v ->
                     fetch(v.url, option, v.contentLength, vFile) { report(it) }
@@ -244,8 +273,8 @@ object Downloader {
                     author = item.channelName ?: item.subtitle.substringBefore(" • "),
                     thumbnail = item.thumbnail,
                     uri = uri,
-                    label = "${option.label} • ${option.detail}",
-                    audioOnly = option.audioOnly,
+                    label = if (asSong && !option.audioOnly) "Lagu • MP4 ${option.label}" else "${option.label} • ${option.detail}",
+                    audioOnly = option.audioOnly || asSong,
                     size = finalFile.length(),
                     time = System.currentTimeMillis(),
                 )
@@ -253,7 +282,7 @@ object Downloader {
                     records.add(0, rec)
                     save()
                 }
-                notify(id, item.title, "Selesai • ${option.label}", 100, true)
+                if (batch == null) finish(id, item.title, "Selesai • ${option.label}")
                 // Lagu: lirik untuk offline dicari terpisah (maks. 25 detik) supaya download
                 // berikutnya tidak tertahan di 100% menunggu penyedia lirik yang lambat.
                 if (!com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
@@ -267,8 +296,9 @@ object Downloader {
                         }
                     }
                 }
+                ok = true
             } catch (e: Exception) {
-                notify(id, item.title, "Gagal: ${e.message}", 0, true)
+                if (batch == null) finish(id, item.title, "Gagal: ${e.message}")
             } finally {
                 vFile.delete()
                 aFile.delete()
@@ -276,6 +306,17 @@ object Downloader {
                 active.remove(key)
             }
         }
+        return ok
+    }
+
+    /** Notifikasi akhir: hapus yang berjalan dulu, lalu tampilkan hasil yang hilang sendiri. */
+    private suspend fun finish(id: Int, title: String, text: String) {
+        try {
+            ctx.getSystemService(NotificationManager::class.java)?.cancel(id)
+        } catch (_: Exception) {
+        }
+        kotlinx.coroutines.delay(400)
+        notify(id, title, text, 100, true)
     }
 
     /** Unduh per potongan 9 MB (YouTube memperlambat unduhan sekaligus tanpa Range). */
@@ -413,7 +454,8 @@ object Downloader {
                 .setContentText(text)
                 .setOnlyAlertOnce(true)
                 .setOngoing(!done)
-                .apply { if (!done) setProgress(100, progress, progress == 0) }
+                .setAutoCancel(done)
+                .apply { if (!done) setProgress(100, progress, progress == 0) else setTimeoutAfter(8000) }
                 .build()
             ctx.getSystemService(NotificationManager::class.java)?.notify(id, n)
         } catch (_: Exception) {
