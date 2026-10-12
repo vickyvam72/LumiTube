@@ -1,5 +1,7 @@
 name: probe
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   p:
     runs-on: ubuntu-latest
@@ -20,3 +22,22 @@ jobs:
                   for i,v in enumerate(o): walk(v,path+f"[{i}]")
           walk(d)
           PY
+      - run: |
+          python3 -c "
+          import json
+          d=json.load(open('s.json'))
+          out=[]
+          def walk(o,path=''):
+              if isinstance(o,dict):
+                  for k,v in o.items():
+                      if k in ('chipCloudChipRenderer','chipViewModel'):
+                          out.append(path+'/'+k+' '+json.dumps(v)[:2500])
+                      walk(v,path+'/'+k)
+              elif isinstance(o,list):
+                  for i,v in enumerate(o): walk(v,path+'[%d]'%i)
+          walk(d)
+          open('probe.txt','w').write('\\n\\n'.join(out))
+          "
+          gh api -X PUT repos/${{ github.repository }}/contents/probe.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe.txt)" || (gh api -X POST repos/${{ github.repository }}/git/refs -f ref=refs/heads/probe-out -f sha=${{ github.sha }} && gh api -X PUT repos/${{ github.repository }}/contents/probe.txt -f message=probe -f branch=probe-out -f content="$(base64 -w0 probe.txt)")
+        env:
+          GH_TOKEN: ${{ github.token }}
