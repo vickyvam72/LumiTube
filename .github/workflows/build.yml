@@ -25,6 +25,19 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
+      - name: Load signing key from Secrets
+        env:
+          KS_B64: ${{ secrets.LUMI_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.LUMI_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Secrets LUMI_KEYSTORE_BASE64 / LUMI_KEYSTORE_PASSWORD belum diisi (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/lumitube.jks"
+          echo "LUMI_KEYSTORE_PATH=$RUNNER_TEMP/lumitube.jks" >> "$GITHUB_ENV"
+          echo "LUMI_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+
       - name: Build release APK
         run: |
           set -o pipefail
@@ -37,59 +50,46 @@ jobs:
             echo "::error::${line}"
           done
 
+      - name: Read version
+        id: ver
+        run: |
+          TAG=$(tr -d ' \r\n' < release-notes/CURRENT)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Rename APK
         run: |
-          cp app/build/outputs/apk/youtube/release/app-youtube-release.apk YouTubeLumi.apk
-          cp app/build/outputs/apk/music/release/app-music-release.apk YTMusicLumi.apk
+          mkdir -p out
+          cp app/build/outputs/apk/youtube/release/app-youtube-release.apk "out/YouTubeLumi-${{ steps.ver.outputs.tag }}.apk"
+          cp app/build/outputs/apk/music/release/app-music-release.apk "out/YTMusicLumi-${{ steps.ver.outputs.tag }}.apk"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Lumi-apks
-          path: |
-            YouTubeLumi.apk
-            YTMusicLumi.apk
+          path: out/*.apk
 
-      # Rilis resmi: versi di release-notes/CURRENT (mis. v2.0) dirilis sekali, dengan catatan
-      # dari release-notes/<versi>.md. Push berikutnya menjadi build pengembangan (pre-release).
-      - name: Decide release type
-        id: rel
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG=$(tr -d ' \r\n' < release-notes/CURRENT 2>/dev/null || true)
-          if [ -n "$TAG" ] && [ -f "release-notes/$TAG.md" ] && ! gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "official=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "official=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Publish official release
-        if: steps.rel.outputs.official == 'true'
+      # Satu rilis per versi (release-notes/CURRENT, mis. v2.0). Push berikutnya memperbarui
+      # APK di rilis versi itu; tidak ada lagi "dev build".
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.rel.outputs.tag }}
+          tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: "✦ LumiTube ${{ steps.rel.outputs.tag }}"
-          body_path: release-notes/${{ steps.rel.outputs.tag }}.md
-          files: |
-            YouTubeLumi.apk
-            YTMusicLumi.apk
+          name: "✦ LumiTube ${{ steps.ver.outputs.tag }}"
+          body_path: release-notes/${{ steps.ver.outputs.tag }}.md
+          files: out/*.apk
+          overwrite_files: true
           make_latest: "true"
 
-      - name: Publish development build
-        if: steps.rel.outputs.official != 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          name: "🧪 Dev build ${{ github.run_number }}"
-          body: |
-            Automatic development build from the latest commit. For the stable version, use the latest **LumiTube** release.
-            Build pengembangan otomatis dari commit terbaru. Untuk versi stabil, pakai rilis **LumiTube** terbaru.
-          prerelease: true
-          files: |
-            YouTubeLumi.apk
-            YTMusicLumi.apk
-          make_latest: "false"
+      - name: Clean up old dev builds and old asset names
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          for t in $(gh release list -R "$REPO" --limit 200 --json tagName -q '.[].tagName' | grep '^build-' || true); do
+            gh release delete "$t" -R "$REPO" --cleanup-tag -y || true
+          done
+          for a in YouTubeLumi.apk YTMusicLumi.apk; do
+            gh release delete-asset "$TAG" "$a" -R "$REPO" -y 2>/dev/null || true
+          done

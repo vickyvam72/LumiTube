@@ -122,8 +122,8 @@ Both apps can be installed side by side and work independently. You can also sen
 
 1. Go to the **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)** page.
 2. Under **Assets**, download one or both apps:
-   - `YouTubeLumi.apk` for YouTube
-   - `YTMusicLumi.apk` for YouTube Music
+   - `YouTubeLumi-v2.0.apk` for YouTube
+   - `YTMusicLumi-v2.0.apk` for YouTube Music
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 
@@ -264,6 +264,8 @@ cd LumiTube
 gradle :app:assembleYoutubeRelease :app:assembleMusicRelease   # Gradle 8.11.1, JDK 17
 ```
 The APKs are written to `app/build/outputs/apk/<flavor>/release/`.
+
+> 🔐 Release builds are signed with a private key stored in **GitHub Actions Secrets** (`LUMI_KEYSTORE_BASE64`, `LUMI_KEYSTORE_PASSWORD`). The key is never committed to the repository. For a local build, place your own keystore at `keystore/lumitube.jks` and set `LUMI_KEYSTORE_PASSWORD`.
 
 ---
 

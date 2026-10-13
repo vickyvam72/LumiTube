@@ -122,8 +122,8 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)**.
 2. Di bagian **Assets**, unduh salah satu atau kedua aplikasi:
-   - `YouTubeLumi.apk` untuk YouTube
-   - `YTMusicLumi.apk` untuk YouTube Music
+   - `YouTubeLumi-v2.0.apk` untuk YouTube
+   - `YTMusicLumi-v2.0.apk` untuk YouTube Music
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 
@@ -262,6 +262,8 @@ cd LumiTube
 gradle :app:assembleYoutubeRelease :app:assembleMusicRelease   # Gradle 8.11.1, JDK 17
 ```
 APK hasil build ada di `app/build/outputs/apk/<flavor>/release/`.
+
+> 🔐 Build rilis ditandatangani dengan kunci pribadi yang disimpan di **GitHub Actions Secrets** (`LUMI_KEYSTORE_BASE64`, `LUMI_KEYSTORE_PASSWORD`). Kunci tidak pernah disimpan di repo. Untuk build lokal, taruh keystore milikmu di `keystore/lumitube.jks` dan isi `LUMI_KEYSTORE_PASSWORD`.
 
 ---
 

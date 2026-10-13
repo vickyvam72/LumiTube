@@ -33,12 +33,16 @@ android {
     }
 
     // Kunci tetap supaya APK versi baru bisa langsung meng-update versi lama.
+    // Kunci TIDAK disimpan di repo: di GitHub Actions diambil dari Secrets
+    // (LUMI_KEYSTORE_BASE64 + LUMI_KEYSTORE_PASSWORD). Untuk build lokal, taruh file
+    // di keystore/lumitube.jks dan isi variabel LUMI_KEYSTORE_PASSWORD.
     signingConfigs {
         create("lumi") {
-            storeFile = file("../keystore/lumitube.jks")
-            storePassword = "lumitube"
-            keyAlias = "lumitube"
-            keyPassword = "lumitube"
+            val pass = System.getenv("LUMI_KEYSTORE_PASSWORD") ?: ""
+            storeFile = file(System.getenv("LUMI_KEYSTORE_PATH") ?: "../keystore/lumitube.jks")
+            storePassword = pass
+            keyAlias = System.getenv("LUMI_KEY_ALIAS") ?: "lumitube"
+            keyPassword = pass
         }
     }
 
