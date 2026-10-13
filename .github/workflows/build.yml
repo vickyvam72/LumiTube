@@ -3,6 +3,7 @@ name: Build YouTube Lumi & YT Music Lumi
 on:
   push:
     branches: [ main, master ]
+    tags: [ "v*" ]
   workflow_dispatch:
 
 permissions:
@@ -50,12 +51,31 @@ jobs:
             YouTubeLumi.apk
             YTMusicLumi.apk
 
-      - name: Publish release
+      # Tag vX.Y -> rilis resmi dengan catatan dari release-notes/vX.Y.md
+      - name: Publish official release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Lumi build ${{ github.run_number }}
+          tag_name: ${{ github.ref_name }}
+          name: "✦ LumiTube ${{ github.ref_name }}"
+          body_path: release-notes/${{ github.ref_name }}.md
           files: |
             YouTubeLumi.apk
             YTMusicLumi.apk
           make_latest: "true"
+
+      # Push biasa ke main -> build pengembangan (pre-release, tidak menggeser rilis resmi)
+      - name: Publish development build
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "🧪 Dev build ${{ github.run_number }}"
+          body: |
+            Automatic development build from the latest commit. For the stable version, use the latest **LumiTube** release.
+            Build pengembangan otomatis dari commit terbaru. Untuk versi stabil, pakai rilis **LumiTube** terbaru.
+          prerelease: true
+          files: |
+            YouTubeLumi.apk
+            YTMusicLumi.apk
+          make_latest: "false"

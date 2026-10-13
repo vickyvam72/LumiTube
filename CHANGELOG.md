@@ -1,0 +1,222 @@
+<div align="center">
+
+# 📝 Changelog · Catatan Perubahan
+
+**🌐 Language / Bahasa:** tap a section below to expand it / ketuk bagian di bawah untuk membuka
+
+[⬅️ README (EN)](README.md) · [⬅️ README (ID)](README.id.md)
+
+</div>
+
+---
+
+## ✦ v2.0 — 13 October 2026 / 13 Oktober 2026
+
+> 🌐 **Choose your language / Pilih bahasa** — tap a section to expand it / ketuk salah satu untuk membuka.
+
+<details open>
+<summary><h2>🇬🇧 English</h2></summary>
+
+### 🌟 Highlights
+- 🪶 **Ultra-light**: each app is about **3 MB**
+- 🎤 **Lyrics in Picture-in-Picture**: synced lyrics keep scrolling in a floating window
+- 🎶 **Word-by-word karaoke lyrics** from **11 providers**
+- 📱 **A real Shorts feed** powered by YouTube's own recommendations
+- 📺 **Full channel pages** with tabs, sorting, posts and an About page
+- 🕵️ **Private search**: searches are never saved to your YouTube history
+- 📥 **Offline downloads**, including entire playlists with lyrics
+- 🔁 **Auto-recovery** after network drops and audio interruptions
+
+### 🆕 New
+**📦 Apps**
+- Split into two dedicated apps: **YouTube Lumi** and **YT Music Lumi**
+- Send a video to YT Music Lumi from the ⋮ menu (*Listen in YT Music Lumi*)
+
+**🎬 Player**
+- YouTube-style controls: double-tap ±10 s, press and hold either side for 2×
+- Chapters on the timeline and a sharp thumbnail preview while scrubbing
+- Quality, speed, loop, subtitles with auto-translate, original audio track
+- Overlay subtitles that switch on and off without reloading the video
+- Picture-in-Picture for videos; the screen stays on in PiP
+- Sleep timer, which can stop when the current song or video ends
+
+**📱 Shorts**
+- Shorts feed from YouTube's own recommendation sequence, tailored to your account
+- The full player feature set: seek preview, hold for 2×, captions, quality, settings
+- Comments, like, subscribe, share and download
+- Your position is remembered when you open a channel and go back
+- Faster swiping thanks to prefetching the next Shorts
+
+**📺 Channels**
+- New channel page: banner, avatar, @handle, stats, description and links
+- Tabs: Videos · Shorts · Live · Releases · Playlists · Posts (empty ones are hidden)
+- Sorting: Latest · Popular · Oldest
+- About page with clickable links, country, join date and views
+- Posts with clickable links and full-screen, pinch-to-zoom images
+- Accurate Subscribe / Unsubscribe state
+
+**🔎 Search**
+- Filters: All · Videos · Shorts (Shorts shown as a 3-column grid)
+- Channel cards with Subscribe and View channel buttons
+- Search suggestions, local search history, and search inside a channel
+- Results are kept after you watch a video
+- "No more results" marker at the end of every list
+
+**📚 Library and account**
+- History grouped by day, with All / Videos / Shorts tabs, search and watch progress
+- Watched videos and Shorts are registered to your account history
+- ⋮ menu on every video: Add to playlist · Download · Share · Listen in YT Music Lumi
+- Save to Watch later or any playlist, or create a new one
+- Drag-to-reorder playlist items, remove items, delete playlists or remove them from your library
+- Pull-to-refresh on feeds, with your scroll position kept
+
+**🔴 Live streams**
+- Live badges, start at the live edge, a "Live" button
+- Real-time live chat, also as a side panel in full screen
+- Chat is shown only for streams that are live right now
+
+**🎵 YT Music Lumi**
+- 🎤 Lyrics PiP when the app is minimized
+- 🎶 Word-synced lyrics from BetterLyrics, BetterLyrics QQ, YouLyPlus, LyricsPlus, Unison, SimpMusic, BiniLyrics, lrc.red, LRCLIB, KuGou and YouTube Music
+- Search that mirrors YouTube Music: top result card, filters and full results list
+- Repeat one / repeat all for each queue type
+- Original song titles in the player
+- Auto-resume playback and re-fetch lyrics after an interruption
+
+**📥 Downloads**
+- Download single items or entire playlists
+- Downloads page with auto-collections (Songs / Videos) and downloaded playlists
+- Lyrics saved with every music download, plus automatic backfill when you're back online
+- Music batches download as lightweight 144p MP4; YouTube batches are capped at 720p
+- One tidy, auto-clearing notification for each batch
+
+**🛡️ Reliability**
+- Crash reporter with a "Copy report" button
+- Errors in background tasks no longer crash the app
+- Playback keeps running with the screen off (network wake lock, bigger buffer)
+
+### ⚡ Improvements
+- Much faster startup: cached client version, disk-cached home feed, parallel clients on cold start
+- Smoother streaming: chunked downloads, adaptive chunk size, keyframe seeking, a larger rebuffer cushion
+- Visible videos are prepared in advance so playback starts almost instantly
+- Searches are sent without your account, so they never appear in your official YouTube or YouTube Music search history
+- Automatic network retry and client switching when a stream fails
+
+### 🐞 Fixes
+- Playback no longer stops after the first 1 MB (HTTP 403)
+- Lyrics no longer get stuck on "Mencari lirik…" (Searching for lyrics…) after switching songs
+- Downloads no longer freeze at 100%
+- A playlist download now contains exactly the playlist's songs
+- Search filters now actually change the results
+- Endless loading spinners at the end of lists have been removed
+- Channel videos and Shorts no longer stop loading after the first page
+- Playlist reordering is now saved reliably
+- "Save to playlist" works even after the sheet is closed
+- The play button reloads a stalled stream
+- Several random force closes fixed
+
+</details>
+
+<details>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+### 🌟 Sorotan
+- 🪶 **Super ringan**: tiap aplikasi sekitar **3 MB**
+- 🎤 **Lirik di Picture-in-Picture**: lirik sinkron tetap berjalan di jendela mengambang
+- 🎶 **Lirik karaoke per kata** dari **11 penyedia**
+- 📱 **Feed Shorts asli** dari rekomendasi YouTube sendiri
+- 📺 **Halaman channel lengkap** dengan tab, urutan, postingan, dan halaman selengkapnya
+- 🕵️ **Pencarian privat**: pencarian tidak pernah tersimpan di histori YouTube
+- 📥 **Download offline**, termasuk satu playlist penuh beserta liriknya
+- 🔁 **Pulih otomatis** setelah internet putus atau audio terganggu
+
+### 🆕 Baru
+**📦 Aplikasi**
+- Dipisah menjadi dua aplikasi khusus: **YouTube Lumi** dan **YT Music Lumi**
+- Kirim video ke YT Music Lumi dari menu ⋮ (*Dengarkan di YT Music Lumi*)
+
+**🎬 Pemutar**
+- Kontrol gaya YouTube: ketuk dua kali ±10 detik, tekan lama sisi kiri atau kanan untuk 2×
+- Bab di garis waktu dan pratinjau gambar yang tajam saat menggeser
+- Kualitas, kecepatan, ulang, subtitle dengan terjemahan otomatis, trek audio asli
+- Subtitle overlay yang bisa dinyalakan atau dimatikan tanpa memuat ulang video
+- Picture-in-Picture untuk video; layar tetap menyala selama PiP
+- Timer tidur, bisa berhenti saat lagu atau video selesai
+
+**📱 Shorts**
+- Feed Shorts dari urutan rekomendasi asli YouTube, sesuai akunmu
+- Fitur pemutar lengkap: pratinjau saat menggeser, tahan untuk 2×, teks, kualitas, pengaturan
+- Komentar, suka, subscribe, bagikan, dan download
+- Posisi diingat saat kamu membuka channel lalu kembali
+- Geser lebih cepat karena Shorts berikutnya disiapkan lebih dulu
+
+**📺 Channel**
+- Halaman channel baru: banner, foto, @handle, statistik, deskripsi, dan link
+- Tab: Video · Shorts · Live · Rilis · Playlist · Postingan (yang kosong disembunyikan)
+- Urutan: Terbaru · Populer · Terlama
+- Halaman selengkapnya dengan link yang bisa diklik, negara, tanggal bergabung, dan penayangan
+- Postingan dengan link yang bisa diklik dan gambar layar penuh yang bisa di-zoom
+- Status Subscribe / Disubscribe yang akurat
+
+**🔎 Pencarian**
+- Filter: Semua · Video · Shorts (Shorts tampil sebagai grid 3 kolom)
+- Kartu channel dengan tombol Subscribe dan Lihat Channel
+- Saran pencarian, histori pencarian di HP, dan pencarian di dalam channel
+- Hasil tetap ada setelah kamu menonton video
+- Tanda "Tidak ada hasil lain lagi" di ujung setiap daftar
+
+**📚 Koleksi dan akun**
+- Histori per hari, dengan tab Semua / Video / Shorts, pencarian, dan progres tontonan
+- Video dan Shorts yang ditonton tercatat di histori akunmu
+- Menu ⋮ di setiap video: Tambahkan ke playlist · Download · Bagikan · Dengarkan di YT Music Lumi
+- Simpan ke Tonton nanti atau playlist mana pun, atau buat playlist baru
+- Atur urutan isi playlist dengan seret, hapus item, hapus playlist atau keluarkan dari koleksi
+- Tarik-untuk-refresh di feed, posisi scroll tetap diingat
+
+**🔴 Siaran langsung**
+- Tanda live, mulai dari bagian paling baru, tombol "Live"
+- Live chat real-time, juga sebagai panel samping di layar penuh
+- Chat hanya muncul untuk siaran yang sedang live
+
+**🎵 YT Music Lumi**
+- 🎤 PiP lirik saat aplikasi diminimalkan
+- 🎶 Lirik sinkron per kata dari BetterLyrics, BetterLyrics QQ, YouLyPlus, LyricsPlus, Unison, SimpMusic, BiniLyrics, lrc.red, LRCLIB, KuGou, dan YouTube Music
+- Pencarian seperti YouTube Music: kartu hasil teratas, filter, dan daftar hasil lengkap
+- Ulangi satu / ulangi semua untuk tiap jenis antrean
+- Judul lagu asli di pemutar
+- Lanjut otomatis dan ambil ulang lirik setelah gangguan
+
+**📥 Download**
+- Download satu item atau satu playlist penuh
+- Halaman Download dengan koleksi otomatis (Lagu / Video) dan playlist yang di-download
+- Lirik ikut tersimpan di setiap download musik, dan dilengkapi otomatis saat internet kembali
+- Download musik massal memakai MP4 144p yang ringan; download YouTube massal maksimal 720p
+- Satu notifikasi rapi yang hilang sendiri untuk tiap download massal
+
+**🛡️ Keandalan**
+- Laporan crash dengan tombol "Salin laporan"
+- Error di proses latar belakang tidak lagi membuat aplikasi force close
+- Pemutaran tetap jalan saat layar mati (wake lock jaringan, buffer lebih besar)
+
+### ⚡ Peningkatan
+- Buka aplikasi jauh lebih cepat: versi klien disimpan, beranda disimpan di HP, beberapa klien dicoba bersamaan saat pertama dibuka
+- Streaming lebih lancar: download bertahap, ukuran potongan adaptif, lompat ke keyframe, cadangan buffer lebih besar
+- Video yang terlihat disiapkan lebih dulu, jadi langsung diputar saat diketuk
+- Pencarian dikirim tanpa akun, jadi tidak pernah muncul di histori pencarian YouTube atau YouTube Music resmi
+- Coba ulang otomatis dan ganti klien saat stream gagal
+
+### 🐞 Perbaikan
+- Pemutaran tidak lagi berhenti setelah 1 MB pertama (HTTP 403)
+- Lirik tidak lagi macet di "Mencari lirik…" setelah ganti lagu
+- Download tidak lagi macet di 100%
+- Download playlist kini berisi persis lagu di playlist itu
+- Filter pencarian kini benar-benar mengubah hasil
+- Loading yang berputar tanpa henti di ujung daftar sudah dihilangkan
+- Video dan Shorts channel tidak lagi berhenti di halaman pertama
+- Urutan playlist kini tersimpan dengan benar
+- "Simpan ke playlist" tetap berhasil walau panelnya sudah ditutup
+- Tombol putar memuat ulang stream yang macet
+- Beberapa force close acak sudah diperbaiki
+
+</details>
+
