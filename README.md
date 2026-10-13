@@ -269,6 +269,32 @@ The APKs are written to `app/build/outputs/apk/<flavor>/release/`.
 
 ---
 
+## 🙏 Acknowledgements
+
+LumiTube stands on the shoulders of these amazing open-source projects and services. A huge **thank you** to their authors and contributors! 💖
+
+### 🧩 Code, techniques and ideas
+| Project | What LumiTube learned from it |
+|---|---|
+| [**ArchiveTune**](https://github.com/rukamori/ArchiveTune) by rukamori | Lyrics provider order, BetterLyrics / YouLy+ endpoints and nested-JSON lyrics parsing |
+| [**BitChord**](https://github.com/kushagrasinghx/BitChord) by kushagrasinghx | Lyrics format detection (TTML / word-synced LRC) and the Apple Music–style "sweeping" lyric line |
+| [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) & [**InnerTubeX**](https://github.com/MetrolistGroup/innertubex) by MetrolistGroup | InnerTube client order and the player-cipher approach |
+| [**zemer-cipher**](https://github.com/ZemerTeam/zemer-cipher) by ZemerTeam | Always-up-to-date player cipher configs (fetched at runtime) |
+| [**NewPipe**](https://github.com/TeamNewPipe/NewPipe) by TeamNewPipe | Search suggestions, buffering strategy and the WebView JavaScript runner idea |
+| [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) | Marking videos as watched and player-version handling |
+| [**ytmusicapi**](https://github.com/sigma67/ytmusicapi) by sigma67 | Playlist item reordering request format |
+| [**Morphe**](https://github.com/MorpheApp/morphe-patches) by MorpheApp | Streaming client configuration |
+
+### 🎤 Lyrics providers
+[BetterLyrics](https://github.com/better-lyrics/better-lyrics) · [YouLy+ / LyricsPlus](https://github.com/ibratabian17/YouLyPlus) · [SimpMusic Lyrics](https://github.com/maxrave-dev/SimpMusic) · [LRCLIB](https://github.com/tranxuanthang/lrclib) · Unison · BiniLyrics · lrc.red · KuGou
+
+### 📚 Libraries
+[Jetpack Compose](https://developer.android.com/jetpack/compose) · [AndroidX Media3](https://github.com/androidx/media) · [OkHttp](https://github.com/square/okhttp) · [Coil](https://github.com/coil-kt/coil) · [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
+
+> These projects are not affiliated with LumiTube. All credit for their work belongs to their respective authors.
+
+---
+
 ## ⚖️ Disclaimer
 
 LumiTube is an independent project for **personal and educational use**.

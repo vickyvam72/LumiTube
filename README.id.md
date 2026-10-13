@@ -267,6 +267,32 @@ APK hasil build ada di `app/build/outputs/apk/<flavor>/release/`.
 
 ---
 
+## 🙏 Terima Kasih
+
+LumiTube bisa berdiri berkat proyek dan layanan open-source luar biasa berikut. **Terima kasih banyak** untuk para pembuat dan kontributornya! 💖
+
+### 🧩 Kode, teknik, dan ide
+| Proyek | Yang dipelajari LumiTube |
+|---|---|
+| [**ArchiveTune**](https://github.com/rukamori/ArchiveTune) oleh rukamori | Urutan penyedia lirik, endpoint BetterLyrics / YouLy+, dan cara membaca lirik dari JSON berlapis |
+| [**BitChord**](https://github.com/kushagrasinghx/BitChord) oleh kushagrasinghx | Pengenalan format lirik (TTML / LRC per kata) dan baris lirik "menyapu" gaya Apple Music |
+| [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) & [**InnerTubeX**](https://github.com/MetrolistGroup/innertubex) oleh MetrolistGroup | Urutan klien InnerTube dan cara menangani cipher pemutar |
+| [**zemer-cipher**](https://github.com/ZemerTeam/zemer-cipher) oleh ZemerTeam | Tabel cipher pemutar yang selalu diperbarui (diambil saat aplikasi berjalan) |
+| [**NewPipe**](https://github.com/TeamNewPipe/NewPipe) oleh TeamNewPipe | Saran pencarian, strategi buffer, dan ide menjalankan JavaScript lewat WebView |
+| [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) | Cara menandai video sudah ditonton dan menangani versi pemutar |
+| [**ytmusicapi**](https://github.com/sigma67/ytmusicapi) oleh sigma67 | Format permintaan untuk mengatur urutan isi playlist |
+| [**Morphe**](https://github.com/MorpheApp/morphe-patches) oleh MorpheApp | Konfigurasi klien streaming |
+
+### 🎤 Penyedia lirik
+[BetterLyrics](https://github.com/better-lyrics/better-lyrics) · [YouLy+ / LyricsPlus](https://github.com/ibratabian17/YouLyPlus) · [SimpMusic Lyrics](https://github.com/maxrave-dev/SimpMusic) · [LRCLIB](https://github.com/tranxuanthang/lrclib) · Unison · BiniLyrics · lrc.red · KuGou
+
+### 📚 Library
+[Jetpack Compose](https://developer.android.com/jetpack/compose) · [AndroidX Media3](https://github.com/androidx/media) · [OkHttp](https://github.com/square/okhttp) · [Coil](https://github.com/coil-kt/coil) · [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
+
+> Proyek-proyek ini tidak berafiliasi dengan LumiTube. Seluruh penghargaan atas karya mereka menjadi milik pembuatnya masing-masing.
+
+---
+
 ## ⚖️ Penafian
 
 LumiTube adalah proyek independen untuk **penggunaan pribadi dan edukasi**.
