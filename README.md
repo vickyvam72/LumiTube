@@ -2,258 +2,256 @@
 
 # ✦ LumiTube ✦
 
-### Lightweight YouTube & YouTube Music clients for Android
+### Klien YouTube & YouTube Music yang ringan untuk Android
 
-*Two apps · one codebase · about 3 MB each · no ads*
+*Dua aplikasi · satu kode · sekitar 3 MB per aplikasi · tanpa iklan*
 
-[![Release](https://img.shields.io/github/v/release/vickyvam72/LumiTube?label=release&color=e53935&style=for-the-badge)](https://github.com/vickyvam72/LumiTube/releases/latest)
-[![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-requirements)
-[![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#%EF%B8%8F-tech-stack)
-[![Size](https://img.shields.io/badge/APK-~3%20MB-00897B?style=for-the-badge)](#-why-lumitube)
+[![Rilis](https://img.shields.io/github/v/release/vickyvam72/LumiTube?label=rilis&color=e53935&style=for-the-badge)](https://github.com/vickyvam72/LumiTube/releases/latest)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-kebutuhan-sistem)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#%EF%B8%8F-teknologi)
+[![Ukuran](https://img.shields.io/badge/APK-~3%20MB-00897B?style=for-the-badge)](#-kenapa-lumitube)
 
-**🌐 Language / Bahasa:** &nbsp; **🇬🇧 English** &nbsp;|&nbsp; [🇮🇩 Bahasa Indonesia](README.id.md)
+**🌐 Bahasa / Language:** &nbsp; **🇮🇩 Bahasa Indonesia** &nbsp;|&nbsp; [🇬🇧 English](README.en.md)
 
-[⬇️ Download](#-download--install) · [✨ Features](#-features) · [📖 User Guide](#-user-guide) · [❓ FAQ](#-faq--troubleshooting) · [📝 Changelog](CHANGELOG.md)
+[⬇️ Unduh](#%EF%B8%8F-unduh--pasang) · [✨ Fitur](#-fitur) · [📖 Panduan](#-panduan-pemakaian) · [❓ FAQ](#-faq--mengatasi-masalah) · [📝 Catatan Perubahan](CHANGELOG.md)
 
 </div>
 
 ---
 
-## 🌟 Why LumiTube?
+## 🌟 Kenapa LumiTube?
 
-> **YouTube Lumi** and **YT Music Lumi** do everything you expect from the official apps — and a few things they don't — in a package about **one-twentieth the size**.
+> **YouTube Lumi** dan **YT Music Lumi** bisa melakukan semua yang kamu harapkan dari aplikasi resminya, ditambah beberapa hal yang tidak ada di sana, dengan ukuran sekitar **seperdua puluhnya**.
 
 | | |
 |---|---|
-| 🪶 **Ultra-light** | Each APK is about **3 MB**. Starts fast, uses little storage and memory. |
-| 🎤 **Lyrics in Picture-in-Picture** | Minimize YT Music Lumi and the **synced lyrics keep scrolling in a small floating window**. You won't find this in the official app. |
-| 🎶 **Word-by-word karaoke lyrics** | Searches **11 lyrics providers** at once and prefers word-synced results. |
-| 🎧 **Background play, screen off** | Music and videos keep playing when you lock your phone or switch apps. |
-| 📥 **Offline downloads** | Save videos, songs and **entire playlists**. Music downloads **include lyrics** for offline use. |
-| 🚫 **No ads** | No ads, analytics or trackers. |
-| 📱 **Real Shorts feed** | Shorts come from YouTube's own recommendation engine, tailored to your account. |
-| 🕵️ **Private searches** | Your searches are **never saved** to your YouTube / YouTube Music search history. |
-| 🔁 **Auto-recovery** | Network dropped? Playback resumes and lyrics reload automatically once it's back. |
-| 👤 **Your account, synced** | Sign in with Google to see your subscriptions, playlists, likes, Watch later and history. |
+| 🪶 **Super ringan** | Tiap APK hanya sekitar **3 MB**. Cepat dibuka, hemat memori dan penyimpanan. |
+| 🎤 **Lirik di Picture-in-Picture** | Minimalkan YT Music Lumi dan **lirik sinkron tetap berjalan di jendela kecil mengambang**. Tidak ada di aplikasi resmi. |
+| 🎶 **Lirik karaoke per kata** | Mencari di **11 penyedia lirik** sekaligus dan mengutamakan lirik yang sinkron per kata. |
+| 🎧 **Putar di latar belakang, layar mati** | Musik dan video tetap jalan saat HP dikunci atau pindah aplikasi. |
+| 📥 **Download untuk offline** | Simpan video, lagu, dan **satu playlist penuh**. Download musik **sudah termasuk liriknya**. |
+| 🚫 **Tanpa iklan** | Tanpa iklan, analitik, atau pelacak. |
+| 📱 **Feed Shorts asli** | Shorts diambil dari mesin rekomendasi YouTube sendiri, disesuaikan dengan akunmu. |
+| 🕵️ **Pencarian privat** | Pencarianmu **tidak pernah tersimpan** di histori pencarian YouTube atau YouTube Music. |
+| 🔁 **Pulih otomatis** | Internet putus? Lagu lanjut diputar dan liriknya dimuat ulang begitu koneksi kembali. |
+| 👤 **Akun tersinkron** | Login dengan Google untuk melihat subscription, playlist, suka, Tonton nanti, dan histori. |
 
 ---
 
-## 📦 Two Apps
+## 📦 Dua Aplikasi
 
-| | App | Package | Built for |
+| | Aplikasi | Paket | Untuk |
 |:-:|---|---|---|
-| ▶️ | **YouTube Lumi** | `com.lumitube.app` | Videos, Shorts, live streams, channels and subscriptions |
-| 🎵 | **YT Music Lumi** | `com.lumitube.music` | Songs, albums, artists, playlists, lyrics and offline music |
+| ▶️ | **YouTube Lumi** | `com.lumitube.app` | Video, Shorts, siaran langsung, channel, dan subscription |
+| 🎵 | **YT Music Lumi** | `com.lumitube.music` | Lagu, album, artis, playlist, lirik, dan musik offline |
 
-Both apps can be installed side by side and work independently. You can also send a video from one app to the other.
+Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa mengirim video dari satu aplikasi ke aplikasi lainnya.
 
 ---
 
-## ✨ Features
+## ✨ Fitur
 
 ### ▶️ YouTube Lumi
 
-**🎬 Video player**
-- YouTube-style controls: **double-tap** to skip ±10 seconds, **press and hold** either side for **2× speed**
-- **Chapters** on the timeline and a **thumbnail preview** while scrubbing
-- Quality, playback speed, loop, **subtitles with auto-translate**, and the original audio track
-- **Picture-in-Picture** and background playback
-- Full-screen mode with an optional **live chat** side panel
+**🎬 Pemutar video**
+- Kontrol gaya YouTube: **ketuk dua kali** untuk lompat ±10 detik, **tekan lama** sisi kiri atau kanan untuk **kecepatan 2×**
+- **Bab (chapter)** di garis waktu dan **pratinjau gambar** saat menggeser
+- Kualitas, kecepatan, ulang, **subtitle dengan terjemahan otomatis**, dan trek audio asli
+- **Picture-in-Picture** dan putar di latar belakang
+- Layar penuh dengan panel **live chat** di samping
 
 **📱 Shorts**
-- A full-screen vertical feed powered by **YouTube's own recommendations**
-- The same controls as the video player: seek with preview, hold for 2×, captions and quality
-- Comments, like, subscribe, share and download from inside the player
-- Your place in the feed is kept when you open a channel and come back
+- Feed vertikal layar penuh dari **rekomendasi asli YouTube**
+- Kontrol sama seperti pemutar video: geser dengan pratinjau, tahan untuk 2×, teks, dan kualitas
+- Komentar, suka, subscribe, bagikan, dan download langsung dari pemutar
+- Posisi Shorts tetap diingat saat kamu membuka channel lalu kembali
 
-**📺 Channels**
-- Banner, avatar, @handle, subscriber and video counts, description and links
-- Tabs: **Videos · Shorts · Live · Releases · Playlists · Posts** (only the ones the channel actually has)
-- Sorting: **Latest · Popular · Oldest**
-- An **About** page with clickable links, country, join date and total views
-- Posts with **clickable links** and **full-screen, pinch-to-zoom images**
-- Infinite scrolling with a clear *"no more content"* end marker
+**📺 Channel**
+- Banner, foto, @handle, jumlah subscriber dan video, deskripsi, dan link
+- Tab: **Video · Shorts · Live · Rilis · Playlist · Postingan** (hanya yang dimiliki channel itu)
+- Urutan: **Terbaru · Populer · Terlama**
+- Halaman **selengkapnya** dengan link yang bisa diklik, negara, tanggal bergabung, dan total penayangan
+- Postingan dengan **link yang bisa diklik** dan **gambar layar penuh yang bisa di-zoom**
+- Terus dimuat saat di-scroll, dengan tanda *"Tidak ada konten lain lagi"* di ujungnya
 
-**🔎 Search**
-- Filters: **All · Videos · Shorts** (Shorts show as a 3-column grid)
-- Channel cards with **Subscribe** and **View channel** buttons
-- Search suggestions and local search history
-- Results stay in place after you watch a video
+**🔎 Pencarian**
+- Filter: **Semua · Video · Shorts** (Shorts tampil sebagai grid 3 kolom)
+- Kartu channel dengan tombol **Subscribe** dan **Lihat Channel**
+- Saran pencarian dan histori pencarian di HP
+- Hasil tetap di tempatnya setelah kamu menonton video
 
-**📚 Library and account**
-- Home feed with pull-to-refresh that keeps your scroll position
-- Subscriptions, **history grouped by day** (All / Videos / Shorts), Liked videos and Watch later
-- The **⋮ menu** on every video: Add to playlist · Download · Share · Listen in YT Music Lumi
-- Create playlists, reorder them by drag and drop, and delete them
+**📚 Koleksi dan akun**
+- Beranda dengan tarik-untuk-refresh, posisi scroll tetap diingat
+- Subscription, **histori per hari** (Semua / Video / Shorts), Video yang disukai, dan Tonton nanti
+- **Menu ⋮** di setiap video: Tambahkan ke playlist · Download · Bagikan · Dengarkan di YT Music Lumi
+- Buat playlist, atur urutannya dengan seret dan lepas, dan hapus playlist
 
-**🔴 Live streams**
-- Live badges, a jump-to-live button and **real-time live chat**
+**🔴 Siaran langsung**
+- Tanda live, tombol lompat ke bagian live, dan **live chat real-time**
 
 ### 🎵 YT Music Lumi
 
-**🎤 Lyrics**
-- **Synced word-by-word karaoke lyrics** from 11 providers: BetterLyrics, BetterLyrics QQ, YouLyPlus, LyricsPlus, Unison, SimpMusic, BiniLyrics, lrc.red, LRCLIB, KuGou and YouTube Music
-- **🪟 Lyrics in Picture-in-Picture** while the app is minimized
-- **Offline lyrics** for downloaded songs, with automatic backfill when you're back online
-- Choose your preferred providers, or re-search lyrics for any song
+**🎤 Lirik**
+- **Lirik karaoke sinkron per kata** dari 11 penyedia: BetterLyrics, BetterLyrics QQ, YouLyPlus, LyricsPlus, Unison, SimpMusic, BiniLyrics, lrc.red, LRCLIB, KuGou, dan YouTube Music
+- **🪟 Lirik di Picture-in-Picture** saat aplikasi diminimalkan
+- **Lirik offline** untuk lagu yang di-download, dilengkapi otomatis saat internet kembali
+- Pilih penyedia lirik favorit, atau cari ulang lirik lagu mana pun
 
-**🎧 Listening**
-- Search that mirrors YouTube Music: top result, Songs, Artists, Albums, Community playlists and Videos
-- Radio queue, repeat one / repeat all
-- **Auto-resume** after a network drop or an audio interruption
-- **Sleep timer**
+**🎧 Mendengarkan**
+- Pencarian seperti YouTube Music: hasil teratas, Lagu, Artis, Album, Playlist komunitas, dan Video
+- Antrean radio, ulangi satu / ulangi semua
+- **Lanjut otomatis** setelah internet putus atau audio terganggu
+- **Timer tidur**
 
-**📂 Library**
-- Your playlists, albums and liked songs
-- Drag-to-reorder, remove songs and delete playlists
-- **Download a whole playlist** in one tap
+**📂 Koleksi**
+- Playlist, album, dan lagu yang kamu sukai
+- Atur urutan dengan seret, hapus lagu, dan hapus playlist
+- **Download satu playlist penuh** sekali tekan
 
-### 🧩 Shared by both apps
+### 🧩 Ada di kedua aplikasi
 
-- 📥 A **Downloads** page with auto-collections (Songs / Videos) and downloaded playlists
-- 🔔 A single, tidy progress notification for each batch download
-- 🔗 Open YouTube / YouTube Music links directly in Lumi
-- 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
-- 🌗 Light and dark themes
-
----
-
-## ⬇️ Download & Install
-
-1. Go to the **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)** page.
-2. Under **Assets**, download one or both apps:
-   - `YouTubeLumi-v2.0.apk` for YouTube
-   - `YTMusicLumi-v2.0.apk` for YouTube Music
-3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
-4. Tap **Install**. Done! 🎉
-
-> 💡 **Updating:** Just install the new APK over the old one. Your login, downloads and settings are kept.
-
-### 📋 Requirements
-- Android **7.0 (API 24)** or newer
-- About **10 MB** of free space per app (plus space for your downloads)
-- An internet connection (except for downloaded content)
+- 📥 Halaman **Download** dengan koleksi otomatis (Lagu / Video) dan playlist yang di-download
+- 🔔 Satu notifikasi progres yang rapi untuk tiap download massal
+- 🔗 Buka link YouTube / YouTube Music langsung di Lumi
+- 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
+- 🌗 Tema terang dan gelap
 
 ---
 
-## 📖 User Guide
+## ⬇️ Unduh & Pasang
 
-> 🗣️ The app interface is in **Indonesian**. Button names are written below exactly as they appear in the app, with an English translation in brackets.
+1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)**.
+2. Di bagian **Assets**, unduh salah satu atau kedua aplikasi:
+   - `YouTubeLumi-v2.0.apk` untuk YouTube
+   - `YTMusicLumi-v2.0.apk` untuk YouTube Music
+3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
+4. Tekan **Instal**. Selesai! 🎉
 
-### 1️⃣ Sign in (optional but recommended)
-Open the **Anda** (You) tab → **Login dengan akun Google** (Sign in with Google), then sign in on Google's own sign-in page.
-After signing in you get your subscriptions, playlists, likes, Watch later, history and personalized Shorts.
-Your session is stored **only on your device**.
+> 💡 **Update:** Cukup pasang APK baru di atas yang lama. Login, download, dan pengaturanmu tetap aman.
 
-### 2️⃣ Open YouTube links in Lumi
-- **YouTube Lumi:** Settings → turn on **"Buka link YouTube di YouTube Lumi"** (Open YouTube links in YouTube Lumi)
-- **YT Music Lumi:** Settings → turn on **"Buka link YouTube Music di aplikasi ini"** (Open YouTube Music links in this app)
+### 📋 Kebutuhan Sistem
+- Android **7.0 (API 24)** atau lebih baru
+- Ruang kosong sekitar **10 MB** per aplikasi (ditambah ruang untuk download)
+- Koneksi internet (kecuali untuk konten yang sudah di-download)
 
-Then follow the short on-screen steps so Android sends YouTube links to Lumi instead of the official app.
+---
 
-### 3️⃣ Turn on lyrics Picture-in-Picture 🎤🪟
-YT Music Lumi → **Setelan Music** (Music settings) → turn on **"PiP lirik saat diminimalkan"** (Lyrics PiP when minimized).
-Play a song and press Home: the lyrics keep running in a floating window.
-Tip: turn on **"Tutup aplikasi saat PiP ditutup"** (Close app when PiP is closed) if you want music to stop when you dismiss the window.
+## 📖 Panduan Pemakaian
 
-### 4️⃣ Player gestures
-| Gesture | Action |
+### 1️⃣ Login (opsional, tapi disarankan)
+Buka tab **Anda** → **Login dengan akun Google**, lalu masuk di halaman login resmi Google.
+Setelah login kamu mendapat subscription, playlist, suka, Tonton nanti, histori, dan Shorts yang sesuai selera.
+Sesi login hanya disimpan **di HP-mu**.
+
+### 2️⃣ Buka link YouTube di Lumi
+- **YouTube Lumi:** Pengaturan → nyalakan **"Buka link YouTube di YouTube Lumi"**
+- **YT Music Lumi:** Setelan Music → nyalakan **"Buka link YouTube Music di aplikasi ini"**
+
+Lalu ikuti langkah singkat di layar supaya Android membuka link YouTube di Lumi, bukan di aplikasi resmi.
+
+### 3️⃣ Nyalakan lirik Picture-in-Picture 🎤🪟
+YT Music Lumi → **Setelan Music** → nyalakan **"PiP lirik saat diminimalkan"**.
+Putar lagu lalu tekan tombol Home: lirik tetap berjalan di jendela mengambang.
+Tips: nyalakan **"Tutup aplikasi saat PiP ditutup"** kalau ingin musik ikut berhenti saat jendela kecil ditutup.
+
+### 4️⃣ Gerakan di pemutar
+| Gerakan | Fungsi |
 |---|---|
-| Double-tap left / right | Rewind / forward 10 s |
-| Press and hold left / right | Play at 2× speed while holding |
-| Drag the timeline | Seek with a thumbnail preview |
-| Swipe up / down (Shorts) | Next / previous Short |
-| Swipe a panel down | Close comments, settings or queue |
+| Ketuk dua kali kiri / kanan | Mundur / maju 10 detik |
+| Tekan lama kiri / kanan | Putar 2× selama ditahan |
+| Geser garis waktu | Lompat dengan pratinjau gambar |
+| Geser atas / bawah (Shorts) | Shorts berikutnya / sebelumnya |
+| Geser panel ke bawah | Tutup komentar, pengaturan, atau antrean |
 
-### 5️⃣ Download for offline
-- **Single item:** tap **⋮** → **Download** and pick a quality.
-- **Whole playlist:** open the playlist → **Download**.
-- Find everything under **Downloads**. Music downloads include lyrics.
+### 5️⃣ Download untuk offline
+- **Satu item:** tekan **⋮** → **Download**, lalu pilih kualitas.
+- **Satu playlist penuh:** buka playlist → **Download**.
+- Semua hasil download ada di halaman **Download**. Download musik sudah termasuk liriknya.
 
-### 6️⃣ Save to a playlist
-Tap **⋮** → **Tambahkan ke playlist** (Add to playlist) → choose **Tonton nanti** (Watch later), an existing playlist, or create a new one.
+### 6️⃣ Simpan ke playlist
+Tekan **⋮** → **Tambahkan ke playlist** → pilih **Tonton nanti**, playlist yang sudah ada, atau buat playlist baru.
 
-### 7️⃣ Sleep timer ⏰
-In the player, open the **⋮** menu (YT Music Lumi) or the ⚙️ settings (YouTube Lumi) → **Timer tidur** (Sleep timer) → pick a duration, or choose to stop when the current song or video ends.
-
----
-
-## ❓ FAQ & Troubleshooting
-
-<details>
-<summary><b>A video won't play or keeps buffering</b></summary>
-
-Tap the play button again. LumiTube automatically retries with other playback methods. If your network dropped, playback resumes once you're back online.
-</details>
-
-<details>
-<summary><b>"Sign in to confirm you're not a bot"</b></summary>
-
-YouTube shows this when one network makes a lot of requests. Signing in usually fixes it. Switching between Wi-Fi and mobile data also helps.
-</details>
-
-<details>
-<summary><b>Lyrics aren't found for a song</b></summary>
-
-Go to **Setelan Music** → **Cari ulang lirik lagu ini** (Search lyrics again), or turn on more providers under **Penyedia lirik** (Lyrics providers). Lyrics for very new or niche songs may not exist yet.
-</details>
-
-<details>
-<summary><b>Will my searches show up in the official YouTube app?</b></summary>
-
-No. Searches are sent without your account, so they never appear in your YouTube / YouTube Music search history. Videos you **watch** are still added to your watch history, just like in the official app.
-</details>
-
-<details>
-<summary><b>The app crashed. How do I report it?</b></summary>
-
-On the next launch LumiTube shows the crash details. Tap **Salin laporan** (Copy report) and send it along with your issue.
-</details>
-
-<details>
-<summary><b>Can I use the official apps alongside LumiTube?</b></summary>
-
-Yes. LumiTube uses different package names, so all four apps can be installed at the same time.
-</details>
+### 7️⃣ Timer tidur ⏰
+Di pemutar, buka menu **⋮** (YT Music Lumi) atau ⚙️ pengaturan (YouTube Lumi) → **Timer tidur** → pilih durasi, atau pilih berhenti saat lagu atau video selesai.
 
 ---
 
-## 🔒 Privacy
+## ❓ FAQ & Mengatasi Masalah
 
-- ✅ **No** ads, analytics or third-party trackers
-- ✅ Your Google session stays **on your device**
-- ✅ Searches are **not** saved to your account's search history
-- ℹ️ Watched videos are recorded to your watch history, like the official apps
+<details>
+<summary><b>Video tidak mau diputar atau terus buffering</b></summary>
+
+Tekan tombol putar sekali lagi. LumiTube otomatis mencoba cara pemutaran lain. Kalau internet sempat putus, video lanjut sendiri begitu koneksi kembali.
+</details>
+
+<details>
+<summary><b>Muncul "Sign in to confirm you're not a bot"</b></summary>
+
+YouTube menampilkan ini kalau satu jaringan mengirim terlalu banyak permintaan. Login biasanya menyelesaikannya. Berpindah antara Wi-Fi dan data seluler juga membantu.
+</details>
+
+<details>
+<summary><b>Lirik lagu tidak ditemukan</b></summary>
+
+Buka **Setelan Music** → **Cari ulang lirik lagu ini**, atau aktifkan lebih banyak penyedia di **Penyedia lirik**. Lirik lagu yang sangat baru atau kurang dikenal mungkin memang belum tersedia.
+</details>
+
+<details>
+<summary><b>Apakah pencarianku muncul di aplikasi YouTube resmi?</b></summary>
+
+Tidak. Pencarian dikirim tanpa akun, jadi tidak pernah muncul di histori pencarian YouTube atau YouTube Music. Video yang kamu **tonton** tetap masuk ke histori tontonan, sama seperti aplikasi resmi.
+</details>
+
+<details>
+<summary><b>Aplikasi force close. Bagaimana cara melaporkannya?</b></summary>
+
+Saat dibuka lagi, LumiTube menampilkan detail error-nya. Tekan **Salin laporan**, lalu kirimkan bersama penjelasan masalahnya.
+</details>
+
+<details>
+<summary><b>Apakah bisa dipakai bersamaan dengan aplikasi resmi?</b></summary>
+
+Bisa. LumiTube memakai nama paket yang berbeda, jadi keempat aplikasi bisa terpasang bersamaan.
+</details>
 
 ---
 
-## 🛠️ Tech Stack
+## 🔒 Privasi
 
-| Area | Technology |
+- ✅ **Tanpa** iklan, analitik, atau pelacak pihak ketiga
+- ✅ Sesi akun Google tetap **di HP-mu**
+- ✅ Pencarian **tidak** disimpan di histori pencarian akun
+- ℹ️ Video yang ditonton tercatat di histori tontonan, sama seperti aplikasi resmi
+
+---
+
+## 🛠️ Teknologi
+
+| Bagian | Teknologi |
 |---|---|
-| Language | **Kotlin** |
-| UI | **Jetpack Compose**, Material 3 |
-| Playback | **AndroidX Media3** — ExoPlayer and MediaSessionService |
-| Networking | OkHttp, with chunked streaming and automatic retry |
-| Images | Coil |
-| Data | YouTube InnerTube API (WEB, MWEB and WEB_REMIX clients) |
-| CI/CD | GitHub Actions — every push builds and publishes both APKs |
+| Bahasa | **Kotlin** |
+| Tampilan | **Jetpack Compose**, Material 3 |
+| Pemutar | **AndroidX Media3**: ExoPlayer dan MediaSessionService |
+| Jaringan | OkHttp, dengan streaming bertahap dan coba ulang otomatis |
+| Gambar | Coil |
+| Data | YouTube InnerTube API (klien WEB, MWEB, dan WEB_REMIX) |
+| CI/CD | GitHub Actions: setiap push mem-build dan merilis kedua APK |
 
-### 📁 Project structure
+### 📁 Struktur proyek
 ```
 app/src/main/java/com/lumitube/app/
-├── data/        # InnerTube client, parsers, repository, downloader, lyrics providers
-├── player/      # PlaybackManager, PlaybackService, chunked data source
+├── data/        # Klien InnerTube, parser, repository, downloader, penyedia lirik
+├── player/      # PlaybackManager, PlaybackService, sumber data bertahap
 └── ui/
-    ├── common/  # Shared components: login, playlists, sleep timer, live chat
-    ├── youtube/ # YouTube Lumi screens: home, watch, Shorts, channel
-    └── music/   # YT Music Lumi screens: player, lyrics, library
+    ├── common/  # Komponen bersama: login, playlist, timer tidur, live chat
+    ├── youtube/ # Layar YouTube Lumi: beranda, tonton, Shorts, channel
+    └── music/   # Layar YT Music Lumi: pemutar, lirik, koleksi
 ```
 
-### 🏗️ Building from source
-Both apps come from a single module, using two product flavors:
+### 🏗️ Build dari kode sumber
+Kedua aplikasi berasal dari satu modul dengan dua product flavor:
 
-| Flavor | App |
+| Flavor | Aplikasi |
 |---|---|
 | `youtube` | YouTube Lumi |
 | `music` | YT Music Lumi |
@@ -263,52 +261,52 @@ git clone https://github.com/vickyvam72/LumiTube.git
 cd LumiTube
 gradle :app:assembleYoutubeRelease :app:assembleMusicRelease   # Gradle 8.11.1, JDK 17
 ```
-The APKs are written to `app/build/outputs/apk/<flavor>/release/`.
+APK hasil build ada di `app/build/outputs/apk/<flavor>/release/`.
 
-> 🔐 Release builds are signed with a private key stored in **GitHub Actions Secrets** (`LUMI_KEYSTORE_BASE64`, `LUMI_KEYSTORE_PASSWORD`). The key is never committed to the repository. For a local build, place your own keystore at `keystore/lumitube.jks` and set `LUMI_KEYSTORE_PASSWORD`.
+> 🔐 Build rilis ditandatangani dengan kunci pribadi yang disimpan di **GitHub Actions Secrets** (`LUMI_KEYSTORE_BASE64`, `LUMI_KEYSTORE_PASSWORD`). Kunci tidak pernah disimpan di repo. Untuk build lokal, taruh keystore milikmu di `keystore/lumitube.jks` dan isi `LUMI_KEYSTORE_PASSWORD`.
 
 ---
 
-## 🙏 Acknowledgements
+## 🙏 Terima Kasih
 
-LumiTube stands on the shoulders of these amazing open-source projects and services. A huge **thank you** to their authors and contributors! 💖
+LumiTube bisa berdiri berkat proyek dan layanan open-source luar biasa berikut. **Terima kasih banyak** untuk para pembuat dan kontributornya! 💖
 
-### 🧩 Code, techniques and ideas
-| Project | What LumiTube learned from it |
+### 🧩 Kode, teknik, dan ide
+| Proyek | Yang dipelajari LumiTube |
 |---|---|
-| [**ArchiveTune**](https://github.com/rukamori/ArchiveTune) by rukamori | Lyrics provider order, BetterLyrics / YouLy+ endpoints and nested-JSON lyrics parsing |
-| [**BitChord**](https://github.com/kushagrasinghx/BitChord) by kushagrasinghx | Lyrics format detection (TTML / word-synced LRC) and the Apple Music–style "sweeping" lyric line |
-| [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) & [**InnerTubeX**](https://github.com/MetrolistGroup/innertubex) by MetrolistGroup | InnerTube client order and the player-cipher approach |
-| [**zemer-cipher**](https://github.com/ZemerTeam/zemer-cipher) by ZemerTeam | Always-up-to-date player cipher configs (fetched at runtime) |
-| [**NewPipe**](https://github.com/TeamNewPipe/NewPipe) by TeamNewPipe | Search suggestions, buffering strategy and the WebView JavaScript runner idea |
-| [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) | Marking videos as watched and player-version handling |
-| [**ytmusicapi**](https://github.com/sigma67/ytmusicapi) by sigma67 | Playlist item reordering request format |
-| [**Morphe**](https://github.com/MorpheApp/morphe-patches) by MorpheApp | Streaming client configuration |
+| [**ArchiveTune**](https://github.com/rukamori/ArchiveTune) oleh rukamori | Urutan penyedia lirik, endpoint BetterLyrics / YouLy+, dan cara membaca lirik dari JSON berlapis |
+| [**BitChord**](https://github.com/kushagrasinghx/BitChord) oleh kushagrasinghx | Pengenalan format lirik (TTML / LRC per kata) dan baris lirik "menyapu" gaya Apple Music |
+| [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) & [**InnerTubeX**](https://github.com/MetrolistGroup/innertubex) oleh MetrolistGroup | Urutan klien InnerTube dan cara menangani cipher pemutar |
+| [**zemer-cipher**](https://github.com/ZemerTeam/zemer-cipher) oleh ZemerTeam | Tabel cipher pemutar yang selalu diperbarui (diambil saat aplikasi berjalan) |
+| [**NewPipe**](https://github.com/TeamNewPipe/NewPipe) oleh TeamNewPipe | Saran pencarian, strategi buffer, dan ide menjalankan JavaScript lewat WebView |
+| [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) | Cara menandai video sudah ditonton dan menangani versi pemutar |
+| [**ytmusicapi**](https://github.com/sigma67/ytmusicapi) oleh sigma67 | Format permintaan untuk mengatur urutan isi playlist |
+| [**Morphe**](https://github.com/MorpheApp/morphe-patches) oleh MorpheApp | Konfigurasi klien streaming |
 
-### 🎤 Lyrics providers
+### 🎤 Penyedia lirik
 [BetterLyrics](https://github.com/better-lyrics/better-lyrics) · [YouLy+ / LyricsPlus](https://github.com/ibratabian17/YouLyPlus) · [SimpMusic Lyrics](https://github.com/maxrave-dev/SimpMusic) · [LRCLIB](https://github.com/tranxuanthang/lrclib) · Unison · BiniLyrics · lrc.red · KuGou
 
-### 📚 Libraries
+### 📚 Library
 [Jetpack Compose](https://developer.android.com/jetpack/compose) · [AndroidX Media3](https://github.com/androidx/media) · [OkHttp](https://github.com/square/okhttp) · [Coil](https://github.com/coil-kt/coil) · [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
 
-> These projects are not affiliated with LumiTube. All credit for their work belongs to their respective authors.
+> Proyek-proyek ini tidak berafiliasi dengan LumiTube. Seluruh penghargaan atas karya mereka menjadi milik pembuatnya masing-masing.
 
 ---
 
-## ⚖️ Disclaimer
+## ⚖️ Penafian
 
-LumiTube is an independent project for **personal and educational use**.
-It is **not affiliated with, endorsed by, or sponsored by Google LLC, YouTube or YouTube Music**. All trademarks belong to their respective owners.
-LumiTube relies on publicly accessible YouTube endpoints, which may change at any time. Use it at your own risk and in accordance with YouTube's Terms of Service.
+LumiTube adalah proyek independen untuk **penggunaan pribadi dan edukasi**.
+LumiTube **tidak berafiliasi dengan, didukung oleh, atau disponsori oleh Google LLC, YouTube, maupun YouTube Music**. Semua merek dagang adalah milik pemiliknya masing-masing.
+LumiTube memakai endpoint YouTube yang dapat diakses publik, yang bisa berubah sewaktu-waktu. Gunakan dengan risiko sendiri dan sesuai Ketentuan Layanan YouTube.
 
-## 📄 License
+## 📄 Lisensi
 
-Copyright © 2026 **vickyvam72**. All rights reserved.
+Hak cipta © 2026 **vickyvam72**. Seluruh hak dilindungi.
 
 <div align="center">
 
 ---
 
-Made with ❤️ in Indonesia · If you like LumiTube, leave a ⭐
+Dibuat dengan ❤️ di Indonesia · Kalau suka LumiTube, beri ⭐ ya
 
 </div>
