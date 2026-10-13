@@ -87,6 +87,8 @@ import kotlinx.coroutines.launch
 private val ShortsPanelColors = PanelColors(Color(0xFF212121), Color.White, Color(0xFFAAAAAA), Color(0xFF3F3F3F), YtRed)
 private val overlayShadow = TextStyle(shadow = Shadow(Color(0x99000000), blurRadius = 8f))
 
+private val shortsPositions = LinkedHashMap<String, Int>()
+
 /** Pemutar Shorts layar penuh: geser atas/bawah untuk pindah video. */
 @Composable
 fun ShortsPlayer(
@@ -98,7 +100,15 @@ fun ShortsPlayer(
     onBack: (() -> Unit)?,
 ) {
     if (items.isEmpty()) return
-    val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, items.size - 1)) { items.size }
+    // Posisi Shorts diingat di luar layar: buka channel lalu kembali = tetap di Shorts yang sama,
+    // bukan balik ke Shorts pertama. Kuncinya daftar ini (Shorts pertama + posisi awal).
+    val posKey = "${items.first().id}:$startIndex"
+    val initial = (shortsPositions[posKey] ?: startIndex).coerceIn(0, items.size - 1)
+    val pager = rememberPagerState(initialPage = initial) { items.size }
+    LaunchedEffect(pager.settledPage) {
+        shortsPositions[posKey] = pager.settledPage
+        if (shortsPositions.size > 50) shortsPositions.remove(shortsPositions.keys.first())
+    }
     var commentsFor by remember { mutableStateOf<WatchInfo?>(null) }
     var showComments by remember { mutableStateOf(false) }
     var downloadItem by remember { mutableStateOf<Item?>(null) }
