@@ -51,10 +51,21 @@ fun rememberLyricClock(): State<Long> {
 private fun ease(p: Float): Float = 1f - (1f - p) * (1f - p) * (1f - p)
 
 /** Kotak kata di layout teks (dengan perkiraan bila kata terpotong ke baris berikutnya). */
-private fun wordBox(layout: TextLayoutResult, start: Int, end: Int): Rect? {
+private fun wordBox(layout: TextLayoutResult, start: Int, end: Int): Rect? = try {
+    wordBoxUnsafe(layout, start, end)
+} catch (_: IllegalArgumentException) {
+    // Teks dipotong (maxLines, mis. di jendela PiP) atau layout belum sama dengan teksnya:
+    // kata yang tidak tampil dilewati saja, jangan sampai aplikasi force close.
+    null
+} catch (_: IndexOutOfBoundsException) {
+    null
+}
+
+private fun wordBoxUnsafe(layout: TextLayoutResult, start: Int, end: Int): Rect? {
     val len = layout.layoutInput.text.length
-    if (start >= len || end <= start) return null
+    if (start >= len || end <= start || layout.lineCount == 0) return null
     val line = layout.getLineForOffset(start)
+    if (line !in 0 until layout.lineCount) return null
     val lineEnd = layout.getLineEnd(line, visibleEnd = true)
     val left = layout.getHorizontalPosition(start, true)
     val e = end.coerceAtMost(len)
