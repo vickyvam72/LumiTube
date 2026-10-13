@@ -3,7 +3,6 @@ name: Build YouTube Lumi & YT Music Lumi
 on:
   push:
     branches: [ main, master ]
-    tags: [ "v*" ]
   workflow_dispatch:
 
 permissions:
@@ -51,25 +50,40 @@ jobs:
             YouTubeLumi.apk
             YTMusicLumi.apk
 
-      # Tag vX.Y -> rilis resmi dengan catatan dari release-notes/vX.Y.md
+      # Rilis resmi: versi di release-notes/CURRENT (mis. v2.0) dirilis sekali, dengan catatan
+      # dari release-notes/<versi>.md. Push berikutnya menjadi build pengembangan (pre-release).
+      - name: Decide release type
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(tr -d ' \r\n' < release-notes/CURRENT 2>/dev/null || true)
+          if [ -n "$TAG" ] && [ -f "release-notes/$TAG.md" ] && ! gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "official=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "official=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Publish official release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.rel.outputs.official == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "✦ LumiTube ${{ github.ref_name }}"
-          body_path: release-notes/${{ github.ref_name }}.md
+          tag_name: ${{ steps.rel.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: "✦ LumiTube ${{ steps.rel.outputs.tag }}"
+          body_path: release-notes/${{ steps.rel.outputs.tag }}.md
           files: |
             YouTubeLumi.apk
             YTMusicLumi.apk
           make_latest: "true"
 
-      # Push biasa ke main -> build pengembangan (pre-release, tidak menggeser rilis resmi)
       - name: Publish development build
-        if: "!startsWith(github.ref, 'refs/tags/')"
+        if: steps.rel.outputs.official != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           name: "🧪 Dev build ${{ github.run_number }}"
           body: |
             Automatic development build from the latest commit. For the stable version, use the latest **LumiTube** release.
