@@ -70,6 +70,13 @@ jobs:
 
       # Satu rilis per versi (release-notes/CURRENT, mis. v2.0). Push berikutnya memperbarui
       # APK di rilis versi itu; tidak ada lagi "dev build".
+      # Tag versi selalu menunjuk commit terbaru, supaya "Source code (zip/tar.gz)"
+      # di halaman rilis ikut diperbarui bersama APK-nya.
+      - name: Move version tag to this commit
+        run: |
+          git tag -f "${{ steps.ver.outputs.tag }}" "${{ github.sha }}"
+          git push -f origin "refs/tags/${{ steps.ver.outputs.tag }}"
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
