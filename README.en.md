@@ -9,6 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/vickyvam72/LumiTube?label=release&color=e53935&style=for-the-badge)](https://github.com/vickyvam72/LumiTube/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-requirements)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#%EF%B8%8F-tech-stack)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=for-the-badge)](LICENSE)
 [![Size](https://img.shields.io/badge/APK-~3%20MB-00897B?style=for-the-badge)](#-why-lumitube)
 
 **🌐 Bahasa / Language:** &nbsp; [🇮🇩 Bahasa Indonesia](README.md) &nbsp;|&nbsp; **🇬🇧 English**
@@ -303,7 +304,11 @@ LumiTube relies on publicly accessible YouTube endpoints, which may change at an
 
 ## 📄 License
 
-Copyright © 2026 **vickyvam72**. All rights reserved.
+Copyright © 2026 **vickyvam72**.
+
+LumiTube is free and open-source software, released under the **[GNU General Public License v3.0](LICENSE)**.
+You may use, study, modify and redistribute LumiTube, as long as derivative works are also released under the same license (GPL-3.0) with their source code available.
+LumiTube comes with **absolutely no warranty**. See the [LICENSE](LICENSE) file for the full text.
 
 <div align="center">
 

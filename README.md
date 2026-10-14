@@ -9,6 +9,7 @@
 [![Rilis](https://img.shields.io/github/v/release/vickyvam72/LumiTube?label=rilis&color=e53935&style=for-the-badge)](https://github.com/vickyvam72/LumiTube/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-kebutuhan-sistem)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#%EF%B8%8F-teknologi)
+[![Lisensi](https://img.shields.io/badge/lisensi-GPL--3.0-blue?style=for-the-badge)](LICENSE)
 [![Ukuran](https://img.shields.io/badge/APK-~3%20MB-00897B?style=for-the-badge)](#-kenapa-lumitube)
 
 **🌐 Bahasa / Language:** &nbsp; **🇮🇩 Bahasa Indonesia** &nbsp;|&nbsp; [🇬🇧 English](README.en.md)
@@ -301,7 +302,11 @@ LumiTube memakai endpoint YouTube yang dapat diakses publik, yang bisa berubah s
 
 ## 📄 Lisensi
 
-Hak cipta © 2026 **vickyvam72**. Seluruh hak dilindungi.
+Hak cipta © 2026 **vickyvam72**.
+
+LumiTube adalah perangkat lunak bebas dan open source, dirilis di bawah **[GNU General Public License v3.0](LICENSE)**.
+Kamu boleh memakai, mempelajari, mengubah, dan membagikan ulang LumiTube, dengan syarat versi turunannya juga dirilis dengan lisensi yang sama (GPL-3.0) dan kode sumbernya tetap terbuka.
+LumiTube diberikan **tanpa jaminan apa pun**. Lihat file [LICENSE](LICENSE) untuk teks lengkapnya (berbahasa Inggris).
 
 <div align="center">
 
