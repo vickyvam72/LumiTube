@@ -97,6 +97,7 @@ fun YtTopBar(onSearch: () -> Unit, onSwitchMusic: () -> Unit, onOffline: (() -> 
     ) {
         LumiLogo(yt.text)
         Spacer(Modifier.weight(1f))
+        com.lumitube.app.ui.common.TogetherButton(yt.text)
         if (onOffline != null) {
             IconButton(onClick = onOffline) {
                 Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = yt.text)
@@ -424,14 +425,12 @@ private fun androidx.compose.foundation.layout.RowScope.NavCell(spec: NavSpec, s
 fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
     val yt = LocalYt.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    // Hasil pencarian datang tanpa akun, jadi "subscribed" di dalamnya selalu false — abaikan,
-    // pakai daftar channel akun.
+    // Status dari hasil pencarian (memakai akun); bila tidak ada, cek daftar channel akun.
     var subscribed by androidx.compose.runtime.saveable.rememberSaveable(item.id) {
-        androidx.compose.runtime.mutableStateOf(com.lumitube.app.data.Repo.cachedSubscribed(item.id) == true)
+        androidx.compose.runtime.mutableStateOf(item.subscribed ?: (com.lumitube.app.data.Repo.cachedSubscribed(item.id) == true))
     }
-    // Pencarian dikirim tanpa akun, jadi status subscribe dicek dari daftar channel akun.
     androidx.compose.runtime.LaunchedEffect(item.id) {
-        if (com.lumitube.app.data.Session.loggedIn) {
+        if (item.subscribed == null && com.lumitube.app.data.Session.loggedIn) {
             try {
                 subscribed = com.lumitube.app.data.Repo.isSubscribed(item.id)
             } catch (_: Exception) {

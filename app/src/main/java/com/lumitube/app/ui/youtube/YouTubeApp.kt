@@ -161,6 +161,11 @@ fun YouTubeApp(
         stack.removeAll { it is YtRoute.Watch }
         stack.add(YtRoute.Watch(video))
     }
+    // Watch Together: tamu otomatis membuka video yang diputar host.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.lumitube.app.player.Together.onOpen = { openWatch(it) }
+        onDispose { com.lumitube.app.player.Together.onOpen = null }
+    }
 
     val openShorts: (List<Item>, Int) -> Unit = { list, idx ->
         stack.removeAll { it is YtRoute.Shorts }

@@ -237,6 +237,7 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
     ) {
         MusicLogo()
         Spacer(Modifier.weight(1f))
+        com.lumitube.app.ui.common.TogetherButton(Color.White)
         IconButton(onClick = onOffline) {
             Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = Color.White)
         }

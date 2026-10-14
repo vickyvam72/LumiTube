@@ -68,7 +68,7 @@ object Repo {
                 Page(items = shorts(p), continuation = p.continuation ?: "x:")
             }
             token == "x:" -> {
-                val p = ytSearch("$query shorts")
+                val p = ytSearch("$query shorts", auth = false)
                 Page(items = shorts(p), continuation = p.continuation?.let { "y:$it" })
             }
             token.startsWith("y:") -> {
@@ -88,8 +88,8 @@ object Repo {
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
-    suspend fun ytSearch(query: String, params: String? = null): Page {
-        val r = InnerTube.search(Client.WEB, query, params)
+    suspend fun ytSearch(query: String, params: String? = null, auth: Boolean = true): Page {
+        val r = InnerTube.search(Client.WEB, query, params, auth)
         return Page(items = Parser.items(r, false), chips = Parser.ytSearchChips(r), continuation = Parser.continuation(r))
     }
 
@@ -328,8 +328,7 @@ object Repo {
             .put("browseId", channelId)
             .put("params", "EgZzZWFyY2jyBgQKAloA")
             .put("query", query)
-        // Tanpa akun supaya tidak tercatat di histori pencarian YouTube.
-        val r = InnerTube.post(Client.WEB, "browse", body, auth = false)
+        val r = InnerTube.post(Client.WEB, "browse", body)
         return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
     }
 
@@ -604,7 +603,7 @@ object Repo {
     }
 
     suspend fun musicSearch(query: String, params: String? = null): Page {
-        val r = InnerTube.search(Client.MUSIC, query, params)
+        val r = InnerTube.search(Client.MUSIC, query, params, auth = true)
         return Page(shelves = Parser.musicShelves(r), chips = Parser.musicSearchChips(r), continuation = Parser.continuation(r))
     }
 

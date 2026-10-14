@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Root() {
         // Aplikasi sempat tertutup paksa: tampilkan penyebabnya supaya bisa dilaporkan.
+        com.lumitube.app.ui.common.TogetherHost()
         crashReport?.let { report ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { crashReport = null },

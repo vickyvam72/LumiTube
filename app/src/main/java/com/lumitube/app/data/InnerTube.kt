@@ -283,8 +283,7 @@ object InnerTube {
      * prefix "b:" dikirim di body.
      */
     suspend fun continuation(client: Client, endpoint: String, token: String): JSONObject {
-        // Pencarian dikirim tanpa akun (lihat search()), lanjutannya juga.
-        val auth = endpoint != "search"
+        val auth = true
         return if (token.startsWith("q:")) {
             val t = java.net.URLEncoder.encode(token.substring(2), "UTF-8")
             post(client, endpoint, JSONObject(), "&ctoken=$t&continuation=$t&type=next", auth = auth)
@@ -294,13 +293,14 @@ object InnerTube {
     }
 
     /**
-     * Pencarian dikirim TANPA akun: kalau memakai akun, setiap pencarian (termasuk pencarian
-     * otomatis untuk feed Shorts) tercatat di histori pencarian aplikasi YouTube / YT Music asli.
+     * [auth] = true untuk pencarian yang diketik pengguna: tercatat di histori pencarian akun
+     * (muncul juga di aplikasi YouTube / YT Music asli). Pencarian otomatis aplikasi (mis. untuk
+     * feed Shorts) memakai auth = false supaya tidak mengotori histori.
      */
-    suspend fun search(client: Client, query: String, params: String? = null): JSONObject {
+    suspend fun search(client: Client, query: String, params: String? = null, auth: Boolean = false): JSONObject {
         val body = JSONObject().put("query", query)
         if (params != null) body.put("params", params)
-        return post(client, "search", body, auth = false)
+        return post(client, "search", body, auth = auth)
     }
 
     suspend fun next(client: Client, videoId: String, playlistId: String? = null): JSONObject {
