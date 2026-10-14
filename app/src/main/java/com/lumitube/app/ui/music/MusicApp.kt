@@ -120,6 +120,7 @@ fun MusicApp(
 ) {
     val stack = remember { mutableStateListOf<MRoute>() }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var homeTop by remember { mutableIntStateOf(0) }
     var showPlayer by rememberSaveable { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -197,7 +198,7 @@ fun MusicApp(
                     is MRoute.Browse -> MusicBrowseScreen(top, { stack.removeAt(stack.lastIndex) }, onItem, openBrowse)
                     MRoute.Downloads -> OfflineScreen { stack.removeAt(stack.lastIndex) }
                     null -> when (tab) {
-                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }) { showSettings = true }
+                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, scrollToTop = homeTop) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
                         2 -> MusicSearchScreen(onItem)
                         else -> LibraryScreen(onItem, onLogin, onOpenVideo)
@@ -205,7 +206,10 @@ fun MusicApp(
                 }
             }
             if (PlaybackManager.current != null) MusicMiniPlayer(onOpen = { showPlayer = true })
-            MusicBottomNav(tab) { stack.clear(); tab = it }
+            MusicBottomNav(tab) {
+                if (it == 0 && tab == 0 && stack.isEmpty()) homeTop++
+                stack.clear(); tab = it
+            }
         }
         AnimatedVisibility(
             visible = showPlayer && PlaybackManager.current != null,
@@ -268,8 +272,17 @@ private fun MusicHome(
     onLogin: () -> Unit,
     onOffline: () -> Unit,
     onSettings: () -> Unit,
+    scrollToTop: Int = 0,
 ) {
     val state = rememberLazyListState()
+    // Ketuk "Beranda" saat sudah di Beranda = langsung kembali ke paling atas.
+    var handledTop by remember { mutableIntStateOf(scrollToTop) }
+    LaunchedEffect(scrollToTop) {
+        if (scrollToTop != handledTop) {
+            handledTop = scrollToTop
+            state.scrollToItem(0)
+        }
+    }
     val shelves = feed.page?.shelves ?: emptyList()
     // Siapkan stream beberapa lagu teratas (Pilihan cepat dll.) supaya langsung bisa diputar.
     LaunchedEffect(shelves.firstOrNull()?.items?.firstOrNull()?.id) {
