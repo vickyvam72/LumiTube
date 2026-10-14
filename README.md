@@ -33,7 +33,7 @@
 | 📥 **Download untuk offline** | Simpan video, lagu, dan **satu playlist penuh**. Download musik **sudah termasuk liriknya**. |
 | 🚫 **Tanpa iklan** | Tanpa iklan, analitik, atau pelacak. |
 | 📱 **Feed Shorts asli** | Shorts diambil dari mesin rekomendasi YouTube sendiri, disesuaikan dengan akunmu. |
-| 🕵️ **Pencarian privat** | Pencarianmu **tidak pernah tersimpan** di histori pencarian YouTube atau YouTube Music. |
+| 👥 **Watch & Listen Together** | Nonton video atau dengar lagu **bareng teman secara bersamaan** dari HP masing-masing, cukup dengan kode room. |
 | 🔁 **Pulih otomatis** | Internet putus? Lagu lanjut diputar dan liriknya dimuat ulang begitu koneksi kembali. |
 | 👤 **Akun tersinkron** | Login dengan Google untuk melihat subscription, playlist, suka, Tonton nanti, dan histori. |
 
@@ -113,6 +113,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 - 📥 Halaman **Download** dengan koleksi otomatis (Lagu / Video) dan playlist yang di-download
 - 🔔 Satu notifikasi progres yang rapi untuk tiap download massal
+- 👥 **Watch Together** (YouTube Lumi) dan **Listen Together** (YT Music Lumi): buat room, bagikan kode 6 huruf, dan semua peserta memutar video atau lagu yang sama secara bersamaan
 - 🔗 Buka link YouTube / YouTube Music langsung di Lumi
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
 - 🌗 Tema terang dan gelap
@@ -172,7 +173,15 @@ Tips: nyalakan **"Tutup aplikasi saat PiP ditutup"** kalau ingin musik ikut berh
 ### 6️⃣ Simpan ke playlist
 Tekan **⋮** → **Tambahkan ke playlist** → pilih **Tonton nanti**, playlist yang sudah ada, atau buat playlist baru.
 
-### 7️⃣ Timer tidur ⏰
+### 7️⃣ Watch Together / Listen Together 👥
+1. Ketuk ikon **orang bergerombol** di bilah atas Beranda (sebelah tombol download).
+2. **Buat room** untuk jadi host, lalu ketuk **Bagikan** untuk mengirim kode 6 huruf ke teman.
+3. Teman membuka ikon yang sama, memasukkan kode, lalu ketuk **Gabung**.
+4. Semua yang dilakukan host (ganti video atau lagu, putar, jeda, geser) langsung diikuti tamu. Ikon berubah merah selama kamu di dalam room.
+
+Setiap HP memutar dari YouTube masing-masing, jadi tamu tidak perlu login. Perintah antar-HP dikirim terenkripsi lewat layanan [ntfy.sh](https://ntfy.sh).
+
+### 8️⃣ Timer tidur ⏰
 Di pemutar, buka menu **⋮** (YT Music Lumi) atau ⚙️ pengaturan (YouTube Lumi) → **Timer tidur** → pilih durasi, atau pilih berhenti saat lagu atau video selesai.
 
 ---
@@ -200,7 +209,7 @@ Buka **Setelan Music** → **Cari ulang lirik lagu ini**, atau aktifkan lebih ba
 <details>
 <summary><b>Apakah pencarianku muncul di aplikasi YouTube resmi?</b></summary>
 
-Tidak. Pencarian dikirim tanpa akun, jadi tidak pernah muncul di histori pencarian YouTube atau YouTube Music. Video yang kamu **tonton** tetap masuk ke histori tontonan, sama seperti aplikasi resmi.
+Ya, kalau kamu login. Pencarian yang kamu ketik di YouTube Lumi dan YT Music Lumi tersimpan di histori pencarian akunmu, sama seperti aplikasi resmi, jadi juga muncul di aplikasi YouTube dan YouTube Music asli. Pencarian otomatis yang dilakukan aplikasi sendiri (misalnya untuk mengisi Shorts) tidak ikut tersimpan.
 </details>
 
 <details>
@@ -221,7 +230,8 @@ Bisa. LumiTube memakai nama paket yang berbeda, jadi keempat aplikasi bisa terpa
 
 - ✅ **Tanpa** iklan, analitik, atau pelacak pihak ketiga
 - ✅ Sesi akun Google tetap **di HP-mu**
-- ✅ Pencarian **tidak** disimpan di histori pencarian akun
+- ℹ️ Pencarian yang kamu ketik tersimpan di histori pencarian akun, sama seperti aplikasi resmi
+- ✅ Perintah Watch / Listen Together dienkripsi, hanya peserta dengan kode room yang bisa membacanya
 - ℹ️ Video yang ditonton tercatat di histori tontonan, sama seperti aplikasi resmi
 
 ---
@@ -286,6 +296,9 @@ LumiTube bisa berdiri berkat proyek dan layanan open-source luar biasa berikut. 
 
 ### 🎤 Penyedia lirik
 [BetterLyrics](https://github.com/better-lyrics/better-lyrics) · [YouLy+ / LyricsPlus](https://github.com/ibratabian17/YouLyPlus) · [SimpMusic Lyrics](https://github.com/maxrave-dev/SimpMusic) · [LRCLIB](https://github.com/tranxuanthang/lrclib) · Unison · BiniLyrics · lrc.red · KuGou
+
+### 🌐 Layanan
+[ntfy](https://github.com/binwiederhier/ntfy) oleh binwiederhier: server pub/sub publik [ntfy.sh](https://ntfy.sh) yang meneruskan perintah Watch / Listen Together
 
 ### 📚 Library
 [Jetpack Compose](https://developer.android.com/jetpack/compose) · [AndroidX Media3](https://github.com/androidx/media) · [OkHttp](https://github.com/square/okhttp) · [Coil](https://github.com/coil-kt/coil) · [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines)
