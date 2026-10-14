@@ -271,8 +271,8 @@ private fun MusicHome(
     onSwitchVideo: () -> Unit,
     onLogin: () -> Unit,
     onOffline: () -> Unit,
-    onSettings: () -> Unit,
     scrollToTop: Int = 0,
+    onSettings: () -> Unit,
 ) {
     val state = rememberLazyListState()
     // Ketuk "Beranda" saat sudah di Beranda = langsung kembali ke paling atas.
