@@ -194,7 +194,12 @@ fun YouTubeApp(
     }
 
     val loggedIn = Session.loggedIn
-    val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
+    val home = rememberFeed(
+        key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() },
+        similar = com.lumitube.app.ui.common::similarVideoKey,
+    ) { Repo.ytHome() }
+    // Ketuk "Beranda" saat sudah di Beranda = langsung kembali ke paling atas.
+    var homeTop by remember { mutableIntStateOf(0) }
     val shorts = rememberFeed(key = "shorts", more = { Repo.ytShortsMore(it) }) { Repo.ytShorts() }
     // Tiap kali tab Shorts dibuka lagi, ambil Shorts baru (seperti aplikasi asli).
     var shortsSeen by remember { mutableStateOf(false) }
@@ -271,6 +276,7 @@ fun YouTubeApp(
                     0 -> HomeTab(
                         home, open, openChannel, openShorts, onSearch = { YtSearchState.reset(); stack.add(YtRoute.Search) },
                         onSwitchMusic = onSwitchMusic, onLogin = onLogin, onOffline = { stack.add(YtRoute.Downloads) },
+                        scrollToTop = homeTop,
                     )
                     1 -> ShortsTabPlayer(shorts, openChannel, onLogin)
                     2 -> SubscriptionsTab(subs, open, openChannel, onLogin)
@@ -292,7 +298,10 @@ fun YouTubeApp(
         }
         YtBottomNav(
             selected = tab,
-            onSelect = { stack.clear(); tab = it },
+            onSelect = {
+                if (it == 0 && tab == 0 && stack.isEmpty()) homeTop++
+                stack.clear(); tab = it
+            },
             onSwitchMusic = onSwitchMusic,
         )
     }
@@ -353,11 +362,21 @@ private fun FeedList(
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
     channelCard: (@Composable (Item) -> Unit)? = null,
     endText: String? = null,
+    scrollToTop: Int = 0,
 ) {
     val yt = LocalYt.current
     // Posisi gulir disimpan per feed: buka video lalu kembali = tetap di posisi yang sama.
     val state = listState ?: remember(feed) { feedListStates.getOrPut(feed) { androidx.compose.foundation.lazy.LazyListState() } }
     LoadMoreEffect(state, feed)
+    // Sinyal "kembali ke atas" (ketuk tab yang sedang aktif). Nilai awal dianggap sudah ditangani,
+    // jadi kembali ke tab ini dari tab lain tidak ikut menggulir ke atas.
+    var handledTop by remember { mutableIntStateOf(scrollToTop) }
+    LaunchedEffect(scrollToTop) {
+        if (scrollToTop != handledTop) {
+            handledTop = scrollToTop
+            state.scrollToItem(0)
+        }
+    }
     val rows = remember(feed.items.size, feed.items.firstOrNull()?.key) { groupRows(feed.items.toList()) }
     // Siapkan data stream video yang sedang terlihat (saat daftar berhenti digulir),
     // supaya begitu diketuk video langsung diputar.
@@ -437,6 +456,7 @@ private fun HomeTab(
     onSwitchMusic: () -> Unit,
     onLogin: () -> Unit,
     onOffline: () -> Unit,
+    scrollToTop: Int = 0,
 ) {
     val yt = LocalYt.current
     val selectedState = remember(feed) { feedChipStates.getOrPut(feed) { androidx.compose.runtime.mutableIntStateOf(0) } }
@@ -447,6 +467,7 @@ private fun HomeTab(
     }
     FeedList(
         feed, open, openChannel, openShorts,
+        scrollToTop = scrollToTop,
         header = {
             Column {
                 YtTopBar(onSearch, onSwitchMusic, onOffline)
