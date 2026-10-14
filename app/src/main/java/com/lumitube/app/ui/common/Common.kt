@@ -88,20 +88,7 @@ class FeedLoader(
     private val first: suspend () -> Page,
     private val more: (suspend (String) -> Page)?,
     private val peek: (() -> Page?)? = null,
-    /** Kunci "mirip" (mis. channel + judul) untuk membuang video kembar dengan ID berbeda. */
-    private val similar: ((Item) -> String?)? = null,
 ) {
-    /** Buang item yang sudah ada (ID sama) atau mirip (kunci [similar] sama). */
-    private fun dedup(list: List<Item>, existing: List<Item> = emptyList()): List<Item> {
-        val keys = existing.map { it.key }.toHashSet()
-        val sims = similar?.let { f -> existing.mapNotNull(f).toHashSet() }
-        return list.filter { item ->
-            if (!keys.add(item.key)) return@filter false
-            val s = similar?.invoke(item)
-            s == null || sims == null || sims.add(s)
-        }
-    }
-
     var page by mutableStateOf<Page?>(null)
         private set
     val items = mutableStateListOf<Item>()
@@ -139,7 +126,7 @@ class FeedLoader(
         if (c != null && System.currentTimeMillis() - c.time < 20 * 60 * 1000L) {
             page = c.page
             items.clear()
-            items.addAll(dedup(c.items))
+            items.addAll(c.items)
             continuation = c.continuation
             return
         }
@@ -153,7 +140,7 @@ class FeedLoader(
                 }
                 if (p != null && page == null && items.isEmpty()) {
                     page = p
-                    items.addAll(dedup(p.items))
+                    items.addAll(p.items)
                     continuation = p.continuation
                 }
                 load()
@@ -180,7 +167,7 @@ class FeedLoader(
                 val p = first()
                 page = p
                 items.clear()
-                items.addAll(dedup(p.items))
+                items.addAll(p.items)
                 continuation = p.continuation
                 store()
             } catch (e: CancellationException) {
@@ -201,7 +188,8 @@ class FeedLoader(
         scope.launch {
             try {
                 val p = m(c)
-                val fresh = dedup(p.items, items.toList())
+                val keys = items.map { it.key }.toHashSet()
+                val fresh = p.items.filter { keys.add(it.key) }
                 items.addAll(fresh)
                 emptyStreak = if (fresh.isEmpty()) emptyStreak + 1 else 0
                 val old = page
@@ -226,7 +214,7 @@ class FeedLoader(
             try {
                 val p = loader()
                 items.clear()
-                items.addAll(dedup(p.items))
+                items.addAll(p.items)
                 continuation = p.continuation
             } catch (e: CancellationException) {
                 throw e
@@ -244,11 +232,10 @@ fun rememberFeed(
     key: Any?,
     more: (suspend (String) -> Page)? = null,
     peek: (() -> Page?)? = null,
-    similar: ((Item) -> String?)? = null,
     first: suspend () -> Page,
 ): FeedLoader {
     val scope = rememberCoroutineScope()
-    return remember(key) { FeedLoader(key, scope, first, more, peek, similar).also { it.loadCachedOrFetch() } }
+    return remember(key) { FeedLoader(key, scope, first, more, peek).also { it.loadCachedOrFetch() } }
 }
 
 /** Panggil loadMore saat daftar hampir mencapai akhir. */
@@ -428,17 +415,4 @@ fun Spacer8() = androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
  */
 object EditScope {
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main + com.lumitube.app.CrashLog.handler)
-}
-
-
-/**
- * Kunci video untuk mendeteksi video kembar di Beranda: channel yang sama + judul yang sama
- * setelah emoji/tanda baca dibuang (mis. siaran ulang yang diunggah dua kali).
- */
-fun similarVideoKey(item: Item): String? {
-    if (item.type != com.lumitube.app.data.ItemType.VIDEO) return null
-    val title = item.title.lowercase().filter { it.isLetterOrDigit() }
-    if (title.length < 6) return null
-    val ch = item.channelId ?: item.channelName ?: item.subtitle.substringBefore(" • ")
-    return "$ch|$title"
 }
