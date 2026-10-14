@@ -196,7 +196,7 @@ fun YouTubeApp(
     val loggedIn = Session.loggedIn
     val home = rememberFeed(
         key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() },
-        similar = com.lumitube.app.ui.common::similarVideoKey,
+        similar = { com.lumitube.app.ui.common.similarVideoKey(it) },
     ) { Repo.ytHome() }
     // Ketuk "Beranda" saat sudah di Beranda = langsung kembali ke paling atas.
     var homeTop by remember { mutableIntStateOf(0) }
