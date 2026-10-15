@@ -379,7 +379,8 @@ private fun ShortPage(
                 duration = duration,
                 buffered = buffered,
                 expanded = true,
-                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+                // Sedikit di atas tepi bawah supaya mudah digeser.
+                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = 14.dp),
                 onScrub = { scrub = it },
                 onSeekStart = { },
             ) { fraction ->

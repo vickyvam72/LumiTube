@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
         }
         val mode = CrossApp.mode
         var showLogin by rememberSaveable { mutableStateOf(false) }
+        // Layar perkenalan (0) dan izin (1) saat pertama kali dipasang; 2 = aplikasi.
+        var onboardStep by rememberSaveable { mutableStateOf(if (com.lumitube.app.ui.common.Onboarding.done) 2 else 0) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }
         var pendingPlay by remember { mutableStateOf<Item?>(null) }
         val dark = mode == "music" || isSystemInDarkTheme()
@@ -118,7 +120,7 @@ class MainActivity : ComponentActivity() {
 
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
         LaunchedEffect(Unit) {
-            if (Build.VERSION.SDK_INT >= 33 &&
+            if (Build.VERSION.SDK_INT >= 33 && com.lumitube.app.ui.common.Onboarding.done &&
                 ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -162,7 +164,20 @@ class MainActivity : ComponentActivity() {
 
         LumiTheme(dark = dark) {
             Box(Modifier.fillMaxSize()) {
-                run {
+                if (onboardStep < 2) {
+                    if (onboardStep == 0) {
+                        com.lumitube.app.ui.common.WelcomeScreen(onConnect = { showLogin = true }, onSkip = { onboardStep = 1 })
+                    } else {
+                        com.lumitube.app.ui.common.PermissionScreen(onDone = {
+                            com.lumitube.app.ui.common.Onboarding.finish()
+                            onboardStep = 2
+                        })
+                    }
+                    if (showLogin) LoginScreen(onClose = {
+                        showLogin = false
+                        if (Session.loggedIn) onboardStep = 1
+                    })
+                } else run {
                     if (mode == "music") {
                         MusicApp(
                             pendingPlay = pendingPlay,

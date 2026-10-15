@@ -301,7 +301,8 @@ fun YtVideoPlayer(
 
                 // Baris bawah
                 Row(
-                    Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(start = 14.dp, end = 4.dp, bottom = 14.dp),
+                    Modifier.fillMaxWidth().align(Alignment.BottomStart)
+                        .padding(start = if (full) 24.dp else 14.dp, end = if (full) 12.dp else 4.dp, bottom = if (full) 44.dp else 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (PlaybackManager.isLiveStream) {
@@ -375,7 +376,10 @@ fun YtVideoPlayer(
             duration = duration,
             buffered = buffered,
             expanded = show,
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+            // Layar penuh: naikkan garis merah dari tepi bawah supaya mudah digeser
+            // (tidak bentrok dengan area gestur navigasi HP).
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                .then(if (full) Modifier.padding(start = 16.dp, end = 16.dp, bottom = 22.dp) else Modifier),
             chapters = PlaybackManager.chapters.map { it.first },
             onScrub = { scrub = it; touch = System.currentTimeMillis() },
             onSeekStart = { touch = System.currentTimeMillis() },
