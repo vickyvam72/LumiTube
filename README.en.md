@@ -14,7 +14,7 @@
 
 **🌐 Bahasa / Language:** &nbsp; [🇮🇩 Bahasa Indonesia](README.md) &nbsp;|&nbsp; **🇬🇧 English**
 
-[⬇️ Download](#-download--install) · [✨ Features](#-features) · [📖 User Guide](#-user-guide) · [❓ FAQ](#-faq--troubleshooting) · [📝 Changelog](CHANGELOG.md)
+[⬇️ Download](#-download--install) · [📸 Screenshots](#-screenshots) · [✨ Features](#-features) · [📖 User Guide](#-user-guide) · [❓ FAQ](#-faq--troubleshooting) · [📝 Changelog](CHANGELOG.md)
 
 </div>
 
@@ -36,6 +36,24 @@
 | 👥 **Watch & Listen Together** | Watch videos or listen to songs **with friends at the same time**, each on their own phone, with just a room code. |
 | 🔁 **Auto-recovery** | Network dropped? Playback resumes and lyrics reload automatically once it's back. |
 | 👤 **Your account, synced** | Sign in with Google to see your subscriptions, playlists, likes, Watch later and history. |
+
+---
+
+## 📸 Screenshots
+
+<div align="center">
+
+| ▶️ YouTube Lumi | 🎵 YT Music Lumi |
+|:-:|:-:|
+| <img src="docs/screenshots/youtube-beranda.jpg" width="250" alt="YouTube Lumi home"> | <img src="docs/screenshots/ytmusic-beranda.jpg" width="250" alt="YT Music Lumi home"> |
+| **A home feed that feels like home.** Recommendations from your account, big thumbnails, category filters and **not a single ad**. | **Your music, ready to play.** Quick picks, moods and "Listen again" just like YT Music, in only **3 MB**. |
+
+| 👥 Watch & Listen Together | 🎤 Lyrics in Picture-in-Picture |
+|:-:|:-:|
+| <img src="docs/screenshots/watch-together.jpg" width="250" alt="Watch Together"> | <img src="docs/screenshots/lirik-pip.jpg" width="250" alt="Floating lyrics on the home screen"> |
+| **Distance is no longer an excuse.** Create a room, share the code, and watch or listen to the same thing **at the same second** from your own phones. | **Lyrics follow you everywhere.** Leave the app and the synced lyrics keep floating on your screen. **Not available in the official app.** |
+
+</div>
 
 ---
 

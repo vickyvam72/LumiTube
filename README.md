@@ -14,7 +14,7 @@
 
 **🌐 Bahasa / Language:** &nbsp; **🇮🇩 Bahasa Indonesia** &nbsp;|&nbsp; [🇬🇧 English](README.en.md)
 
-[⬇️ Unduh](#%EF%B8%8F-unduh--pasang) · [✨ Fitur](#-fitur) · [📖 Panduan](#-panduan-pemakaian) · [❓ FAQ](#-faq--mengatasi-masalah) · [📝 Catatan Perubahan](CHANGELOG.md)
+[⬇️ Unduh](#%EF%B8%8F-unduh--pasang) · [📸 Tampilan](#-tampilan) · [✨ Fitur](#-fitur) · [📖 Panduan](#-panduan-pemakaian) · [❓ FAQ](#-faq--mengatasi-masalah) · [📝 Catatan Perubahan](CHANGELOG.md)
 
 </div>
 
@@ -36,6 +36,24 @@
 | 👥 **Watch & Listen Together** | Nonton video atau dengar lagu **bareng teman secara bersamaan** dari HP masing-masing, cukup dengan kode room. |
 | 🔁 **Pulih otomatis** | Internet putus? Lagu lanjut diputar dan liriknya dimuat ulang begitu koneksi kembali. |
 | 👤 **Akun tersinkron** | Login dengan Google untuk melihat subscription, playlist, suka, Tonton nanti, dan histori. |
+
+---
+
+## 📸 Tampilan
+
+<div align="center">
+
+| ▶️ YouTube Lumi | 🎵 YT Music Lumi |
+|:-:|:-:|
+| <img src="docs/screenshots/youtube-beranda.jpg" width="250" alt="Beranda YouTube Lumi"> | <img src="docs/screenshots/ytmusic-beranda.jpg" width="250" alt="Beranda YT Music Lumi"> |
+| **Beranda yang terasa seperti rumah sendiri.** Rekomendasi dari akunmu, thumbnail besar, filter kategori, dan **tanpa satu pun iklan**. | **Musikmu, langsung siap diputar.** Pilihan cepat, mood, dan "Dengarkan lagi" persis seperti YT Music, cukup **3 MB**. |
+
+| 👥 Watch & Listen Together | 🎤 Lirik di Picture-in-Picture |
+|:-:|:-:|
+| <img src="docs/screenshots/watch-together.jpg" width="250" alt="Watch Together"> | <img src="docs/screenshots/lirik-pip.jpg" width="250" alt="Lirik mengambang di layar utama"> |
+| **Jarak bukan lagi alasan.** Buat room, bagikan kodenya, lalu nonton atau dengar lagu yang sama **di detik yang sama** dari HP masing-masing. | **Lirik ikut ke mana pun kamu pergi.** Keluar dari aplikasi, lirik sinkron tetap mengambang di layar. **Tidak ada di aplikasi resmi.** |
+
+</div>
 
 ---
 
