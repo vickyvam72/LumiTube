@@ -27,6 +27,12 @@ data class Item(
     val setVideoId: String? = null,
     /** Status subscribe channel (hasil pencarian), null bila tidak diketahui. */
     val subscribed: Boolean? = null,
+    /**
+     * Playlist di koleksi: pilihan yang ditawarkan YouTube sendiri di menunya.
+     * true/false = ada/tidak ada; null = menu tidak tersedia.
+     */
+    val canDelete: Boolean? = null,
+    val canRemove: Boolean? = null,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"

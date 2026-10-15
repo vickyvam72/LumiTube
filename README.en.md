@@ -85,7 +85,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - Home feed with pull-to-refresh that keeps your scroll position
 - Subscriptions, **history grouped by day** (All / Videos / Shorts), Liked videos and Watch later
 - The **⋮ menu** on every video: Add to playlist · Download · Share · Listen in YT Music Lumi
-- Create playlists, reorder them by drag and drop, and delete them
+- Create playlists, reorder them by drag and drop, and delete your own (synced with YouTube; auto-generated playlists like Recap cannot be deleted)
 
 **🔴 Live streams**
 - Live badges, a jump-to-live button and **real-time live chat**
@@ -108,7 +108,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - Your playlists, albums and liked songs
 - ⋮ menu on every song: Add to playlist · Download · Share
 - ⋮ menu on playlists and albums (also in search results and in the top-right corner of album/playlist pages): save all their songs to your playlist · Download all · Share
-- Drag-to-reorder, remove songs and delete playlists
+- Drag-to-reorder, remove songs and delete your own playlists (auto-generated ones like Recap cannot be deleted, just like in YT Music)
 - **Download a whole playlist** in one tap
 
 ### 🧩 Shared by both apps

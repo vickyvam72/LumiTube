@@ -231,7 +231,9 @@ object Repo {
     suspend fun ytBrowse(browseId: String, params: String? = null): Page {
         val p = params ?: if (browseId.startsWith("UC")) "EgZ2aWRlb3PyBgQKAjoA" else null
         val r = InnerTube.browse(Client.WEB, browseId, p)
-        val header = Parser.ytHeader(r)
+        val header0 = Parser.ytHeader(r)
+        if (browseId == "FEplaylist_aggregation" || browseId.startsWith("VL")) ensureOwned()
+        val header = header0.copy(editable = browseId.startsWith("VL") && browseId.removePrefix("VL") in ownedPlaylists)
         if (browseId.startsWith("VL")) {
             // Isi playlist ada di playlistVideoListRenderer; sisanya adalah video saran.
             val list = Parser.findFirstPublic(r, "playlistVideoListRenderer")
@@ -604,6 +606,50 @@ object Repo {
         return if (missing.isEmpty()) shown else missing + shown
     }
 
+    private var ownedAt = 0L
+
+    /**
+     * Daftar playlist milik akun langsung dari YouTube (daftar "Simpan ke playlist" hanya berisi
+     * playlist yang bisa diubah pemiliknya). Dipakai untuk menentukan playlist yang boleh dihapus.
+     */
+    suspend fun ensureOwned(force: Boolean = false) {
+        if (!Session.loggedIn) return
+        if (!force && System.currentTimeMillis() - ownedAt < 5 * 60 * 1000L) return
+        try {
+            val r = InnerTube.post(
+                Client.WEB, "playlist/get_add_to_playlist",
+                org.json.JSONObject().put("videoIds", org.json.JSONArray().put("jNQXAC9IVRw")).put("excludeWatchLater", true)
+            )
+            val ids = Parser.findAllPublic(r, "playlistAddToOptionRenderer").mapNotNull { it.str("playlistId") }
+            if (ids.isNotEmpty()) {
+                synchronized(ownedPlaylists) {
+                    ownedPlaylists.clear()
+                    ownedPlaylists.addAll(ids)
+                }
+                ownedAt = System.currentTimeMillis()
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
+    }
+
+    /** Apakah playlist ini masih ada di daftar playlist koleksi YouTube / YT Music (tanpa saringan lokal). */
+    suspend fun inLibrary(playlistId: String, music: Boolean): Boolean {
+        val pid = playlistId.removePrefix("VL")
+        val items = if (music) {
+            val r = InnerTube.browse(Client.MUSIC, "FEmusic_liked_playlists", null)
+            Parser.musicShelves(r).flatMap { it.items } + Parser.items(r, true)
+        } else {
+            Parser.items(InnerTube.browse(Client.WEB, "FEplaylist_aggregation", null), false)
+        }
+        return items.any { (it.playlistId ?: it.id.removePrefix("VL")) == pid }
+    }
+
+    /** Batalkan saringan "sudah dihapus" (YouTube ternyata tidak menghapusnya). */
+    fun unforgetPlaylist(playlistId: String) {
+        recentDeleted.remove(playlistId.removePrefix("VL"))
+    }
+
     private fun forgetPlaylist(playlistId: String) {
         val pid = playlistId.removePrefix("VL")
         recentDeleted.add(pid)
@@ -677,13 +723,14 @@ object Repo {
 
     suspend fun musicBrowse(browseId: String, params: String? = null): Page {
         val r = InnerTube.browse(Client.MUSIC, browseId, params)
+        if (browseId == "FEmusic_liked_playlists" || browseId.startsWith("VL")) ensureOwned()
         if (browseId == "FEmusic_home" && params == null) saveRaw("music_home_${Session.loggedIn}", r)
         val header = Parser.musicHeader(r)
         var shelves = Parser.musicShelves(r)
         if (browseId == "FEmusic_liked_playlists" && shelves.isNotEmpty()) {
             shelves = listOf(shelves[0].copy(items = withRecentPlaylists(shelves[0].items))) + shelves.drop(1)
             // Playlist buatan akun ("Nama akun • 19 lagu") dicatat sebagai milik sendiri.
-            Session.account?.name?.takeIf { it.isNotBlank() }?.let { me ->
+            if (ownedAt == 0L) Session.account?.name?.takeIf { it.isNotBlank() }?.let { me ->
                 shelves.flatMap { it.items }.filter { it.type == ItemType.PLAYLIST && it.subtitle.startsWith(me) }
                     .forEach { ownedPlaylists.add(it.playlistId ?: it.id.removePrefix("VL")) }
             }

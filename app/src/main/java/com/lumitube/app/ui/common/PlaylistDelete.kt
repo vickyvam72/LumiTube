@@ -26,14 +26,21 @@ class PlaylistDeleter(
     val deleted: SnapshotStateList<String>,
     private val ask: (Item) -> Unit,
 ) {
-    /** Semua playlist di koleksi, kecuali "Video/Lagu yang disukai", "Tonton nanti", dan Episode. */
+    private fun pid(item: Item) = item.playlistId ?: item.id.removePrefix("VL")
+
+    /**
+     * Sama seperti aplikasi asli: hanya playlist milik akun yang bisa dihapus, dan hanya playlist
+     * simpanan yang ditawarkan YouTube untuk dikeluarkan dari koleksi. Playlist buatan otomatis
+     * (Recap, "Dibuat untuk…", Musik yang Disukai, Tonton nanti) tidak bisa dihapus.
+     */
     fun canDelete(item: Item): Boolean {
         if (!Session.loggedIn || item.type != ItemType.PLAYLIST) return false
-        return item.id.removePrefix("VL") !in setOf("LL", "LM", "WL", "SE")
+        if (pid(item) in setOf("LL", "LM", "WL", "SE")) return false
+        return isOwnLike(item) || item.canRemove == true
     }
 
-    /** Playlist buatan akun (ID "PL…"); lainnya (Recap, mix, playlist orang lain) hanya bisa dikeluarkan dari koleksi. */
-    fun isOwnLike(item: Item) = item.id.removePrefix("VL").startsWith("PL")
+    /** Playlist milik akun (dari daftar playlist yang bisa diubah di akun YouTube). */
+    fun isOwnLike(item: Item) = pid(item) in Repo.ownedPlaylists || item.canDelete == true
 
     fun menu(item: Item): List<Pair<String, () -> Unit>>? =
         if (canDelete(item)) listOf((if (isOwnLike(item)) "Hapus playlist" else "Hapus dari koleksi") to { ask(item) }) else null
@@ -64,17 +71,23 @@ fun rememberPlaylistDeleter(): PlaylistDeleter {
                     EditScope.scope.launch {
                         val msg = try {
                             if (own) {
-                                try {
-                                    Repo.deletePlaylist(item.id)
-                                    "Playlist dihapus"
-                                } catch (e: Exception) {
-                                    // Playlist orang lain yang disimpan: keluarkan dari koleksi saja.
-                                    Repo.removePlaylistFromLibrary(item.id)
-                                    "Dihapus dari koleksi"
-                                }
+                                Repo.deletePlaylist(item.id)
+                                "Playlist dihapus"
                             } else {
                                 Repo.removePlaylistFromLibrary(item.id)
-                                "Dihapus dari koleksi"
+                                // Pastikan YouTube benar-benar mengeluarkannya (sinkron dengan aplikasi asli).
+                                kotlinx.coroutines.delay(1500)
+                                val still = try {
+                                    Repo.inLibrary(item.id, com.lumitube.app.CrossApp.isMusic)
+                                } catch (e: Exception) {
+                                    if (e is kotlinx.coroutines.CancellationException) throw e
+                                    false
+                                }
+                                if (still) {
+                                    Repo.unforgetPlaylist(item.id)
+                                    deleted.remove(item.id)
+                                    "Playlist ini dibuat otomatis oleh YouTube dan tidak bisa dihapus"
+                                } else "Dihapus dari koleksi"
                             }
                         } catch (e: Exception) {
                             deleted.remove(item.id)

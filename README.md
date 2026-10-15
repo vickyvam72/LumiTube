@@ -85,7 +85,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Beranda dengan tarik-untuk-refresh, posisi scroll tetap diingat
 - Subscription, **histori per hari** (Semua / Video / Shorts), Video yang disukai, dan Tonton nanti
 - **Menu ⋮** di setiap video: Tambahkan ke playlist · Download · Bagikan · Dengarkan di YT Music Lumi
-- Buat playlist, atur urutannya dengan seret dan lepas, dan hapus playlist
+- Buat playlist, atur urutannya dengan seret dan lepas, dan hapus playlist milikmu (sinkron dengan YouTube asli; playlist otomatis seperti Recap tidak bisa dihapus)
 
 **🔴 Siaran langsung**
 - Tanda live, tombol lompat ke bagian live, dan **live chat real-time**
@@ -108,7 +108,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Playlist, album, dan lagu yang kamu sukai
 - Menu ⋮ di setiap lagu: Tambahkan ke playlist · Download · Bagikan
 - Menu ⋮ di playlist dan album (juga di hasil pencarian dan di pojok kanan atas halaman album/playlist): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
-- Atur urutan dengan seret, hapus lagu, dan hapus playlist
+- Atur urutan dengan seret, hapus lagu, dan hapus playlist milikmu (playlist otomatis seperti Recap tidak bisa dihapus, sama seperti YT Music asli)
 - **Download satu playlist penuh** sekali tekan
 
 ### 🧩 Ada di kedua aplikasi

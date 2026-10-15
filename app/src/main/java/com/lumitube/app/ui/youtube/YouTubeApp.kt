@@ -760,7 +760,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             ?.groupValues?.get(1)?.replace(Regex("[.,]"), "")?.toIntOrNull()
     } else null
     // Playlist milik akun: bisa dihapus, dan isinya bisa dihapus satu per satu.
-    val editable = id.startsWith("VL") && id != "VLLL" && Session.loggedIn
+    // Hanya playlist milik akun (dan Tonton nanti) yang bisa dihapus / diubah isinya, sama seperti YouTube asli.
+    val editable = id.startsWith("VL") && id != "VLLL" && Session.loggedIn && (id == "VLWL" || page?.editable == true)
     val removed = remember(id) { androidx.compose.runtime.mutableStateListOf<String>() }
     var confirmDelete by remember { mutableStateOf(false) }
     val ctx = LocalContext.current

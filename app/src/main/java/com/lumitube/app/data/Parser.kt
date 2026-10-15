@@ -36,6 +36,10 @@ object Parser {
                 else -> return@walk false
             }
             if (item != null && seen.add(item.key)) {
+                if (item.type == ItemType.PLAYLIST) {
+                    out.add(withLibraryActions(item, v))
+                    return@walk true
+                }
                 // ID unik item di dalam playlist (untuk mengubah urutan / menghapus).
                 val sv = if (item.type == ItemType.VIDEO || item.type == ItemType.SONG) setVideoIdOf(v) else null
                 out.add(if (sv != null) item.copy(setVideoId = sv) else item)
@@ -43,6 +47,25 @@ object Parser {
             true
         }
         return out
+    }
+
+    private val deleteKey = Regex("\"\\w*[dD]elete\\w*(Endpoint|Command)\"")
+
+    /**
+     * Baca pilihan menu playlist dari YouTube: "Hapus playlist" (endpoint hapus) dan
+     * "Hapus dari koleksi" (likeEndpoint INDIFFERENT). Playlist buatan otomatis (Recap,
+     * "Dibuat untuk…") tidak punya keduanya, sama seperti di aplikasi asli.
+     */
+    private fun withLibraryActions(item: Item, v: JSONObject): Item {
+        val menu = v.opt("menu") ?: findFirst(v, "menuRenderer") ?: findFirst(v, "showSheetCommand")
+            ?: findFirst(v, "menuButton") ?: return item
+        val s = menu.toString()
+        var remove = false
+        walk(menu) { k, o ->
+            if (k == "likeEndpoint" && o.str("status") == "INDIFFERENT") remove = true
+            remove
+        }
+        return item.copy(canDelete = deleteKey.containsMatchIn(s), canRemove = remove || s.contains("removelike", true))
     }
 
     private fun setVideoIdOf(v: JSONObject): String? {
