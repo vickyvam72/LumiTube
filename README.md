@@ -141,7 +141,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 ## 📖 Panduan Pemakaian
 
 ### 0️⃣ Pertama kali dibuka
-Saat pertama dipasang, LumiTube menampilkan dua layar singkat:
+Saat pertama dipasang, LumiTube menampilkan dua layar singkat, masing-masing pas dalam satu layar tanpa perlu scroll:
 1. **Perkenalan**: pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
 2. **Satu langkah lagi**: aktifkan **notifikasi** dan **izin berjalan di latar belakang** (wajib). Ada juga dua pilihan opsional: **Mulai otomatis** untuk HP Xiaomi, Oppo, Vivo, Realme, dan Infinix, serta **atur link** supaya link YouTube terbuka di Lumi.
 

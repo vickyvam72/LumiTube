@@ -143,7 +143,7 @@ Both apps can be installed side by side and work independently. You can also sen
 > 🗣️ The app interface is in **Indonesian**. Button names are written below exactly as they appear in the app, with an English translation in brackets.
 
 ### 0️⃣ First launch
-On first launch LumiTube shows two short screens:
+On first launch LumiTube shows two short screens, each fitting on a single screen without scrolling:
 1. **Welcome**: tap **Hubungkan akun Google** (Connect Google account) to sign in, or **Lewati** (Skip) for now.
 2. **Satu langkah lagi** (One more step): allow **notifications** and **background running** (required). There are also two optional extras: **Autostart** for Xiaomi, Oppo, Vivo, Realme and Infinix phones, and **link setup** so YouTube links open in Lumi.
 

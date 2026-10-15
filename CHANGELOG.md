@@ -22,7 +22,7 @@
 - **Watch Together** (YouTube Lumi) dan **Listen Together** (YT Music Lumi): nonton atau dengar bareng teman secara bersamaan dengan kode room. Tombolnya ada di bilah atas Beranda, sebelah tombol download
 - Pencarian yang kamu ketik kini tersimpan di histori pencarian akun, jadi juga muncul di aplikasi YouTube dan YouTube Music asli
 - Ketuk Beranda saat sudah di Beranda untuk langsung kembali ke paling atas
-- Layar perkenalan dan izin saat pertama kali dipasang: hubungkan akun Google atau lewati, lalu aktifkan notifikasi, izin latar belakang, Mulai otomatis (Xiaomi, Oppo, Vivo, Realme, Infinix), dan pengaturan link
+- Layar perkenalan dan izin saat pertama kali dipasang, masing-masing pas dalam satu layar tanpa scroll: hubungkan akun Google atau lewati, lalu aktifkan notifikasi, izin latar belakang, Mulai otomatis (Xiaomi, Oppo, Vivo, Realme, Infinix), dan pengaturan link
 - Garis merah untuk menggeser video lebih mudah diraih di layar penuh dan di Shorts
 - Buka aplikasi jauh lebih cepat: versi klien disimpan, beranda disimpan di HP, beberapa klien dicoba bersamaan saat pertama dibuka
 - Streaming lebih lancar: download bertahap, ukuran potongan adaptif, lompat ke keyframe, buffer lebih besar
@@ -61,7 +61,7 @@
 - **Watch Together** (YouTube Lumi) and **Listen Together** (YT Music Lumi): watch or listen with friends in sync using a room code. The button is in the Home top bar, next to the download button
 - Searches you type are now saved to your account's search history, so they also appear in the official YouTube and YouTube Music apps
 - Tap Home while already on Home to jump straight back to the top
-- Welcome and permission screens on first launch: connect a Google account or skip, then allow notifications, background running, Autostart (Xiaomi, Oppo, Vivo, Realme, Infinix) and link setup
+- Welcome and permission screens on first launch, each fitting on a single screen without scrolling: connect a Google account or skip, then allow notifications, background running, Autostart (Xiaomi, Oppo, Vivo, Realme, Infinix) and link setup
 - The red seek bar is easier to reach in full screen and in Shorts
 - Much faster startup: cached client version, disk-cached home feed, parallel clients on cold start
 - Smoother streaming: chunked downloads, adaptive chunk size, keyframe seeking, a larger buffer
