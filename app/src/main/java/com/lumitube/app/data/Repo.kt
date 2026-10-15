@@ -453,6 +453,8 @@ object Repo {
         }
         return Parser.findAllPublic(r, "playlistAddToOptionRenderer").mapNotNull { o ->
             val id = o.str("playlistId") ?: return@mapNotNull null
+            if (id in recentDeleted) return@mapNotNull null
+            ownedPlaylists.add(id)
             val match = lib.firstOrNull { m -> m.id == "VL$id" || m.playlistId == id || m.id == id }
             PlaylistOption(
                 id = id,
@@ -563,11 +565,13 @@ object Repo {
         val pid = playlistId.removePrefix("VL")
         val client = if (com.lumitube.app.CrossApp.isMusic) Client.MUSIC else Client.WEB
         InnerTube.post(client, "like/removelike", org.json.JSONObject().put("target", org.json.JSONObject().put("playlistId", pid)))
+        forgetPlaylist(pid)
     }
 
     /** Hapus playlist milik akun. [playlistId] tanpa awalan "VL". */
     suspend fun deletePlaylist(playlistId: String) {
         InnerTube.post(Client.WEB, "playlist/delete", org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")))
+        forgetPlaylist(playlistId)
     }
 
     /**
@@ -577,14 +581,34 @@ object Repo {
      */
     private val recentCreated = java.util.Collections.synchronizedList(mutableListOf<Pair<Long, Item>>())
 
+    /**
+     * Playlist yang baru dihapus / dikeluarkan dari koleksi. Server YouTube kadang masih
+     * mengembalikannya beberapa saat, jadi disaring sendiri supaya langsung hilang.
+     */
+    private val recentDeleted = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /** Playlist milik akun yang sudah diketahui (dari daftar "Simpan ke playlist" & playlist buatan aplikasi). */
+    val ownedPlaylists: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private fun withRecentPlaylists(items: List<Item>): List<Item> {
         val now = System.currentTimeMillis()
+        fun pid(i: Item) = i.playlistId ?: i.id.removePrefix("VL")
+        val shown = items.filter { pid(it) !in recentDeleted }
         val fresh = synchronized(recentCreated) {
             recentCreated.removeAll { now - it.first > 15 * 60 * 1000L }
+            // Sudah muncul di daftar dari server: tidak perlu disisipkan lagi.
+            recentCreated.removeAll { r -> shown.any { pid(it) == pid(r.second) } }
             recentCreated.map { it.second }
         }
-        val missing = fresh.filter { r -> items.none { it.id == r.id || it.playlistId == r.playlistId } }
-        return if (missing.isEmpty()) items else missing + items
+        val missing = fresh.filter { pid(it) !in recentDeleted }
+        return if (missing.isEmpty()) shown else missing + shown
+    }
+
+    private fun forgetPlaylist(playlistId: String) {
+        val pid = playlistId.removePrefix("VL")
+        recentDeleted.add(pid)
+        ownedPlaylists.remove(pid)
+        synchronized(recentCreated) { recentCreated.removeAll { (it.second.playlistId ?: it.second.id.removePrefix("VL")) == pid } }
     }
 
     /** Buat playlist baru langsung berisi video ini. privacy: PRIVATE / UNLISTED / PUBLIC. */
@@ -600,6 +624,8 @@ object Repo {
         )
         val pid = r.str("playlistId")
         if (pid != null) {
+            ownedPlaylists.add(pid)
+            recentDeleted.remove(pid)
             val label = when (privacy) { "PUBLIC" -> "Publik"; "UNLISTED" -> "Tidak publik"; else -> "Pribadi" }
             recentCreated.add(
                 System.currentTimeMillis() to Item(
@@ -656,8 +682,16 @@ object Repo {
         var shelves = Parser.musicShelves(r)
         if (browseId == "FEmusic_liked_playlists" && shelves.isNotEmpty()) {
             shelves = listOf(shelves[0].copy(items = withRecentPlaylists(shelves[0].items))) + shelves.drop(1)
+            // Playlist buatan akun ("Nama akun • 19 lagu") dicatat sebagai milik sendiri.
+            Session.account?.name?.takeIf { it.isNotBlank() }?.let { me ->
+                shelves.flatMap { it.items }.filter { it.type == ItemType.PLAYLIST && it.subtitle.startsWith(me) }
+                    .forEach { ownedPlaylists.add(it.playlistId ?: it.id.removePrefix("VL")) }
+            }
         }
+        val pid = browseId.removePrefix("VL")
         return header.copy(
+            editable = browseId.startsWith("VL") && pid !in setOf("LM", "SE") &&
+                (Parser.findFirstPublic(r, "musicEditablePlaylistDetailHeaderRenderer") != null || pid in ownedPlaylists),
             chips = Parser.musicChips(r),
             shelves = shelves,
             continuation = Parser.continuation(r),

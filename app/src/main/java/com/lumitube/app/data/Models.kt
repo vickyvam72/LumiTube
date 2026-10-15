@@ -59,6 +59,8 @@ data class Page(
     val continuation: String? = null,
     /** Video saran di bawah playlist (bukan isi playlist). */
     val suggestions: List<Item> = emptyList(),
+    /** Playlist milik akun (bisa dihapus / diubah isinya). */
+    val editable: Boolean = false,
 )
 
 data class Account(val name: String, val handle: String?, val photo: String?)

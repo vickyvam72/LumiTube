@@ -109,6 +109,17 @@ class FeedLoader(
         private val cache = HashMap<Any, Cached>()
         fun clear() = cache.clear()
 
+        /** Daftar playlist/koleksi yang dimuat ulang otomatis saat playlist dibuat, diubah, atau dihapus. */
+        val libraryKeys = setOf("FEmusic_liked_playlists", "FEmusic_liked_albums", "FEplaylist_aggregation")
+        var libraryVersion by androidx.compose.runtime.mutableIntStateOf(0)
+            private set
+
+        /** Playlist berubah: buang cache dan muat ulang daftar playlist yang sedang tampil. */
+        fun libraryChanged() {
+            cache.clear()
+            libraryVersion++
+        }
+
         /** Buang cache satu halaman (setelah playlist diubah) supaya dibuka ulang dari server. */
         fun invalidate(key: Any?) {
             if (key != null) cache.remove(key)
@@ -235,7 +246,18 @@ fun rememberFeed(
     first: suspend () -> Page,
 ): FeedLoader {
     val scope = rememberCoroutineScope()
-    return remember(key) { FeedLoader(key, scope, first, more, peek).also { it.loadCachedOrFetch() } }
+    val feed = remember(key) { FeedLoader(key, scope, first, more, peek).also { it.loadCachedOrFetch() } }
+    if (key in FeedLoader.libraryKeys) {
+        val v = FeedLoader.libraryVersion
+        val seen = remember(feed) { intArrayOf(v) }
+        LaunchedEffect(feed, v) {
+            if (v != seen[0]) {
+                seen[0] = v
+                feed.load()
+            }
+        }
+    }
+    return feed
 }
 
 /** Panggil loadMore saat daftar hampir mencapai akhir. */

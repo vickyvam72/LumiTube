@@ -107,7 +107,7 @@ Both apps can be installed side by side and work independently. You can also sen
 **📂 Library**
 - Your playlists, albums and liked songs
 - ⋮ menu on every song: Add to playlist · Download · Share
-- ⋮ menu on playlists and albums (also in search results): save all their songs to your playlist · Download all · Share
+- ⋮ menu on playlists and albums (also in search results and in the top-right corner of album/playlist pages): save all their songs to your playlist · Download all · Share
 - Drag-to-reorder, remove songs and delete playlists
 - **Download a whole playlist** in one tap
 

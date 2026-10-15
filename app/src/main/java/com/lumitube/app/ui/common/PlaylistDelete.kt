@@ -80,7 +80,7 @@ fun rememberPlaylistDeleter(): PlaylistDeleter {
                             deleted.remove(item.id)
                             "Gagal menghapus: ${e.message ?: e}"
                         }
-                        FeedLoader.clear()
+                        FeedLoader.libraryChanged()
                         Toast.makeText(app, msg, Toast.LENGTH_SHORT).show()
                     }
                 }) { Text("Hapus") }

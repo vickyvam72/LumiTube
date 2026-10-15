@@ -107,7 +107,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 **📂 Koleksi**
 - Playlist, album, dan lagu yang kamu sukai
 - Menu ⋮ di setiap lagu: Tambahkan ke playlist · Download · Bagikan
-- Menu ⋮ di playlist dan album (juga di hasil pencarian): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
+- Menu ⋮ di playlist dan album (juga di hasil pencarian dan di pojok kanan atas halaman album/playlist): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
 - Atur urutan dengan seret, hapus lagu, dan hapus playlist
 - **Download satu playlist penuh** sekali tekan
 

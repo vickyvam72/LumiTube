@@ -106,6 +106,7 @@ fun AddToPlaylistSheet(
             try {
                 if (many) Repo.addVideosToPlaylist(o.id, ids) else Repo.setInPlaylist(o.id, videoId, target)
                 FeedLoader.invalidate("VL${o.id}")
+                FeedLoader.libraryChanged()
                 Toast.makeText(
                     appCtx,
                     if (target) "Disimpan ke ${o.title}" else "Dihapus dari ${o.title}",
@@ -240,7 +241,7 @@ Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).
                         try {
                             Repo.createPlaylist(title, privacy, ids)
                             // Daftar Playlist / Koleksi dimuat ulang supaya playlist baru langsung tampil.
-                            FeedLoader.clear()
+                            FeedLoader.libraryChanged()
                             Toast.makeText(appCtx, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()
                             onClose()
                         } catch (_: Exception) {

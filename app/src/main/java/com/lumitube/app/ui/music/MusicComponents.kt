@@ -223,6 +223,8 @@ fun SongRow(
     index: Int? = null,
     fallbackThumb: String? = null,
     menu: List<Pair<String, () -> Unit>>? = null,
+    /** false = playlist/album tanpa "Tambahkan ke playlist" (sudah ada di Koleksi). */
+    addToPlaylist: Boolean = true,
     onClick: () -> Unit,
 ) {
     val playing = PlaybackManager.current?.id == item.id
@@ -247,7 +249,9 @@ fun SongRow(
                 Text(item.subtitle, color = MusicColors.sub, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        val actions = SongActions.menuFor(item) + (menu ?: emptyList())
+        val actions = SongActions.menuFor(item).filter {
+            addToPlaylist || item.type == ItemType.SONG || item.type == ItemType.VIDEO || it.first != "Tambahkan ke playlist"
+        } + (menu ?: emptyList())
         if (actions.isNotEmpty()) {
             com.lumitube.app.ui.common.ItemMenu(actions, MusicColors.sub)
         } else {

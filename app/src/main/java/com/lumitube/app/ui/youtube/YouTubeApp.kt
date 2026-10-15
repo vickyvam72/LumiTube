@@ -918,7 +918,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         editScope.launch {
                             try {
                                 Repo.deletePlaylist(id)
-                                com.lumitube.app.ui.common.FeedLoader.clear()
+                                com.lumitube.app.ui.common.FeedLoader.libraryChanged()
                                 android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
                                 onBack()
                             } catch (_: Exception) {

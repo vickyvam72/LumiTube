@@ -479,6 +479,8 @@ private fun ShelfList(
     header: @Composable () -> Unit = {},
     deleter: com.lumitube.app.ui.common.PlaylistDeleter? = null,
     search: Boolean = false,
+    /** Daftar Koleksi: playlist/album di sini sudah tersimpan, jadi tanpa "Tambahkan ke playlist". */
+    library: Boolean = false,
 ) {
     val shelves = feed.page?.shelves ?: emptyList()
     val state = rememberLazyListState()
@@ -515,11 +517,11 @@ private fun ShelfList(
                 }
             }
             items(shelf.items.filter { deleter == null || it.id !in deleter.deleted }, key = { "s$si" + it.key }) { item ->
-                SongRow(item, menu = deleter?.menu(item)) { onItem(item, shelf.items) }
+                SongRow(item, menu = deleter?.menu(item), addToPlaylist = !library) { onItem(item, shelf.items) }
             }
         }
         items(feed.items.filter { deleter == null || it.id !in deleter.deleted }, key = { "x" + it.key }) { item ->
-            SongRow(item, menu = deleter?.menu(item)) { onItem(item, feed.items) }
+            SongRow(item, menu = deleter?.menu(item), addToPlaylist = !library) { onItem(item, feed.items) }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -561,7 +563,7 @@ private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Uni
         else -> {
             val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
             val deleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
-            ShelfList(feed, onItem, chips, deleter = if (browseId == "FEmusic_liked_playlists") deleter else null)
+            ShelfList(feed, onItem, chips, deleter = if (browseId == "FEmusic_liked_playlists") deleter else null, library = true)
         }
     }
 }
@@ -593,7 +595,7 @@ private fun MusicBrowseScreen(
     val isArtist = route.id.startsWith("UC") || route.id.startsWith("MPAD")
     val isAlbum = route.id.startsWith("MPRE")
     // Playlist milik akun: bisa dihapus dan lagunya dihapus satu per satu.
-    val editable = route.id.startsWith("VL") && route.id != "VLLM" && Session.loggedIn
+    val editable = route.id.startsWith("VL") && route.id != "VLLM" && Session.loggedIn && page?.editable == true
     val removed = remember(route.id) { androidx.compose.runtime.mutableStateListOf<String>() }
     var confirmDelete by remember { mutableStateOf(false) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -670,7 +672,17 @@ private fun MusicBrowseScreen(
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
             Spacer(Modifier.weight(1f))
-            if (editable) com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), Color.White)
+            if (editable) {
+                com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), Color.White)
+            } else if (page != null && !isArtist && (isAlbum || route.id.startsWith("VL"))) {
+                // Playlist orang lain / album: simpan seluruh isinya ke playlist sendiri, download, atau bagikan.
+                val self = Item(
+                    type = if (isAlbum) ItemType.ALBUM else ItemType.PLAYLIST, id = route.id,
+                    title = page.title ?: route.title ?: "", thumbnail = page.thumbnail,
+                    playlistId = allSongs.firstOrNull { isAlbum }?.playlistId,
+                )
+                com.lumitube.app.ui.common.ItemMenu(SongActions.menuFor(self), Color.White)
+            }
         }
         if (confirmDelete) {
             androidx.compose.material3.AlertDialog(
@@ -683,7 +695,7 @@ private fun MusicBrowseScreen(
                         editScope.launch {
                             try {
                                 Repo.deletePlaylist(route.id)
-                                com.lumitube.app.ui.common.FeedLoader.clear()
+                                com.lumitube.app.ui.common.FeedLoader.libraryChanged()
                                 android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
                                 onBack()
                             } catch (_: Exception) {
