@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -96,6 +97,35 @@ private fun Screen(content: @Composable () -> Unit) {
         Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(BgTop, BgBottom)))
             .statusBarsPadding().navigationBarsPadding(),
     ) { content() }
+}
+
+/**
+ * Selalu muat dalam satu layar tanpa scroll: kalau isi lebih tinggi dari layar (mis. ukuran
+ * huruf HP dibesarkan), seluruh isi diperkecil secara proporsional sampai pas.
+ */
+@Composable
+private fun FitToScreen(content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.SubcomposeLayout(Modifier.fillMaxSize()) { c ->
+        val loose = c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+        val probe = subcompose("probe", content).map { it.measure(loose) }
+        val h = probe.maxOfOrNull { it.height } ?: 0
+        val avail = c.maxHeight
+        if (h <= avail) {
+            val real = subcompose("fit", content).map { it.measure(c.copy(minHeight = avail, maxHeight = avail)) }
+            layout(c.maxWidth, avail) { real.forEach { it.place(0, 0) } }
+        } else {
+            val scale = avail.toFloat() / h
+            val scaled = subcompose("scaled") {
+                Box(
+                    Modifier.graphicsLayer {
+                        scaleX = scale; scaleY = scale
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                    },
+                ) { content() }
+            }.map { it.measure(loose) }
+            layout(c.maxWidth, avail) { scaled.forEach { it.place(0, 0) } }
+        }
+    }
 }
 
 @Composable
@@ -147,12 +177,14 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
         Triple(Icons.Filled.Groups, "Watch Together", "Nonton video yang sama bareng teman secara bersamaan dengan kode room."),
         Triple(Icons.Filled.DownloadForOffline, "Download offline", "Simpan video atau satu playlist penuh untuk ditonton tanpa internet."),
     )
-    Screen {
+    Screen { FitToScreen {
         Column(
             Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Spacer(Modifier.height(28.dp))
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(20.dp))
             AppIcon(96)
             Spacer(Modifier.height(18.dp))
             Text(appName, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium)
@@ -175,7 +207,9 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
                     }
                 }
             }
-            Spacer(Modifier.weight(1f))
+          }
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(20.dp))
             if (Session.loggedIn) {
                 PrimaryButton("Lanjut", onClick = onSkip)
                 Spacer(Modifier.height(10.dp))
@@ -195,8 +229,9 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(8.dp))
+          }
         }
-    }
+    } }
 }
 
 // ---------------------------------------------------------------- 2. Izin
@@ -328,21 +363,21 @@ fun PermissionScreen(onDone: () -> Unit) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
     val music = CrossApp.isMusic
 
-    Screen {
+    Screen { FitToScreen {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Spacer(Modifier.height(4.dp))
-            AppIcon(48)
+          Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            AppIcon(44)
             Text("Satu langkah lagi", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Medium)
             Text(
-                "Supaya ${if (music) "musik" else "video"} tetap jalan saat layar mati dan kontrol pemutaran muncul di notifikasi, dua izin pertama wajib diaktifkan. Dua lainnya opsional.",
+                "Dua izin pertama wajib supaya ${if (music) "musik" else "video"} tetap jalan saat layar mati. Dua lainnya opsional.",
                 color = Sub, fontSize = 13.5.sp, lineHeight = 19.sp,
             )
             PermCard(
                 Icons.Filled.Notifications, "Izinkan notifikasi",
-                "Untuk kontrol putar/jeda di layar kunci dan progres download.",
+                "Kontrol putar/jeda di layar kunci dan progres download.",
                 granted = notif, action = "Izinkan",
             ) {
                 if (Build.VERSION.SDK_INT >= 33) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -350,29 +385,32 @@ fun PermissionScreen(onDone: () -> Unit) {
             }
             PermCard(
                 Icons.Filled.BatteryChargingFull, "Izinkan berjalan di latar belakang",
-                "Mengecualikan $appName dari penghemat baterai agar pemutaran tidak terhenti.",
+                "Dikecualikan dari penghemat baterai agar tidak terhenti.",
                 granted = battery, action = "Izinkan",
             ) { requestBattery(ctx) }
             PermCard(
-                Icons.Filled.PlayCircle, "Pengguna Xiaomi, Oppo, Vivo, Realme & Infinix",
-                "Opsional: aktifkan \"Mulai otomatis\" karena HP merek ini sering menutup aplikasi di latar belakang.",
+                Icons.Filled.PlayCircle, "Xiaomi, Oppo, Vivo, Realme & Infinix",
+                "Opsional: aktifkan \"Mulai otomatis\" agar tidak ditutup sistem.",
                 granted = false, action = "Buka", optional = true,
             ) { openAutostart(ctx) }
             PermCard(
                 Icons.Filled.Link, if (music) "Buka link YouTube Music di sini" else "Buka link YouTube di sini",
-                "Opsional: link ${if (music) "music.youtube.com" else "YouTube"} yang dibuka atau dibagikan langsung diputar di $appName, bukan di aplikasi asli.",
+                "Opsional: link ${if (music) "YouTube Music" else "YouTube"} langsung terbuka di $appName.",
                 granted = false, action = if (linksDone) "Ulangi" else "Atur", optional = true,
             ) {
                 CrossApp.setLinksEnabled(ctx, true)
                 linksDone = true
                 CrossApp.startLinkSetup(ctx)
             }
-            Spacer(Modifier.height(2.dp))
+          }
+          Column {
+            Spacer(Modifier.height(12.dp))
             PrimaryButton(
                 if (notif && battery) "Mulai pakai $appName" else "Aktifkan kedua izin dulu",
                 enabled = notif && battery,
                 onClick = onDone,
             )
+          }
         }
-    }
+    } }
 }
