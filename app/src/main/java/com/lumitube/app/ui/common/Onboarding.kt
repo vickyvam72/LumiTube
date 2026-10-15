@@ -272,43 +272,41 @@ private fun PermCard(
 ) {
     val border = when {
         granted -> Good.copy(alpha = 0.55f)
-        optional -> Amber.copy(alpha = 0.5f)
+        optional -> Amber.copy(alpha = 0.45f)
         else -> CardBorder
     }
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardBg)
-            .border(1.dp, border, RoundedCornerShape(20.dp)).padding(14.dp),
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardBg)
+            .border(1.dp, border, RoundedCornerShape(18.dp))
+            .clickable(enabled = !granted || optional, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
-                    .background(if (granted) Good.copy(alpha = 0.15f) else Color(0xFF22263A)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (granted) Icons.Filled.CheckCircle else icon, null,
-                    tint = if (granted) Good else if (optional) Amber else Color(0xFFFF6B63),
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            Column(Modifier.padding(start = 12.dp)) {
-                Text(title, color = if (optional) Amber else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium, lineHeight = 19.sp)
-                Text(desc, color = Sub, fontSize = 12.5.sp, lineHeight = 16.5.sp)
-            }
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                .background(if (granted) Good.copy(alpha = 0.15f) else Color(0xFF22263A)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (granted && !optional) Icons.Filled.CheckCircle else icon, null,
+                tint = if (granted && !optional) Good else if (optional) Amber else Color(0xFFFF6B63),
+                modifier = Modifier.size(22.dp),
+            )
         }
-        Spacer(Modifier.height(10.dp))
-        if (granted && !optional) {
-            Text("✓ Sudah diizinkan", color = Good, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
-        } else {
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(title, color = if (optional) Amber else Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, lineHeight = 18.sp)
+            Text(desc, color = Sub, fontSize = 12.sp, lineHeight = 15.5.sp)
+            if (granted && !optional) Text("✓ Sudah diizinkan", color = Good, fontSize = 12.5.sp, modifier = Modifier.padding(top = 3.dp))
+        }
+        if (!granted || optional) {
             Box(
-                Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp))
+                Modifier.clip(RoundedCornerShape(16.dp))
                     .then(
-                        if (optional) Modifier.border(1.dp, Amber.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
+                        if (optional) Modifier.border(1.dp, Amber.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
                         else Modifier.background(Accent)
                     )
-                    .clickable(onClick = onClick),
-                contentAlignment = Alignment.Center,
-            ) { Text(action, color = if (optional) Amber else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) { Text(action, color = if (optional) Amber else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
         }
     }
 }
@@ -335,7 +333,8 @@ fun PermissionScreen(onDone: () -> Unit) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            AppIcon(52)
+            Spacer(Modifier.height(4.dp))
+            AppIcon(48)
             Text("Satu langkah lagi", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Medium)
             Text(
                 "Supaya ${if (music) "musik" else "video"} tetap jalan saat layar mati dan kontrol pemutaran muncul di notifikasi, dua izin pertama wajib diaktifkan. Dua lainnya opsional.",
@@ -356,13 +355,13 @@ fun PermissionScreen(onDone: () -> Unit) {
             ) { requestBattery(ctx) }
             PermCard(
                 Icons.Filled.PlayCircle, "Pengguna Xiaomi, Oppo, Vivo, Realme & Infinix",
-                "Opsional: aktifkan \"Mulai otomatis\" untuk $appName karena sistem HP tersebut sering menutup aplikasi di latar belakang.",
-                granted = false, action = "Buka pengaturan Mulai otomatis", optional = true,
+                "Opsional: aktifkan \"Mulai otomatis\" karena HP merek ini sering menutup aplikasi di latar belakang.",
+                granted = false, action = "Buka", optional = true,
             ) { openAutostart(ctx) }
             PermCard(
                 Icons.Filled.Link, if (music) "Buka link YouTube Music di sini" else "Buka link YouTube di sini",
                 "Opsional: link ${if (music) "music.youtube.com" else "YouTube"} yang dibuka atau dibagikan langsung diputar di $appName, bukan di aplikasi asli.",
-                granted = false, action = if (linksDone) "Atur ulang link" else "Atur link", optional = true,
+                granted = false, action = if (linksDone) "Ulangi" else "Atur", optional = true,
             ) {
                 CrossApp.setLinksEnabled(ctx, true)
                 linksDone = true

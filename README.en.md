@@ -142,8 +142,15 @@ Both apps can be installed side by side and work independently. You can also sen
 
 > 🗣️ The app interface is in **Indonesian**. Button names are written below exactly as they appear in the app, with an English translation in brackets.
 
+### 0️⃣ First launch
+On first launch LumiTube shows two short screens:
+1. **Welcome**: tap **Hubungkan akun Google** (Connect Google account) to sign in, or **Lewati** (Skip) for now.
+2. **Satu langkah lagi** (One more step): allow **notifications** and **background running** (required). There are also two optional extras: **Autostart** for Xiaomi, Oppo, Vivo, Realme and Infinix phones, and **link setup** so YouTube links open in Lumi.
+
+After that you land straight on Home.
+
 ### 1️⃣ Sign in (optional but recommended)
-Open the **Anda** (You) tab → **Login dengan akun Google** (Sign in with Google), then sign in on Google's own sign-in page.
+If you skipped it, open the **Anda** (You) tab → **Login dengan akun Google** (Sign in with Google), then sign in on Google's own sign-in page.
 After signing in you get your subscriptions, playlists, likes, Watch later, history and personalized Shorts.
 Your session is stored **only on your device**.
 

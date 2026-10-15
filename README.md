@@ -140,8 +140,15 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 ## 📖 Panduan Pemakaian
 
+### 0️⃣ Pertama kali dibuka
+Saat pertama dipasang, LumiTube menampilkan dua layar singkat:
+1. **Perkenalan**: pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
+2. **Satu langkah lagi**: aktifkan **notifikasi** dan **izin berjalan di latar belakang** (wajib). Ada juga dua pilihan opsional: **Mulai otomatis** untuk HP Xiaomi, Oppo, Vivo, Realme, dan Infinix, serta **atur link** supaya link YouTube terbuka di Lumi.
+
+Setelah itu kamu langsung masuk ke Beranda.
+
 ### 1️⃣ Login (opsional, tapi disarankan)
-Buka tab **Anda** → **Login dengan akun Google**, lalu masuk di halaman login resmi Google.
+Kalau tadi melewati login, buka tab **Anda** → **Login dengan akun Google**, lalu masuk di halaman login resmi Google.
 Setelah login kamu mendapat subscription, playlist, suka, Tonton nanti, histori, dan Shorts yang sesuai selera.
 Sesi login hanya disimpan **di HP-mu**.
 
