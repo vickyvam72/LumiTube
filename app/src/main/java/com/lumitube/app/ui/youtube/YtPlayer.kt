@@ -450,6 +450,8 @@ internal fun YtSeekBar(
     modifier: Modifier,
     chapters: List<Long> = emptyList(),
     onScrub: (Float?) -> Unit = {},
+    /** Gaya Shorts: lingkaran hanya muncul saat digeser, area sentuh lebih tinggi. */
+    shortsStyle: Boolean = false,
     onSeekStart: () -> Unit,
     onSeek: (Float) -> Unit,
 ) {
@@ -458,7 +460,7 @@ internal fun YtSeekBar(
     val played = if (dragging) drag else if (duration > 0) position.toFloat() / duration else 0f
     val buf = if (duration > 0) (buffered.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(
-        modifier.height(if (expanded) 22.dp else 3.dp)
+        modifier.height(if (!expanded) 3.dp else if (shortsStyle) 28.dp else 22.dp)
             .pointerInput(expanded) {
                 if (!expanded) return@pointerInput
                 detectTapGestures { o -> onSeek((o.x / size.width).coerceIn(0f, 1f)) }
@@ -486,7 +488,7 @@ internal fun YtSeekBar(
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val y = size.height - 1.5.dp.toPx()
-            val stroke = 3.dp.toPx()
+            val stroke = (if (shortsStyle && dragging) 5 else 3).dp.toPx()
             // Bab dari kreator: timeline dipecah jadi beberapa garis (putus-putus).
             val gap = if (chapters.size >= 2 && duration > 0) 2.dp.toPx() else 0f
             val bounds = if (gap > 0) {
@@ -505,7 +507,7 @@ internal fun YtSeekBar(
             seg(Color(0x55FFFFFF), 1f)
             seg(Color(0x99FFFFFF), buf)
             seg(YtRed, played.coerceIn(0f, 1f))
-            if (expanded) drawCircle(YtRed, radius = (if (dragging) 9 else 7).dp.toPx(), center = Offset(size.width * played.coerceIn(0f, 1f), y))
+            if (expanded && (!shortsStyle || dragging)) drawCircle(YtRed, radius = (if (dragging) 9 else 7).dp.toPx(), center = Offset(size.width * played.coerceIn(0f, 1f), y))
         }
     }
 }

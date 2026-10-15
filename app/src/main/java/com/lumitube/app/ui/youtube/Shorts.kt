@@ -379,8 +379,9 @@ private fun ShortPage(
                 duration = duration,
                 buffered = buffered,
                 expanded = true,
-                // Sedikit di atas tepi bawah supaya mudah digeser.
-                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(bottom = 14.dp),
+                // Garis tipis di tepi bawah seperti YouTube; area sentuhnya tetap tinggi supaya mudah digeser.
+                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+                shortsStyle = true,
                 onScrub = { scrub = it },
                 onSeekStart = { },
             ) { fraction ->
