@@ -231,6 +231,8 @@ Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).
                     scope.launch {
                         try {
                             Repo.createPlaylist(title, privacy, videoId)
+                            // Daftar Playlist / Koleksi dimuat ulang supaya playlist baru langsung tampil.
+                            FeedLoader.clear()
                             Toast.makeText(appCtx, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()
                             onClose()
                         } catch (_: Exception) {

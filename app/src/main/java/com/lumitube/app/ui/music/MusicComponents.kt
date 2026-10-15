@@ -247,8 +247,9 @@ fun SongRow(
                 Text(item.subtitle, color = MusicColors.sub, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (menu != null) {
-            com.lumitube.app.ui.common.ItemMenu(menu, MusicColors.sub)
+        val actions = SongActions.menuFor(item) + (menu ?: emptyList())
+        if (actions.isNotEmpty()) {
+            com.lumitube.app.ui.common.ItemMenu(actions, MusicColors.sub)
         } else {
             // Ukuran sama dengan tombol menu supaya titik tiga sejajar.
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {

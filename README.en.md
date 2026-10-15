@@ -106,6 +106,7 @@ Both apps can be installed side by side and work independently. You can also sen
 
 **📂 Library**
 - Your playlists, albums and liked songs
+- ⋮ menu on every song: Add to playlist · Download · Share
 - Drag-to-reorder, remove songs and delete playlists
 - **Download a whole playlist** in one tap
 

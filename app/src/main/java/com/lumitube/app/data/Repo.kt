@@ -246,7 +246,11 @@ object Repo {
             val shelves = historySections(r)
             if (shelves.isNotEmpty()) return header.copy(shelves = shelves, continuation = Parser.continuation(r))
         }
-        return header.copy(items = Parser.items(r, false), continuation = Parser.continuation(r))
+        val items = Parser.items(r, false)
+        return header.copy(
+            items = if (browseId == "FEplaylist_aggregation") withRecentPlaylists(items) else items,
+            continuation = Parser.continuation(r),
+        )
     }
 
     /** Halaman lanjutan Histori: tetap dikelompokkan per hari. */
@@ -537,13 +541,41 @@ object Repo {
         InnerTube.post(Client.WEB, "playlist/delete", org.json.JSONObject().put("playlistId", playlistId.removePrefix("VL")))
     }
 
+    /**
+     * Playlist yang baru dibuat di aplikasi ini. Halaman koleksi YouTube / YT Music kadang baru
+     * menampilkan playlist baru beberapa saat kemudian, jadi selama 15 menit playlist ini
+     * disisipkan sendiri di daftar Playlist bila belum ada.
+     */
+    private val recentCreated = java.util.Collections.synchronizedList(mutableListOf<Pair<Long, Item>>())
+
+    private fun withRecentPlaylists(items: List<Item>): List<Item> {
+        val now = System.currentTimeMillis()
+        val fresh = synchronized(recentCreated) {
+            recentCreated.removeAll { now - it.first > 15 * 60 * 1000L }
+            recentCreated.map { it.second }
+        }
+        val missing = fresh.filter { r -> items.none { it.id == r.id || it.playlistId == r.playlistId } }
+        return if (missing.isEmpty()) items else missing + items
+    }
+
     /** Buat playlist baru langsung berisi video ini. privacy: PRIVATE / UNLISTED / PUBLIC. */
     suspend fun createPlaylist(title: String, privacy: String, videoId: String) {
-        InnerTube.post(
+        val r = InnerTube.post(
             Client.WEB, "playlist/create",
             org.json.JSONObject().put("title", title).put("privacyStatus", privacy)
                 .put("videoIds", org.json.JSONArray().put(videoId))
         )
+        val pid = r.str("playlistId")
+        if (pid != null) {
+            val label = when (privacy) { "PUBLIC" -> "Publik"; "UNLISTED" -> "Tidak publik"; else -> "Pribadi" }
+            recentCreated.add(
+                System.currentTimeMillis() to Item(
+                    type = ItemType.PLAYLIST, id = "VL$pid", title = title,
+                    subtitle = "$label • 1 video", thumbnail = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+                    playlistId = pid,
+                )
+            )
+        }
     }
 
     /** Hapus dari "Tonton nanti". */
@@ -588,9 +620,13 @@ object Repo {
         val r = InnerTube.browse(Client.MUSIC, browseId, params)
         if (browseId == "FEmusic_home" && params == null) saveRaw("music_home_${Session.loggedIn}", r)
         val header = Parser.musicHeader(r)
+        var shelves = Parser.musicShelves(r)
+        if (browseId == "FEmusic_liked_playlists" && shelves.isNotEmpty()) {
+            shelves = listOf(shelves[0].copy(items = withRecentPlaylists(shelves[0].items))) + shelves.drop(1)
+        }
         return header.copy(
             chips = Parser.musicChips(r),
-            shelves = Parser.musicShelves(r),
+            shelves = shelves,
             continuation = Parser.continuation(r),
         )
     }

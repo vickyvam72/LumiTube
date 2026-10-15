@@ -195,6 +195,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     if (showLogin) LoginScreen(onClose = { showLogin = false })
+                    if (mode == "music") com.lumitube.app.ui.music.SongActionsHost()
                 }
                 // Mode Picture-in-Picture: tampilkan video saja di atas UI (state UI tetap terjaga).
                 if (inPip) {
