@@ -23,7 +23,7 @@
 - Pencarian yang kamu ketik kini tersimpan di histori pencarian akun, jadi juga muncul di aplikasi YouTube dan YouTube Music asli
 - Ketuk Beranda saat sudah di Beranda untuk langsung kembali ke paling atas
 - Layar perkenalan dan izin saat pertama kali dipasang, masing-masing pas dalam satu layar tanpa scroll: hubungkan akun Google atau lewati, lalu aktifkan notifikasi, izin latar belakang, Mulai otomatis (Xiaomi, Oppo, Vivo, Realme, Infinix), dan pengaturan link
-- Garis merah untuk menggeser video lebih mudah diraih di layar penuh dan di Shorts
+- Garis merah untuk menggeser video lebih mudah diraih di layar penuh dan di Shorts, dan di layar penuh hanya muncul bersama tombol kontrol
 - YT Music Lumi: titik tiga di setiap lagu kini berisi Tambahkan ke playlist, Download, dan Bagikan
 - Buka aplikasi jauh lebih cepat: versi klien disimpan, beranda disimpan di HP, beberapa klien dicoba bersamaan saat pertama dibuka
 - Streaming lebih lancar: download bertahap, ukuran potongan adaptif, lompat ke keyframe, buffer lebih besar
@@ -64,7 +64,7 @@
 - Searches you type are now saved to your account's search history, so they also appear in the official YouTube and YouTube Music apps
 - Tap Home while already on Home to jump straight back to the top
 - Welcome and permission screens on first launch, each fitting on a single screen without scrolling: connect a Google account or skip, then allow notifications, background running, Autostart (Xiaomi, Oppo, Vivo, Realme, Infinix) and link setup
-- The red seek bar is easier to reach in full screen and in Shorts
+- The red seek bar is easier to reach in full screen and in Shorts, and in full screen it only appears together with the controls
 - YT Music Lumi: the three-dot menu on every song now offers Add to playlist, Download and Share
 - Much faster startup: cached client version, disk-cached home feed, parallel clients on cold start
 - Smoother streaming: chunked downloads, adaptive chunk size, keyframe seeking, a larger buffer

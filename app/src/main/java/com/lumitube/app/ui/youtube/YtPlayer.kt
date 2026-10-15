@@ -370,8 +370,9 @@ fun YtVideoPlayer(
             }
         }
 
-        // Seekbar merah di tepi bawah video
-        YtSeekBar(
+        // Seekbar merah di tepi bawah video. Layar penuh: hanya tampil bersama kontrol
+        // (seperti YouTube), tidak ada garis tipis yang terus terlihat saat menonton.
+        if (!full || show) YtSeekBar(
             position = position,
             duration = duration,
             buffered = buffered,
