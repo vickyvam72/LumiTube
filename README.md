@@ -107,6 +107,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 **📂 Koleksi**
 - Playlist, album, dan lagu yang kamu sukai
 - Menu ⋮ di setiap lagu: Tambahkan ke playlist · Download · Bagikan
+- Menu ⋮ di playlist dan album (juga di hasil pencarian): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
 - Atur urutan dengan seret, hapus lagu, dan hapus playlist
 - **Download satu playlist penuh** sekali tekan
 
@@ -175,7 +176,7 @@ Tips: nyalakan **"Tutup aplikasi saat PiP ditutup"** kalau ingin musik ikut berh
 
 ### 5️⃣ Download untuk offline
 - **Satu item:** tekan **⋮** → **Download**, lalu pilih kualitas.
-- **Satu playlist penuh:** buka playlist → **Download**.
+- **Satu playlist penuh:** buka playlist → **Download semua**, atau tekan **⋮** di playlist/album (YT Music Lumi) → **Download**.
 - Semua hasil download ada di halaman **Download**. Download musik sudah termasuk liriknya.
 
 ### 6️⃣ Simpan ke playlist

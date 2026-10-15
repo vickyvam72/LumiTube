@@ -490,6 +490,35 @@ object Repo {
         throw last ?: java.io.IOException("Gagal")
     }
 
+    /** Tambahkan banyak video/lagu sekaligus ke playlist; yang sudah ada dilewati. */
+    suspend fun addVideosToPlaylist(playlistId: String, videoIds: List<String>) {
+        val pid = playlistId.removePrefix("VL")
+        for (chunk in videoIds.distinct().chunked(100)) {
+            val actions = org.json.JSONArray()
+            chunk.forEach { v ->
+                actions.put(
+                    org.json.JSONObject().put("action", "ACTION_ADD_VIDEO").put("addedVideoId", v)
+                        .put("dedupeOption", "DEDUPE_OPTION_SKIP")
+                )
+            }
+            var last: Exception? = null
+            var ok = false
+            for (c in listOf(Client.MUSIC, Client.WEB)) {
+                try {
+                    val r = InnerTube.post(c, "browse/edit_playlist", org.json.JSONObject().put("playlistId", pid).put("actions", actions))
+                    if (r.optString("status") == "STATUS_FAILED") throw java.io.IOException("ditolak YouTube")
+                    ok = true
+                    break
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    if (e.message?.contains("409") == true) { ok = true; break }
+                    last = e
+                }
+            }
+            if (!ok) throw last ?: java.io.IOException("Gagal")
+        }
+    }
+
     private val moveMutex = kotlinx.coroutines.sync.Mutex()
 
     /**
@@ -559,11 +588,15 @@ object Repo {
     }
 
     /** Buat playlist baru langsung berisi video ini. privacy: PRIVATE / UNLISTED / PUBLIC. */
-    suspend fun createPlaylist(title: String, privacy: String, videoId: String) {
+    suspend fun createPlaylist(title: String, privacy: String, videoId: String) = createPlaylist(title, privacy, listOf(videoId))
+
+    /** Buat playlist baru berisi beberapa video/lagu sekaligus (misalnya seluruh isi playlist lain). */
+    suspend fun createPlaylist(title: String, privacy: String, videoIds: List<String>) {
+        val videoId = videoIds.first()
         val r = InnerTube.post(
             Client.WEB, "playlist/create",
             org.json.JSONObject().put("title", title).put("privacyStatus", privacy)
-                .put("videoIds", org.json.JSONArray().put(videoId))
+                .put("videoIds", org.json.JSONArray(videoIds))
         )
         val pid = r.str("playlistId")
         if (pid != null) {
@@ -571,7 +604,7 @@ object Repo {
             recentCreated.add(
                 System.currentTimeMillis() to Item(
                     type = ItemType.PLAYLIST, id = "VL$pid", title = title,
-                    subtitle = "$label • 1 video", thumbnail = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+                    subtitle = "$label • ${videoIds.size} video", thumbnail = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
                     playlistId = pid,
                 )
             )

@@ -57,7 +57,14 @@ import kotlinx.coroutines.launch
  * (ketuk lagi untuk menghapus), atau buat playlist baru berisi video ini.
  */
 @Composable
-fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onClose: () -> Unit) {
+fun AddToPlaylistSheet(
+    videoId: String, music: Boolean, colors: PanelColors,
+    /** Simpan banyak lagu sekaligus (isi playlist/album). Tidak bisa dihapus lagi dari sini. */
+    videoIds: List<String>? = null,
+    onClose: () -> Unit,
+) {
+    val many = videoIds != null && videoIds.size > 1
+    val ids = videoIds ?: listOf(videoId)
     val context = LocalContext.current
     // Simpan di scope aplikasi: menutup sheet tidak membatalkan penyimpanan.
     val scope = EditScope.scope
@@ -76,10 +83,10 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
         }
         try {
             options.clear()
-            val list = Repo.addToPlaylistOptions(videoId, music)
+            val list = Repo.addToPlaylistOptions(videoId, music).let { l -> if (many) l.map { it.copy(contains = false) } else l }
             options.addAll(list)
             // YouTube: "Tonton nanti" selalu ada di atas daftar playlist.
-            if (!music && list.none { it.id == "WL" }) {
+            if (!music && !many && list.none { it.id == "WL" }) {
                 options.add(0, PlaylistOption(id = "WL", title = "Tonton nanti", count = null, thumbnail = null, contains = false))
             }
         } catch (e: Exception) {
@@ -92,11 +99,12 @@ fun AddToPlaylistSheet(videoId: String, music: Boolean, colors: PanelColors, onC
     fun toggle(o: PlaylistOption) {
         val i = options.indexOfFirst { it.id == o.id }
         if (i < 0) return
+        if (many && o.contains) return
         val target = !o.contains
         options[i] = o.copy(contains = target)
         scope.launch {
             try {
-                Repo.setInPlaylist(o.id, videoId, target)
+                if (many) Repo.addVideosToPlaylist(o.id, ids) else Repo.setInPlaylist(o.id, videoId, target)
                 FeedLoader.invalidate("VL${o.id}")
                 Toast.makeText(
                     appCtx,
@@ -112,7 +120,7 @@ Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).
         }
     }
 
-    BottomPanel("Simpan 1 $noun ke playlist", colors, onClose, heightFraction = 0.75f) {
+    BottomPanel("Simpan ${ids.size} $noun ke playlist", colors, onClose, heightFraction = 0.75f) {
         when {
             loading -> LoadingBox(color = colors.text)
             error != null -> Text(error ?: "", color = colors.sub, modifier = Modifier.padding(24.dp))
@@ -230,7 +238,7 @@ Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).
                     creating = false
                     scope.launch {
                         try {
-                            Repo.createPlaylist(title, privacy, videoId)
+                            Repo.createPlaylist(title, privacy, ids)
                             // Daftar Playlist / Koleksi dimuat ulang supaya playlist baru langsung tampil.
                             FeedLoader.clear()
                             Toast.makeText(appCtx, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()

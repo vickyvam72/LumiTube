@@ -107,6 +107,7 @@ Both apps can be installed side by side and work independently. You can also sen
 **📂 Library**
 - Your playlists, albums and liked songs
 - ⋮ menu on every song: Add to playlist · Download · Share
+- ⋮ menu on playlists and albums (also in search results): save all their songs to your playlist · Download all · Share
 - Drag-to-reorder, remove songs and delete playlists
 - **Download a whole playlist** in one tap
 
@@ -177,7 +178,7 @@ Tip: turn on **"Tutup aplikasi saat PiP ditutup"** (Close app when PiP is closed
 
 ### 5️⃣ Download for offline
 - **Single item:** tap **⋮** → **Download** and pick a quality.
-- **Whole playlist:** open the playlist → **Download**.
+- **Whole playlist:** open the playlist → **Download semua** (Download all), or tap **⋮** on a playlist/album (YT Music Lumi) → **Download**.
 - Find everything under **Downloads**. Music downloads include lyrics.
 
 ### 6️⃣ Save to a playlist

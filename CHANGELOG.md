@@ -25,6 +25,7 @@
 - Layar perkenalan dan izin saat pertama kali dipasang, masing-masing pas dalam satu layar tanpa scroll: hubungkan akun Google atau lewati, lalu aktifkan notifikasi, izin latar belakang, Mulai otomatis (Xiaomi, Oppo, Vivo, Realme, Infinix), dan pengaturan link
 - Garis merah untuk menggeser video lebih mudah diraih di layar penuh dan di Shorts. Di layar penuh hanya muncul bersama tombol kontrol, dan di Shorts tampil tipis di tepi bawah seperti YouTube dengan lingkaran yang hanya muncul saat digeser
 - YT Music Lumi: titik tiga di setiap lagu kini berisi Tambahkan ke playlist, Download, dan Bagikan
+- YT Music Lumi: titik tiga di playlist dan album (misalnya di hasil pencarian) kini berisi Tambahkan ke playlist (seluruh isinya), Download semua lagu, dan Bagikan
 - Buka aplikasi jauh lebih cepat: versi klien disimpan, beranda disimpan di HP, beberapa klien dicoba bersamaan saat pertama dibuka
 - Streaming lebih lancar: download bertahap, ukuran potongan adaptif, lompat ke keyframe, buffer lebih besar
 - Video yang terlihat disiapkan lebih dulu, jadi langsung diputar saat diketuk
@@ -51,6 +52,8 @@
 - Video dan Shorts yang ditonton kini muncul di histori YouTube
 - Error di proses latar belakang tidak lagi membuat aplikasi force close
 - Playlist baru (pribadi, tidak publik, maupun publik) langsung muncul di Koleksi dan daftar Playlist
+- YT Music Lumi: kembali dari playlist atau album yang dibuka dari hasil pencarian kini kembali ke hasil pencarian, bukan ke kolom ketik
+- Memilih saran pencarian (misalnya "tretan" setelah mengetik "tre") kini juga mengubah teks di kolom pencarian
 - Beberapa force close acak sudah diperbaiki
 
 </details>
@@ -66,6 +69,7 @@
 - Welcome and permission screens on first launch, each fitting on a single screen without scrolling: connect a Google account or skip, then allow notifications, background running, Autostart (Xiaomi, Oppo, Vivo, Realme, Infinix) and link setup
 - The red seek bar is easier to reach in full screen and in Shorts. In full screen it only appears together with the controls, and in Shorts it sits thin at the bottom edge like YouTube, with the handle shown only while dragging
 - YT Music Lumi: the three-dot menu on every song now offers Add to playlist, Download and Share
+- YT Music Lumi: the three-dot menu on playlists and albums (for example in search results) now offers Add to playlist (all of its songs), Download all songs and Share
 - Much faster startup: cached client version, disk-cached home feed, parallel clients on cold start
 - Smoother streaming: chunked downloads, adaptive chunk size, keyframe seeking, a larger buffer
 - Visible videos are prepared in advance, so playback starts almost instantly
@@ -92,6 +96,8 @@
 - Watched videos and Shorts now appear in your YouTube history
 - Errors in background tasks no longer crash the app
 - New playlists (private, unlisted or public) now show up right away in your Library and Playlists
+- YT Music Lumi: going back from a playlist or album opened from search results now returns to the results, not the search box
+- Picking a search suggestion (for example "tretan" after typing "tre") now also updates the text in the search box
 - Several random force closes fixed
 
 </details>

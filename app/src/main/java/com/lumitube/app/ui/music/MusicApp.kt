@@ -363,11 +363,22 @@ private fun PageTitle(text: String) {
 
 // ---------------------------------------------------------------- Telusuri
 
+/**
+ * Status pencarian disimpan di luar layar: buka playlist/album dari hasil pencarian lalu
+ * kembali = tetap di hasil pencarian (bukan kolom ketik kosong).
+ */
+private object MusicSearchState {
+    var query by mutableStateOf("")
+    var editing by mutableStateOf(true)
+    var chips by mutableStateOf(emptyList<Chip>())
+    var chip by mutableStateOf<Chip?>(null)
+}
+
 @Composable
 private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
     var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var editing by rememberSaveable { mutableStateOf(true) }
+    var query by MusicSearchState::query
+    var editing by MusicSearchState::editing
     val focus = remember { FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     LaunchedEffect(Unit) {
@@ -377,11 +388,12 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
     fun submit(q: String) {
         val t = q.trim()
         if (t.isEmpty()) return
-        field = androidx.compose.ui.text.input.TextFieldValue(t, androidx.compose.ui.text.TextRange(t.length))
-        query = t
-        Session.addSearch(t)
         editing = false
         focusManager.clearFocus()
+        field = androidx.compose.ui.text.input.TextFieldValue(t, androidx.compose.ui.text.TextRange(t.length))
+        if (query != t) { MusicSearchState.chips = emptyList(); MusicSearchState.chip = null }
+        query = t
+        Session.addSearch(t)
     }
     BackHandler(enabled = editing && query.isNotEmpty()) {
         editing = false
@@ -390,13 +402,14 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         TextField(
             value = field,
-            onValueChange = { field = it },
+            // Setelah memilih saran, keyboard kadang mengirim ulang teks lama ("tre"); abaikan saat tidak mengetik.
+            onValueChange = { if (editing) field = it },
             placeholder = { Text("Telusuri lagu, artis, album", color = MusicColors.sub) },
             singleLine = true,
             shape = RoundedCornerShape(10.dp),
             trailingIcon = if (field.text.isNotEmpty()) {
                 {
-                    IconButton(onClick = { field = androidx.compose.ui.text.input.TextFieldValue(""); focus.requestFocus() }) {
+                    IconButton(onClick = { editing = true; field = androidx.compose.ui.text.input.TextFieldValue(""); focus.requestFocus() }) {
                         Icon(Icons.Filled.Close, "Hapus", tint = Color.White)
                     }
                 }
@@ -426,8 +439,8 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
             )
         } else {
             // Filter seperti YT Music asli: Lagu, Artis, Album, Playlist komunitas, Video, …
-            var chips by remember(query) { mutableStateOf(emptyList<Chip>()) }
-            var chip by remember(query) { mutableStateOf<Chip?>(null) }
+            var chips by MusicSearchState::chips
+            var chip by MusicSearchState::chip
             val feed = rememberFeed(key = "msearch|$query|${chip?.params}", more = { Repo.musicSearchMore(it) }) {
                 Repo.musicSearch(query, chip?.params)
             }

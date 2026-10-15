@@ -725,7 +725,7 @@ internal fun YtSearchField(
         shape = RoundedCornerShape(24.dp),
         trailingIcon = if (value.text.isNotEmpty()) {
             {
-                IconButton(onClick = { onValueChange(TextFieldValue("")); focus.requestFocus() }) {
+                IconButton(onClick = { onFocus(); onValueChange(TextFieldValue("")); focus.requestFocus() }) {
                     Icon(Icons.Filled.Close, "Hapus", tint = yt.text)
                 }
             }
@@ -1200,6 +1200,8 @@ private fun SearchScreen(
     fun submit(q: String) {
         val t = q.trim()
         if (t.isEmpty()) return
+        editing = false
+        focusManager.clearFocus()
         field = TextFieldValue(t, TextRange(t.length))
         if (query != t) {
             YtSearchState.list = androidx.compose.foundation.lazy.LazyListState()
@@ -1221,7 +1223,8 @@ private fun SearchScreen(
         Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text) }
             YtSearchField(
-                field, { field = it }, "Telusuri YouTube",
+                // Setelah memilih saran, keyboard kadang mengirim ulang teks lama ("tre"); abaikan saat tidak mengetik.
+                field, { if (editing) field = it }, "Telusuri YouTube",
                 onSearch = { submit(field.text) }, onFocus = { editing = true }, focus = focus,
                 modifier = Modifier.weight(1f),
             )
