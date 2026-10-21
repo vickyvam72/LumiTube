@@ -77,7 +77,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 **🎬 Pemutar video**
 - Kontrol gaya YouTube: **ketuk dua kali** untuk lompat ±10 detik, **tekan lama** sisi kiri atau kanan untuk **kecepatan 2×**
 - **Bab (chapter)** di garis waktu dan **pratinjau gambar** saat menggeser
-- Kualitas, kecepatan, ulang, **subtitle dengan terjemahan otomatis**, dan trek audio asli
+- Kualitas, kecepatan, ulang, **subtitle Bahasa Indonesia** (subtitle asli diterjemahkan otomatis bila tidak ada), dan trek audio asli
 - **Picture-in-Picture** dan putar di latar belakang
 - Layar penuh dengan panel **live chat** di samping, dan **judul video** tampil bersama tombol kontrol
 
@@ -144,6 +144,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - 🔗 Buka link YouTube / YouTube Music langsung di Lumi
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
 - 🔒 Video dan Shorts **khusus anggota** tidak tampil di Beranda
+- 🧹 Hapus histori tontonan dan histori penelusuran di Lumi, ikut terhapus di YouTube dan YouTube Music asli
 - 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** (aktif secara bawaan, bisa dimatikan)
 - 📶 Pop up kecil **"Kamu sedang offline"** saat internet putus, juga di mode PiP
 - ⏹️ Tombol **Tutup** di notifikasi pemutar (jendela PiP ikut tertutup)

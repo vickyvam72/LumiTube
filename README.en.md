@@ -77,7 +77,7 @@ Both apps can be installed side by side and work independently. You can also sen
 **🎬 Video player**
 - YouTube-style controls: **double-tap** to skip ±10 seconds, **press and hold** either side for **2× speed**
 - **Chapters** on the timeline and a **thumbnail preview** while scrubbing
-- Quality, playback speed, loop, **subtitles with auto-translate**, and the original audio track
+- Quality, playback speed, loop, **Indonesian subtitles** (original subtitles auto-translated when missing), and the original audio track
 - **Picture-in-Picture** and background playback
 - Full-screen mode with an optional **live chat** side panel, and the **video title** shown with the controls
 
@@ -144,6 +144,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - 🔗 Open YouTube / YouTube Music links directly in Lumi
 - 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
 - 🔒 **Members-only** videos and Shorts are hidden from Home
+- 🧹 Remove watch history and search history in Lumi, and it is removed from the official YouTube and YouTube Music too
 - 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and **Lumi blue colors** (on by default, can be turned off)
 - 📶 A small **"You're offline"** pop-up when the internet drops, also in PiP mode
 - ⏹️ A **Close** button in the player notification (the PiP window closes too)

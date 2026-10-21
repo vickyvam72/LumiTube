@@ -328,12 +328,13 @@ private fun ShortPage(
             // Tombol atas kanan: teks (CC) dan setelan (kualitas, kecepatan, teks, timer tidur).
             Row(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp)) {
                 val hasCaptions = PlaybackManager.captions.isNotEmpty()
+                val ccCtx = androidx.compose.ui.platform.LocalContext.current
                 IconButton(
                     onClick = {
-                        if (PlaybackManager.captionIndex >= 0) PlaybackManager.setCaption(-1)
+                        if (!hasCaptions) com.lumitube.app.ui.common.LumiToast.makeText(ccCtx, "Short ini tidak punya subtitle", android.widget.Toast.LENGTH_SHORT).show()
+                        else if (PlaybackManager.captionIndex >= 0) PlaybackManager.setCaption(-1)
                         else defaultCaption().let { (idx, tl) -> PlaybackManager.setCaption(idx, tl) }
                     },
-                    enabled = hasCaptions,
                 ) {
                     Icon(
                         if (PlaybackManager.captionIndex >= 0) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaption,

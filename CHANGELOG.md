@@ -36,6 +36,8 @@
 - Panduan "Atur ulang link" kini berupa langkah-langkah yang jelas dan tidak terpotong
 - **Hapus dari histori tontonan** lewat titik tiga di Histori. Shorts di Histori kini juga punya titik tiga: Tambahkan ke playlist, Download, Bagikan, dan Hapus dari histori tontonan
 - Daftar video terkait kini diberi penanda Shorts dan Video, seperti di Histori
+- **Subtitle Bahasa Indonesia**: bila video tidak punya subtitle Indonesia, subtitle aslinya diterjemahkan otomatis ke Bahasa Indonesia; bila video tidak punya subtitle sama sekali, muncul keterangan "tidak punya subtitle". Judul dan audio video tetap asli
+- Menghapus penelusuran di YouTube Lumi dan YT Music Lumi (tekan lama di histori penelusuran) kini ikut menghapusnya dari histori penelusuran YouTube dan YouTube Music asli
 
 ### 🐞 Perbaikan
 - Pencarian dari YouTube Lumi dan YT Music Lumi kini tercatat di histori pencarian YouTube dan YouTube Music asli
@@ -44,6 +46,7 @@
 - Video dan live untuk anak (YouTube Kids) kini bisa diputar, dan channel konten anak kini menampilkan isinya
 - Shorts di daftar video terkait tampil sebagai rak Shorts
 - Video anak yang sebelumnya gagal dengan pesan "Video tidak tersedia" kini bisa diputar
+- Hapus dari histori tontonan tidak lagi gagal dan ikut terhapus di YouTube asli
 - Live yang dijeda lama tidak lagi berhenti di layar hitam
 - Download playlist kini menyimpan semua isinya saja, tanpa video saran yang ikut terdownload
 - Mengetuk foto channel yang sedang live kini membuka halaman channel, bukan siarannya
@@ -72,6 +75,8 @@
 - The "Reset links" guide is now clear step-by-step instructions that are no longer cut off
 - **Remove from watch history** from the three-dot menu in History. Shorts in History now have a three-dot menu too: Add to playlist, Download, Share and Remove from watch history
 - Related videos are now labeled Shorts and Video, like in History
+- **Indonesian subtitles**: if a video has no Indonesian subtitles, its original subtitles are automatically translated into Indonesian; if it has no subtitles at all, a "no subtitles" notice appears. Video titles and audio stay original
+- Deleting a search in YouTube Lumi and YT Music Lumi (long-press it in search history) now also removes it from the official YouTube and YouTube Music search history
 
 ### 🐞 Fixes
 - Searches from YouTube Lumi and YT Music Lumi are now saved to the official YouTube and YouTube Music search history
@@ -80,6 +85,7 @@
 - Videos and live streams made for kids (YouTube Kids) now play, and kids' channels now show their content
 - Shorts in related videos now appear as a Shorts shelf
 - Kids' videos that failed with "Video unavailable" now play
+- Remove from watch history no longer fails, and the video is removed on the official YouTube too
 - A live stream paused for a while no longer gets stuck on a black screen
 - Playlist downloads now save exactly the playlist's items, without suggested videos
 - Tapping the picture of a channel that's live now opens the channel page instead of the stream

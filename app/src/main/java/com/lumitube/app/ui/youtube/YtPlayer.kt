@@ -268,17 +268,19 @@ fun YtVideoPlayer(
                     }
                     AutoplayToggle()
                     val hasCaptions = PlaybackManager.captions.isNotEmpty()
+                    val ccCtx = androidx.compose.ui.platform.LocalContext.current
                     IconButton(
                         onClick = {
                             touch = System.currentTimeMillis()
-                            if (PlaybackManager.captionIndex >= 0) {
+                            if (!hasCaptions) {
+                                com.lumitube.app.ui.common.LumiToast.makeText(ccCtx, "Video ini tidak punya subtitle", android.widget.Toast.LENGTH_SHORT).show()
+                            } else if (PlaybackManager.captionIndex >= 0) {
                                 PlaybackManager.setCaption(-1)
                             } else {
                                 val (idx, tl) = defaultCaption()
                                 PlaybackManager.setCaption(idx, tl)
                             }
                         },
-                        enabled = hasCaptions,
                     ) {
                         Icon(
                             if (PlaybackManager.captionIndex >= 0) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaption,
@@ -411,8 +413,8 @@ fun YtVideoPlayer(
 }
 
 /**
- * Subtitle bawaan: bahasa HP bila ada; kalau tidak ada, terjemahkan otomatis
- * subtitle terbaik ke bahasa HP (bila YouTube mendukung).
+ * Subtitle bawaan: Bahasa Indonesia bila ada; kalau tidak ada, subtitle asli video
+ * diterjemahkan otomatis ke Bahasa Indonesia (YouTube, atau Google Terjemahan sebagai cadangan).
  */
 internal fun defaultCaption(): Pair<Int, String?> {
     val list = PlaybackManager.captions
@@ -420,8 +422,7 @@ internal fun defaultCaption(): Pair<Int, String?> {
     list.indexOfFirst { it.lang.startsWith(lang) && !it.auto }.takeIf { it >= 0 }?.let { return it to null }
     list.indexOfFirst { it.lang.startsWith(lang) }.takeIf { it >= 0 }?.let { return it to null }
     val base = list.indexOfFirst { !it.auto }.takeIf { it >= 0 } ?: 0
-    val canTranslate = PlaybackManager.translations.any { it.first == lang }
-    return base to (if (canTranslate) lang else null)
+    return base to lang
 }
 
 @Composable
@@ -576,7 +577,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
                     SettingRow(
                         if (cap != null) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaptionOff, "Teks",
                         when {
-                            cap == null -> if (PlaybackManager.captions.isEmpty()) "Tidak tersedia" else "Nonaktif"
+                            cap == null -> if (PlaybackManager.captions.isEmpty()) "Tidak ada subtitle" else "Nonaktif"
                             tl != null -> com.lumitube.app.tr("%s (terjemahan)", tl)
                             else -> cap.name
                         },

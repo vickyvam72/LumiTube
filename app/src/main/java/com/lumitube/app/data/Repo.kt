@@ -349,7 +349,7 @@ object Repo {
                     val v = node.opt(k)
                     if (k in historyItemKeys && v is org.json.JSONObject) {
                         val id = first(v, "videoId") ?: (v.opt("contentId") as? String)
-                        val token = first(v, "feedbackToken")
+                        val token = removeToken(v) ?: first(v, "feedbackToken")
                         if (id != null && token != null) out.putIfAbsent(id, token)
                     } else visit(v)
                 }
@@ -358,6 +358,33 @@ object Repo {
         }
         visit(r)
         return out
+    }
+
+    /**
+     * Token dari pilihan menu "Hapus dari histori tontonan" (ikon DELETE / teks histori),
+     * bukan token feedback lain di menu yang sama.
+     */
+    private fun removeToken(item: org.json.JSONObject): String? {
+        val entryKeys = setOf("menuServiceItemRenderer", "listItemViewModel", "menuNavigationItemRenderer", "menuFlexibleItemRenderer")
+        val hint = Regex("DELETE|histor|Hapus|Remove", RegexOption.IGNORE_CASE)
+        var best: String? = null
+        fun walk(node: Any?, entry: org.json.JSONObject?) {
+            if (best != null) return
+            when (node) {
+                is org.json.JSONObject -> {
+                    (node.opt("feedbackToken") as? String)?.takeIf { it.isNotEmpty() }?.let { t ->
+                        if (entry != null && hint.containsMatchIn(entry.toString().replace(t, ""))) { best = t; return }
+                    }
+                    for (k in node.keys()) {
+                        val v = node.opt(k)
+                        walk(v, if (k in entryKeys && v is org.json.JSONObject) v else entry)
+                    }
+                }
+                is org.json.JSONArray -> for (i in 0 until node.length()) walk(node.opt(i), entry)
+            }
+        }
+        walk(item, null)
+        return best
     }
 
     private fun withHistoryTokens(items: List<Item>, tokens: Map<String, String>) =
@@ -371,7 +398,71 @@ object Repo {
                 .put("isFeedbackTokenUnencrypted", false).put("shouldMerge", false),
         )
         val ok = r.optJSONArray("feedbackResponses")?.optJSONObject(0)?.optBoolean("isProcessed", true) ?: true
-        if (!ok) throw java.io.IOException("Gagal menghapus")
+        if (!ok) throw java.io.IOException("YouTube menolak permintaan")
+    }
+
+    /**
+     * Hapus satu penelusuran dari histori penelusuran akun, seperti tombol hapus di kotak cari
+     * YouTube / YouTube Music asli. Gagal diam-diam bila belum login atau tidak ditemukan.
+     */
+    suspend fun removeSearchFromAccount(query: String, music: Boolean) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (!Session.loggedIn || query.isBlank()) return@withContext
+        if (music) {
+            // YT Music: saran histori membawa token feedback (sama seperti music.youtube.com).
+            val r = InnerTube.post(Client.MUSIC, "music/get_search_suggestions", org.json.JSONObject().put("input", query))
+            val tokens = mutableListOf<String>()
+            fun textOf(o: org.json.JSONObject?): String {
+                val runs = o?.optJSONArray("runs") ?: return o?.optString("simpleText") ?: ""
+                return (0 until runs.length()).joinToString("") { runs.optJSONObject(it)?.optString("text") ?: "" }
+            }
+            fun find(node: Any?, key: String): String? {
+                when (node) {
+                    is org.json.JSONObject -> {
+                        (node.opt(key) as? String)?.let { return it }
+                        for (k in node.keys()) find(node.opt(k), key)?.let { return it }
+                    }
+                    is org.json.JSONArray -> for (i in 0 until node.length()) find(node.opt(i), key)?.let { return it }
+                }
+                return null
+            }
+            fun visit(node: Any?) {
+                when (node) {
+                    is org.json.JSONObject -> for (k in node.keys()) {
+                        val v = node.opt(k)
+                        if (k == "historySuggestionRenderer" && v is org.json.JSONObject) {
+                            val text = textOf(v.optJSONObject("suggestion"))
+                            val t = find(v, "feedbackToken")
+                            if (t != null && text.trim().equals(query.trim(), ignoreCase = true)) tokens.add(t)
+                        } else visit(v)
+                    }
+                    is org.json.JSONArray -> for (i in 0 until node.length()) visit(node.opt(i))
+                }
+            }
+            visit(r)
+            if (tokens.isNotEmpty()) {
+                InnerTube.post(Client.MUSIC, "feedback", org.json.JSONObject().put("feedbackTokens", org.json.JSONArray(tokens)))
+            }
+        } else {
+            // YouTube: saran berisi histori akun (bila dengan cookie) + token hapus "q".
+            val cookie = Session.cookie ?: return@withContext
+            val q = java.net.URLEncoder.encode(query.trim(), "UTF-8")
+            val base = "https://suggestqueries-clients6.youtube.com/complete"
+            val common = "client=youtube&ds=yt&hl=${InnerTube.hl}&gl=${InnerTube.gl}"
+            fun get(url: String): String = InnerTube.http.newCall(
+                okhttp3.Request.Builder().url(url)
+                    .header("User-Agent", InnerTube.DESKTOP_UA)
+                    .header("Cookie", cookie)
+                    .header("Origin", "https://www.youtube.com")
+                    .header("Referer", "https://www.youtube.com/")
+                    .build()
+            ).execute().use { it.body?.string() ?: "" }
+            val text = get("$base/search?$common&xhr=t&q=$q")
+            val json = text.substring(text.indexOf('[').coerceAtLeast(0), text.lastIndexOf(']') + 1)
+            val arr = org.json.JSONArray(json)
+            val deltok = (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.optString("q")?.takeIf { s -> s.isNotEmpty() } }.firstOrNull()
+                ?: return@withContext
+            get("$base/deleteitems?$common&delq=$q&deltok=${java.net.URLEncoder.encode(deltok, "UTF-8")}")
+        }
     }
 
     /** "Telusuri histori tontonan". */

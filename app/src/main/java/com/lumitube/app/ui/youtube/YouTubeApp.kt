@@ -1786,9 +1786,9 @@ private fun historyRemoveAction(item: Item): Pair<String, () -> Unit>? {
                 Repo.removeFromHistory(token)
                 com.lumitube.app.ui.common.FeedLoader.invalidate("FEhistory")
                 com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Dihapus dari histori tontonan", android.widget.Toast.LENGTH_SHORT).show()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 historyRemoved.remove(item.id)
-                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus dari histori", android.widget.Toast.LENGTH_SHORT).show()
+                com.lumitube.app.ui.common.LumiToast.makeText(ctx, com.lumitube.app.tr("Gagal menghapus dari histori: %s", e.message ?: "?"), android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }

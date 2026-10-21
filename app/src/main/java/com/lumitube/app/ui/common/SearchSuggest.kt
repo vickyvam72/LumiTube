@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.lumitube.app.data.Repo
 import com.lumitube.app.data.Session
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Daftar di bawah kotak cari, seperti YouTube asli:
@@ -72,6 +73,7 @@ fun SearchSuggestions(
     val past = if (q.isEmpty()) history.take(25) else history.filter { it.contains(q, ignoreCase = true) }.take(4)
     val rows = past.map { it to true } + suggestions.filter { s -> past.none { it.equals(s, ignoreCase = true) } }.map { it to false }
     var confirm by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     LazyColumn(modifier.fillMaxSize().imePadding()) {
         items(rows, key = { (if (it.second) "h:" else "s:") + it.first }) { (s, isHistory) ->
@@ -106,7 +108,14 @@ fun SearchSuggestions(
             title = { Text(s) },
             text = { Text("Hapus dari histori penelusuran?") },
             confirmButton = {
-                TextButton(onClick = { Session.removeSearch(s); confirm = null }) { Text("Hapus") }
+                TextButton(onClick = {
+                    Session.removeSearch(s)
+                    confirm = null
+                    // Ikut dihapus dari histori penelusuran YouTube / YouTube Music asli.
+                    scope.launch {
+                        try { Repo.removeSearchFromAccount(s, com.lumitube.app.CrossApp.isMusic) } catch (_: Exception) { }
+                    }
+                }) { Text("Hapus") }
             },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Batal") } },
         )

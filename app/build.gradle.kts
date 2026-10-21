@@ -12,7 +12,7 @@ android {
         applicationId = "com.lumitube.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 86
+        versionCode = 87
         versionName = "2.2"
     }
 
