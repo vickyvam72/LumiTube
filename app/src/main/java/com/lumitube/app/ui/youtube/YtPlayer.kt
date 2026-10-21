@@ -380,7 +380,7 @@ fun YtVideoPlayer(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(err, color = Color.White, fontSize = 13.sp, maxLines = 3)
+                Text(err, color = Color.White, fontSize = 12.sp, maxLines = 7, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Box(
                     Modifier.padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(Color.White)
                         .clickable { PlaybackManager.retry() }.padding(horizontal = 16.dp, vertical = 6.dp)

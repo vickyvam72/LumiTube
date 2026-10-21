@@ -365,5 +365,22 @@ fun MusicBottomNav(selected: Int, onSelect: (Int) -> Unit) {
                 )
             }
         }
+        // Tab "Anda" dengan foto profil, seperti YouTube Lumi.
+        val you = specs.size
+        Column(
+            Modifier.weight(1f).fillMaxHeight().clickable { onSelect(you) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                Modifier.size(28.dp).clip(CircleShape)
+                    .then(if (selected == you) Modifier.border(2.dp, MusicColors.text, CircleShape) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) { Avatar(26) }
+            Text(
+                "Anda", color = if (selected == you) MusicColors.text else MusicColors.sub, fontSize = 12.sp,
+                fontWeight = if (selected == you) FontWeight.Medium else FontWeight.Normal,
+            )
+        }
     }
 }

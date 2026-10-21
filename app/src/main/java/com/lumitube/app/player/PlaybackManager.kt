@@ -1019,7 +1019,11 @@ object PlaybackManager {
                     StreamResolver.resetIdentity()
                     if (Session.loggedIn) "YouTube sedang membatasi pemutaran. Coba lagi sebentar lagi."
                     else "YouTube meminta konfirmasi bukan bot. Login di tab Anda supaya video bisa diputar."
-                } else msg
+                } else {
+                    // Sertakan alasan tiap cara putar (ringkas) supaya mudah dilaporkan.
+                    val detail = StreamResolver.lastFailure
+                    if (detail.isNotBlank()) com.lumitube.app.tr(msg) + "\n" + detail.take(220) else msg
+                }
             } finally {
                 if (current?.id == item.id) loading = false
             }

@@ -186,7 +186,7 @@ Sesi login hanya disimpan **di HP-mu**.
 
 ### 2️⃣ Buka link YouTube di Lumi
 - **YouTube Lumi:** tab **Anda** → **Setelan** → nyalakan **"Buka link YouTube di aplikasi ini"**
-- **YT Music Lumi:** foto profil → **Setelan** → nyalakan **"Buka link YouTube Music di aplikasi ini"**
+- **YT Music Lumi:** tab **Anda** → **Setelan** → nyalakan **"Buka link YouTube Music di aplikasi ini"**
 
 Lalu ikuti panduan 2 langkah di layar: pertama lepaskan link dari aplikasi YouTube asli, lalu sambungkan link ke Lumi. Tombol **Atur ulang link** membuka panduan yang sama kapan saja.
 

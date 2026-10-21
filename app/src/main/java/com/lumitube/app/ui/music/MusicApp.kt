@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Stop
@@ -204,7 +206,11 @@ fun MusicApp(
                     null -> when (tab) {
                         0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, onSearch = { MusicSearchState.reset(); stack.add(MRoute.Search) }, scrollToTop = homeTop) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
-                        else -> LibraryScreen(onItem, onLogin, onOpenVideo)
+                        2 -> LibraryScreen(onItem, onLogin, onOpenVideo)
+                        else -> MusicYouTab(
+                            onLogin = onLogin, onSettings = { showSettings = true },
+                            onDownloads = { stack.add(MRoute.Downloads) }, onSwitchVideo = onSwitchVideo,
+                        )
                     }
                 }
             }
@@ -229,6 +235,51 @@ fun MusicApp(
     }
 }
 
+// ---------------------------------------------------------------- Anda
+
+/** Tab "Anda": akun, Download, Setelan, dan pindah ke YouTube Lumi (seperti YouTube Lumi). */
+@Composable
+private fun MusicYouTab(onLogin: () -> Unit, onSettings: () -> Unit, onDownloads: () -> Unit, onSwitchVideo: () -> Unit) {
+    val acc = Session.account
+    LaunchedEffect(Session.loggedIn) {
+        if (Session.loggedIn && Session.account == null) {
+            try {
+                Repo.account()
+            } catch (_: Exception) {
+            }
+        }
+    }
+    @Composable
+    fun row(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, tint = MusicColors.text)
+            Text(label, color = MusicColors.text, fontSize = 15.sp, modifier = Modifier.padding(start = 20.dp))
+        }
+    }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(72)
+                Column(Modifier.padding(start = 16.dp)) {
+                    Text(acc?.name ?: if (Session.loggedIn) "Akun Google" else "Belum login", color = MusicColors.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    acc?.handle?.let { Text(it, color = MusicColors.sub, fontSize = 13.sp) }
+                }
+            }
+        }
+        if (!Session.loggedIn) {
+            item { MessageBox("Login untuk rekomendasi pribadi, playlist, dan lagu yang kamu sukai.", MusicColors.sub, "Login", onLogin) }
+        }
+        item { row(Icons.Filled.DownloadForOffline, "Download", onDownloads) }
+        item { row(Icons.Filled.Settings, "Setelan", onSettings) }
+        item { row(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", onSwitchVideo) }
+        if (Session.loggedIn) item { row(Icons.AutoMirrored.Filled.Logout, "Keluar") { Session.logout() } }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
 // ---------------------------------------------------------------- Beranda
 
 @Composable
@@ -250,20 +301,6 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
         // Tombol cari di bilah atas, seperti YouTube Lumi.
         IconButton(onClick = onSearch) {
             Icon(Icons.Filled.Search, "Cari", tint = MusicColors.text, modifier = Modifier.size(26.dp))
-        }
-        Box {
-            Box(Modifier.padding(horizontal = 8.dp)) { Avatar(34) { menu = true } }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                val acc = Session.account
-                if (Session.loggedIn) {
-                    DropdownMenuItem(text = { Text(acc?.name ?: "Akun Google") }, onClick = { menu = false })
-                    DropdownMenuItem(text = { Text("Keluar") }, onClick = { menu = false; Session.logout() })
-                } else {
-                    DropdownMenuItem(text = { Text("Login") }, onClick = { menu = false; onLogin() })
-                }
-                DropdownMenuItem(text = { Text("Setelan") }, onClick = { menu = false; onSettings() })
-                DropdownMenuItem(text = { Text("Buka YouTube Lumi") }, onClick = { menu = false; onSwitchVideo() })
-            }
         }
     }
 }

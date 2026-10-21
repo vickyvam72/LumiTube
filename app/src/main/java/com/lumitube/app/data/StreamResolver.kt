@@ -116,6 +116,18 @@ object StreamResolver {
         auth = auth,
     ) { }
 
+    private const val SAFARI_UA =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)"
+
+    private fun webSafari(auth: Boolean) = PlayerClient(
+        "WEB", 1, InnerTube.Client.WEB.version, SAFARI_UA, WWW, false,
+        mapOf("Origin" to "https://www.youtube.com", "X-Origin" to "https://www.youtube.com", "Referer" to "https://www.youtube.com/"),
+        mediaUa = SAFARI_UA,
+        mediaHeaders = mapOf("Origin" to "https://www.youtube.com", "Referer" to "https://www.youtube.com/"),
+        auth = auth,
+        hlsOnly = true,
+    ) { }
+
     private val clients: List<PlayerClient>
         get() = listOfNotNull(
             // Sudah login: minta stream sebagai akun sendiri dulu (seperti web YouTube),
@@ -164,6 +176,8 @@ object StreamResolver {
                 it.put("deviceMake", "Apple").put("deviceModel", "iPhone16,2")
                     .put("osName", "iPhone").put("osVersion", "18.3.2.22D82")
             },
+            // Klien web (Safari) memakai akun bila sudah login: video & live "untuk anak" lewat HLS.
+            webSafari(auth = Session.loggedIn),
             PlayerClient(
                 "ANDROID_VR", 28, "1.64.34",
                 "com.google.android.apps.youtube.vr.pico/1.64.34 (Linux; U; Android 10; en_US; A8110 Build/5.13.7)",
@@ -224,6 +238,9 @@ object StreamResolver {
         select(raw(videoId), audioOnly, if (short) minOf(Session.maxQuality, 720) else Session.maxQuality)
     }
 
+    /** Alasan gagal per klien untuk video terakhir yang tidak bisa diputar (untuk laporan). */
+    @Volatile var lastFailure: String = ""
+
     private val inFlight = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Stream>>()
     private val prefetchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + com.lumitube.app.CrashLog.handler)
 
@@ -260,6 +277,7 @@ object StreamResolver {
                 val finished = java.util.concurrent.atomic.AtomicInteger(0)
                 val result = kotlinx.coroutines.CompletableDeferred<Stream>()
                 val errors = java.util.Collections.synchronizedList(mutableListOf<Exception>())
+                val errorsByClient = java.util.Collections.synchronizedList(mutableListOf<String>())
                 val jobs = list.mapIndexed { i, c ->
                     launch {
                         var waited = 0L
@@ -278,10 +296,12 @@ object StreamResolver {
                         } catch (e: Exception) {
                             if (c.kind == Kind.EMBED) Cipher.dropEmbed()
                             errors.add(e)
+                            errorsByClient.add("${c.name}${if (c.auth) "+" else ""}: ${e.message?.take(40)}")
                         } finally {
                             if (finished.incrementAndGet() == list.size && !result.isCompleted) {
                                 val err = errors.firstOrNull { it.message?.contains("bot", true) == true }
                                     ?: errors.firstOrNull() ?: lastError ?: IOException("Video tidak bisa diputar")
+                                lastFailure = errorsByClient.joinToString(" · ")
                                 result.completeExceptionally(err)
                             }
                         }

@@ -188,7 +188,7 @@ Your session is stored **only on your device**.
 
 ### 2️⃣ Open YouTube links in Lumi
 - **YouTube Lumi:** **You** tab → **Settings** → turn on **"Open YouTube links in this app"**
-- **YT Music Lumi:** profile picture → **Settings** → turn on **"Open YouTube Music links in this app"**
+- **YT Music Lumi:** **You** tab → **Settings** → turn on **"Open YouTube Music links in this app"**
 
 Then follow the 2-step on-screen guide: first release links from the official YouTube app, then connect them to Lumi. The **Reset links** button opens the same guide at any time.
 
