@@ -787,7 +787,13 @@ private fun MusicBrowseScreen(
         PlaybackManager.playMusic(if (shuffle) topSongs.shuffled() else topSongs, start, radio = false, loop = true)
     }
     // Halaman "lainnya" dari Beranda (Dengarkan lagi, Rilis baru, …): isinya ke bawah, bukan ke samping.
-    val isGeneric = !isArtist && !isAlbum && !route.id.startsWith("VL")
+    val isGeneric = (!isArtist || route.id.startsWith("MPAD")) && !isAlbum && !route.id.startsWith("VL")
+    // Poster atas selalu ada: bila halaman tidak punya gambar sendiri (mis. playlist "Lagu teratas",
+    // "Video", "Single & EP"), pakai gambar item pertama di halaman ini.
+    val headerThumb = page?.thumbnail
+        ?: shelves.asSequence().flatMap { it.items.asSequence() }.firstOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail
+        ?: feed.items.firstOrNull { !it.thumbnail.isNullOrBlank() }?.thumbnail
+        ?: allSongs.firstOrNull()?.let { "https://i.ytimg.com/vi/${it.id}/hqdefault.jpg" }
 
     fun playFrom(item: Item) {
         val idx = allSongs.indexOfFirst { it.id == item.id }
@@ -844,10 +850,10 @@ private fun MusicBrowseScreen(
             if (page != null) {
                 item {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (isArtist) {
-                            Img(page.thumbnail, Modifier.size(200.dp).clip(CircleShape))
-                        } else if (!isGeneric || page.thumbnail != null) {
-                            Img(page.thumbnail, Modifier.size(240.dp).clip(RoundedCornerShape(8.dp)))
+                        if (route.id.startsWith("UC")) {
+                            Img(headerThumb, Modifier.size(200.dp).clip(CircleShape))
+                        } else if (headerThumb != null) {
+                            Img(headerThumb, Modifier.size(240.dp).clip(RoundedCornerShape(8.dp)))
                         }
                         Text(
                             page.title ?: route.title ?: "", color = MusicColors.text, fontSize = 26.sp, fontWeight = FontWeight.Bold,
