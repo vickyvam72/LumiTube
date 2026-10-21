@@ -10,7 +10,7 @@
 
 ---
 
-## ✦ v2.2 — 21 Oktober 2026 / 21 October 2026
+## ✦ v2.2 — 22 Oktober 2026 / 22 October 2026
 
 > 🌐 **Pilih bahasa / Choose your language** — ketuk salah satu untuk membuka / tap a section to expand it.
 
@@ -38,6 +38,16 @@
 - Daftar video terkait kini diberi penanda Shorts dan Video, seperti di Histori
 - **Subtitle Bahasa Indonesia**: bila video tidak punya subtitle Indonesia, subtitle aslinya diterjemahkan otomatis ke Bahasa Indonesia; bila video tidak punya subtitle sama sekali, muncul keterangan "tidak punya subtitle". Judul dan audio video tetap asli
 - Menghapus penelusuran di YouTube Lumi dan YT Music Lumi (tekan lama di histori penelusuran) kini ikut menghapusnya dari histori penelusuran YouTube dan YouTube Music asli
+- Layar perkenalan dan izin saat pertama dibuka kini berwarna biru Lumi
+- YT Music Lumi: **lagu tidak pernah berhenti di akhir daftar**. Setelah lagu terakhir (Pilihan cepat, Favorit yang terlupakan, playlist, dll.), Next berlanjut dengan lagu serupa
+- YT Music Lumi: halaman artis punya **Lagu teratas** yang bisa digeser kanan-kiri dengan tombol **Putar semua**. Lagu yang diputar dari sini tetap lagu artis itu dan diulang dari awal saat habis
+- YT Music Lumi: tombol **Putar semua** di Pilihan cepat dan rak lagu lainnya
+- YT Music Lumi: tarik Beranda ke bawah untuk memuat pilihan lagu baru
+- YT Music Lumi: **tekan lama** lagu atau playlist di Beranda untuk Tambahkan ke playlist, Download, dan Bagikan
+- YT Music Lumi: halaman lanjutan dari Beranda (Dengarkan lagi, Rilis baru, dll.) kini tersusun ke bawah, dan kotak Dengarkan lagi selalu terisi penuh
+- YT Music Lumi: menu **Histori** di tab Anda (sama dengan histori YouTube Music asli), lengkap dengan titik tiga Tambahkan ke playlist, Download, Bagikan
+- YT Music Lumi: lirik YouTube Music kini ikut bergerak (juga di PiP); bila YouTube hanya punya teks biasa, waktunya diperkirakan dari durasi lagu
+- Watch & Listen Together: bila diizinkan host, anggota bisa memilih lebih dulu meski host belum memutar apa pun. Bila tidak diizinkan, anggota tidak bisa memilih, menggeser durasi, atau putar/jeda, dan muncul pemberitahuan
 
 ### 🐞 Perbaikan
 - Pencarian dari YouTube Lumi dan YT Music Lumi kini tercatat di histori pencarian YouTube dan YouTube Music asli
@@ -47,6 +57,10 @@
 - Shorts di daftar video terkait tampil sebagai rak Shorts
 - Video anak yang sebelumnya gagal dengan pesan "Video tidak tersedia" kini bisa diputar
 - Hapus dari histori tontonan tidak lagi gagal dan ikut terhapus di YouTube asli
+- Login: keyboard tidak lagi tertutup saat saran email muncul
+- YT Music Lumi: nama artis di pemutar selalu bisa diketuk untuk membuka halaman artis
+- Watch & Listen Together: pemutaran tidak lagi berhenti sendiri lalu mengulang dari awal. Saat host memuat, buffering, atau offline, anggota ikut berhenti di posisi yang sama
+- Watch & Listen Together: poster lagu tidak lagi hilang dan pindah ke Video tidak lagi kosong
 - Live yang dijeda lama tidak lagi berhenti di layar hitam
 - Download playlist kini menyimpan semua isinya saja, tanpa video saran yang ikut terdownload
 - Mengetuk foto channel yang sedang live kini membuka halaman channel, bukan siarannya
@@ -77,6 +91,16 @@
 - Related videos are now labeled Shorts and Video, like in History
 - **Indonesian subtitles**: if a video has no Indonesian subtitles, its original subtitles are automatically translated into Indonesian; if it has no subtitles at all, a "no subtitles" notice appears. Video titles and audio stay original
 - Deleting a search in YouTube Lumi and YT Music Lumi (long-press it in search history) now also removes it from the official YouTube and YouTube Music search history
+- The welcome and permission screens on first launch now use Lumi blue
+- YT Music Lumi: **songs never stop at the end of a list**. After the last song (Quick picks, Forgotten favorites, playlists, etc.), Next continues with similar songs
+- YT Music Lumi: artist pages have **Top songs** you can swipe left and right, with a **Play all** button. Songs played from there stay with that artist and start over when the list ends
+- YT Music Lumi: a **Play all** button on Quick picks and other song shelves
+- YT Music Lumi: pull Home down to load new picks
+- YT Music Lumi: **long-press** a song or playlist on Home to Add to playlist, Download or Share
+- YT Music Lumi: "more" pages from Home (Listen again, New releases, etc.) now scroll vertically, and the Listen again grid is always full
+- YT Music Lumi: a **History** entry in the You tab (same as the official YouTube Music history), with a three-dot menu to Add to playlist, Download and Share
+- YT Music Lumi: YouTube Music lyrics now move too (also in PiP); when YouTube only has plain text, timing is estimated from the song length
+- Watch & Listen Together: when the host allows it, members can pick first even before the host plays anything. When not allowed, members can't pick, seek or play/pause, and a notice appears
 
 ### 🐞 Fixes
 - Searches from YouTube Lumi and YT Music Lumi are now saved to the official YouTube and YouTube Music search history
@@ -86,6 +110,10 @@
 - Shorts in related videos now appear as a Shorts shelf
 - Kids' videos that failed with "Video unavailable" now play
 - Remove from watch history no longer fails, and the video is removed on the official YouTube too
+- Sign-in: the keyboard no longer closes when email suggestions appear
+- YT Music Lumi: the artist name in the player can always be tapped to open the artist page
+- Watch & Listen Together: playback no longer pauses by itself and restarts from the beginning. While the host is loading, buffering or offline, members pause at the same spot
+- Watch & Listen Together: the song poster no longer disappears, and switching to Video is no longer blank
 - A live stream paused for a while no longer gets stuck on a black screen
 - Playlist downloads now save exactly the playlist's items, without suggested videos
 - Tapping the picture of a channel that's live now opens the channel page instead of the stream

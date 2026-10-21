@@ -1,5 +1,7 @@
 package com.lumitube.app.data
 
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.sync.withLock
 
 import com.lumitube.app.data.InnerTube.Client
@@ -914,4 +916,85 @@ object Repo {
 
     suspend fun lyrics(browseId: String): String? =
         Parser.lyrics(InnerTube.browse(Client.MUSIC, browseId))
+
+    /**
+     * Lirik YT Music yang bergerak (bersinkron per baris), seperti di aplikasi YT Music:
+     * diminta sebagai aplikasi Android YT Music (web hanya memberi teks biasa), lalu dengan akun.
+     * Hasil: daftar (mulai ms, selesai ms, teks), atau null bila YouTube hanya punya teks biasa.
+     */
+    suspend fun timedLyrics(browseId: String): List<Triple<Long, Long, String>>? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        fun parse(r: org.json.JSONObject): List<Triple<Long, Long, String>>? {
+            var data: org.json.JSONArray? = null
+            fun find(node: Any?) {
+                if (data != null) return
+                when (node) {
+                    is org.json.JSONObject -> {
+                        (node.opt("timedLyricsData") as? org.json.JSONArray)?.let { data = it; return }
+                        for (k in node.keys()) find(node.opt(k))
+                    }
+                    is org.json.JSONArray -> for (i in 0 until node.length()) find(node.opt(i))
+                }
+            }
+            find(r)
+            val arr = data ?: return null
+            val out = ArrayList<Triple<Long, Long, String>>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val cue = o.optJSONObject("cueRange") ?: return null
+                val start = cue.optString("startTimeMilliseconds").toLongOrNull() ?: return null
+                val end = cue.optString("endTimeMilliseconds").toLongOrNull() ?: start
+                out.add(Triple(start, end, o.optString("lyricLine")))
+            }
+            return out.takeIf { it.isNotEmpty() }
+        }
+        val ver = "8.40.54"
+        val ua = "com.google.android.apps.youtube.music/$ver (Linux; U; Android 15) gzip"
+        val body = org.json.JSONObject()
+            .put("context", org.json.JSONObject().put("client", org.json.JSONObject()
+                .put("clientName", "ANDROID_MUSIC").put("clientVersion", ver)
+                .put("androidSdkVersion", 35).put("osName", "Android").put("osVersion", "15")
+                .put("hl", InnerTube.hl).put("gl", InnerTube.gl)))
+            .put("browseId", browseId)
+        try {
+            val req = okhttp3.Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/browse?prettyPrint=false")
+                .header("User-Agent", ua)
+                .header("X-YouTube-Client-Name", "21")
+                .header("X-YouTube-Client-Version", ver)
+                .post(body.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+            val r = InnerTube.http.newCall(req).execute().use { org.json.JSONObject(it.body?.string() ?: "{}") }
+            parse(r)?.let { return@withContext it }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
+        if (Session.loggedIn) {
+            try { parse(InnerTube.browse(Client.MUSIC, browseId))?.let { return@withContext it } } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
+        }
+        null
+    }
+
+    /** ID channel artis sebuah lagu (bila tidak ikut di data lagu), dari antrean YT Music. */
+    suspend fun artistIdFor(videoId: String): String? {
+        val r = InnerTube.next(Client.MUSIC, videoId)
+        var found: String? = null
+        fun walk(node: Any?, inSong: Boolean) {
+            if (found != null) return
+            when (node) {
+                is org.json.JSONObject -> {
+                    val song = inSong || (node.opt("videoId") == videoId && node.has("longBylineText"))
+                    if (song) {
+                        val id = node.optJSONObject("browseEndpoint")?.optString("browseId")
+                        if (id != null && id.startsWith("UC")) { found = id; return }
+                    }
+                    for (k in node.keys()) walk(node.opt(k), song)
+                }
+                is org.json.JSONArray -> for (i in 0 until node.length()) walk(node.opt(i), inSong)
+            }
+        }
+        walk(r, false)
+        return found
+    }
 }

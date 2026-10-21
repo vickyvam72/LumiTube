@@ -605,14 +605,47 @@ object KuGouProvider : LyricsProvider {
     }
 }
 
-/** Lirik bawaan YouTube Music (tidak sinkron). */
+/**
+ * Lirik bawaan YouTube Music. Lirik yang bergerak di aplikasi YT Music diambil lebih dulu;
+ * bila YouTube hanya punya teks biasa, waktunya diperkirakan dari durasi lagu supaya lirik
+ * tetap berjalan (juga di PiP).
+ */
 object YouTubeMusicProvider : LyricsProvider {
     override val name = "YouTube Music"
     override suspend fun fetch(q: SongQuery): Lyrics? {
         val queue = Repo.musicQueue(q.videoId)
         val id = queue.lyricsBrowseId ?: return null
+        Repo.timedLyrics(id)?.let { cues ->
+            val lines = cues.mapIndexedNotNull { i, (start, end0, text) ->
+                val t = text.trim()
+                if (t.isEmpty() || t == "♪") return@mapIndexedNotNull null
+                val end = if (end0 > start) end0 else cues.getOrNull(i + 1)?.first ?: (start + 5000)
+                LyricLine(start, end, t, LyricsUtils.estimateWords(t, start, end))
+            }
+            if (lines.isNotEmpty()) return Lyrics(name, lines, synced = true, wordSynced = false)
+        }
         val text = Repo.lyrics(id) ?: return null
-        return LyricsUtils.plain(text, name)
+        return estimated(LyricsUtils.plain(text, name), q.durationSec)
+    }
+
+    /** Waktu perkiraan untuk teks biasa: baris dibagi rata di sepanjang lagu (sesuai panjang baris). */
+    private fun estimated(plain: Lyrics, durationSec: Int): Lyrics {
+        val lines = plain.lines.filter { !it.text.startsWith("Sumber:") }
+        if (durationSec <= 30 || lines.size < 2) return plain
+        val total = durationSec * 1000L
+        val from = (total * 0.07).toLong().coerceAtMost(15_000)
+        val to = total - (total * 0.05).toLong().coerceAtMost(10_000)
+        val weights = lines.map { it.text.length + 12 }
+        val sum = weights.sum().toDouble()
+        var t = from.toDouble()
+        val timed = lines.mapIndexed { i, l ->
+            val len = (to - from) * weights[i] / sum
+            val s = t.toLong()
+            val e = (t + len).toLong()
+            t += len
+            LyricLine(s, e, l.text, LyricsUtils.estimateWords(l.text, s, e))
+        }
+        return Lyrics("$name (waktu perkiraan)", timed, synced = true, wordSynced = false)
     }
 }
 

@@ -145,6 +145,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
 - 🔒 Video dan Shorts **khusus anggota** tidak tampil di Beranda
 - 🧹 Hapus histori tontonan dan histori penelusuran di Lumi, ikut terhapus di YouTube dan YouTube Music asli
+- ♾️ YT Music Lumi: lagu terus berlanjut setelah lagu terakhir daftar, **Putar semua** di Pilihan cepat dan Lagu teratas artis (geser kanan-kiri), tarik Beranda untuk refresh, tekan lama untuk menu, dan **Histori** di tab Anda
 - 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** (aktif secara bawaan, bisa dimatikan)
 - 📶 Pop up kecil **"Kamu sedang offline"** saat internet putus, juga di mode PiP
 - ⏹️ Tombol **Tutup** di notifikasi pemutar (jendela PiP ikut tertutup)

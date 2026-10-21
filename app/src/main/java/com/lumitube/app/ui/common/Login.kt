@@ -68,13 +68,6 @@ fun LoginScreen(onClose: () -> Unit) {
                 fontWeight = FontWeight.Medium,
             )
         }
-        if (progress in 1..99) {
-            LinearProgressIndicator(
-                progress = { progress / 100f },
-                modifier = Modifier.fillMaxWidth(),
-                color = YtRed,
-            )
-        }
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -86,6 +79,13 @@ fun LoginScreen(onClose: () -> Unit) {
                         cm.setAcceptThirdPartyCookies(this, true)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        // Saran email (isi otomatis Android) membuat keyboard tertutup saat mengetik:
+                        // matikan isi otomatis di halaman login ini.
+                        @Suppress("DEPRECATION")
+                        settings.saveFormData = false
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+                        }
                         // Hilangkan penanda "wv" agar Google tidak menolak login dari WebView.
                         settings.userAgentString = settings.userAgentString
                             .replace("; wv", "")
@@ -125,6 +125,14 @@ fun LoginScreen(onClose: () -> Unit) {
                     }
                 },
             )
+            // Garis progres di atas halaman (bukan menggeser halaman), jadi kolom email tidak kehilangan fokus.
+            if (progress in 1..99) {
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                    color = YtRed,
+                )
+            }
         }
     }
 }

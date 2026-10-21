@@ -145,6 +145,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
 - 🔒 **Members-only** videos and Shorts are hidden from Home
 - 🧹 Remove watch history and search history in Lumi, and it is removed from the official YouTube and YouTube Music too
+- ♾️ YT Music Lumi: playback keeps going after the last song in a list, **Play all** on Quick picks and an artist's Top songs (swipe left/right), pull Home to refresh, long-press for a menu, and **History** in the You tab
 - 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and **Lumi blue colors** (on by default, can be turned off)
 - 📶 A small **"You're offline"** pop-up when the internet drops, also in PiP mode
 - ⏹️ A **Close** button in the player notification (the PiP window closes too)

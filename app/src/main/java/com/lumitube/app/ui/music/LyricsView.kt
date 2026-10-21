@@ -132,7 +132,7 @@ fun SyncedLyricsView(modifier: Modifier = Modifier, fontSize: TextUnit = 28.sp) 
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                     lastTouch = 0L
-                                    PlaybackManager.exo.seekTo(line.start)
+                                    PlaybackManager.seekTo(line.start)
                                 }
                                 .padding(horizontal = 24.dp, vertical = 10.dp),
                         )

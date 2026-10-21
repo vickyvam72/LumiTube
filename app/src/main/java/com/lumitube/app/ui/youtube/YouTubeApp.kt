@@ -1527,7 +1527,7 @@ private fun WatchDetails(
                                     com.lumitube.app.ui.common.descriptionText(it, dl) { target ->
                                         when {
                                             target.startsWith("t:") -> target.substring(2).toLongOrNull()?.let { ms ->
-                                                PlaybackManager.exo.seekTo(ms)
+                                                PlaybackManager.seekTo(ms)
                                             }
                                             target.startsWith("c:") -> {
                                                 val id = target.substring(2)

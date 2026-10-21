@@ -105,8 +105,8 @@ fun TogetherHost() {
                         when {
                             Together.isHost && Together.guestControl -> tr("Kamu host. Kamu dan anggota room bisa memilih %s; semua mengikuti pilihan terakhir.", noun)
                             Together.isHost -> tr("Kamu host. Hanya kamu yang memilih %s; teman di room mengikuti putar, jeda, dan posisinya.", noun)
-                            Together.guestControl -> tr("Kamu anggota. Host mengizinkan kamu ikut memilih %s, putar, dan jeda.", noun)
-                            else -> tr("Kamu anggota. Pemutaran mengikuti pilihan host secara otomatis.")
+                            Together.guestControl -> tr("Kamu anggota. Host mengizinkan kamu ikut memilih %s, putar, dan jeda, juga sebelum host mulai memutar.", noun)
+                            else -> tr("Kamu anggota. Pemutaran mengikuti host; memilih, menggeser durasi, dan putar/jeda hanya bisa bila host mengizinkan.")
                         },
                         fontSize = 14.sp,
                     )

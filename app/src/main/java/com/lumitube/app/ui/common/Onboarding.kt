@@ -80,12 +80,16 @@ object Onboarding {
     fun finish() = Session.putString("onboarded", "1")
 }
 
-private val BgTop = Color(0xFF0E0F16)
-private val BgBottom = Color(0xFF1B1D2B)
-private val CardBg = Color(0xFF171926)
-private val CardBorder = Color(0xFF2C3044)
+// Warna biru Lumi (bawaan) atau merah bila warna biru dimatikan.
+private val blue get() = com.lumitube.app.ui.common.LumiStyle.blue
+private val BgTop get() = if (blue) Color(0xFF07152B) else Color(0xFF0E0F16)
+private val BgBottom get() = if (blue) Color(0xFF0F2A52) else Color(0xFF1B1D2B)
+private val CardBg get() = if (blue) Color(0xFF10233F) else Color(0xFF171926)
+private val CardBorder get() = if (blue) Color(0xFF1F3D66) else Color(0xFF2C3044)
 private val Sub = Color(0xFFA3A8BD)
-private val Accent = Brush.horizontalGradient(listOf(Color(0xFFFF5A52), Color(0xFFD50000)))
+private val Accent get() = if (blue) Brush.horizontalGradient(listOf(Color(0xFF22D3EE), Color(0xFF2563EB)))
+    else Brush.horizontalGradient(listOf(Color(0xFFFF5A52), Color(0xFFD50000)))
+private val AccentTint get() = if (blue) Color(0xFF38BDF8) else Color(0xFFFF6B63)
 private val Good = Color(0xFF34D399)
 private val Amber = Color(0xFFF5B547)
 
@@ -199,7 +203,7 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
                     Box(
                         Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(CardBg),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(icon, null, tint = Color(0xFFFF6B63), modifier = Modifier.size(24.dp)) }
+                    ) { Icon(icon, null, tint = AccentTint, modifier = Modifier.size(24.dp)) }
                     Column(Modifier.padding(start = 16.dp)) {
                         Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                         Text(desc, color = Sub, fontSize = 13.sp, lineHeight = 18.sp)
@@ -323,7 +327,7 @@ private fun PermCard(
         ) {
             Icon(
                 if (granted && !optional) Icons.Filled.CheckCircle else icon, null,
-                tint = if (granted && !optional) Good else if (optional) Amber else Color(0xFFFF6B63),
+                tint = if (granted && !optional) Good else if (optional) Amber else AccentTint,
                 modifier = Modifier.size(22.dp),
             )
         }

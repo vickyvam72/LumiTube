@@ -70,6 +70,37 @@ object Together {
     /** Dipanggil saat tamu harus membuka video baru (YouTube Lumi membuka halaman tonton). */
     var onOpen: ((Item) -> Unit)? = null
 
+    /** true saat Together sendiri yang mengubah pemutaran (mengikuti host), bukan pengguna. */
+    @Volatile private var applying = false
+
+    /**
+     * Tamu di room yang tidak mengizinkan anggota memilih: tidak bisa memilih video/lagu,
+     * menggeser durasi, atau memutar/menjeda. Mengembalikan true (dan memberi tahu) bila ditolak.
+     */
+    fun guestBlocked(): Boolean {
+        if (roomCode == null || isHost || guestControl || applying) return false
+        if (PlaybackManager.current?.type == ItemType.SHORT) return false
+        val now = System.currentTimeMillis()
+        if (now - lastWarnAt > 2500) {
+            lastWarnAt = now
+            appContext?.let {
+                com.lumitube.app.ui.common.LumiToast.makeText(it, "Host tidak mengizinkan anggota memilih atau mengatur pemutaran", Toast.LENGTH_SHORT).show()
+            }
+        }
+        return true
+    }
+
+    /** Tamu di room (siapa pun pengaturannya): video/lagu berikutnya ditentukan host. */
+    val isGuest: Boolean get() = roomCode != null && !isHost
+
+    private inline fun asSync(block: () -> Unit) {
+        applying = true
+        try { block() } finally { applying = false }
+    }
+
+    /** Gambar cadangan bila host tidak mengirim poster. */
+    private fun thumbOf(id: String, thumb: String?) = thumb?.takeIf { it.isNotEmpty() } ?: "https://i.ytimg.com/vi/$id/hqdefault.jpg"
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + CrashLog.handler)
     private var listenJob: Job? = null
     private var loopJob: Job? = null
@@ -243,19 +274,39 @@ object Together {
         }
     }
 
+    private var sentBuf = false
+    private var bufSince = 0L
+
     private fun publishState(force: Boolean) {
-        val cur = PlaybackManager.current ?: return
-        if (cur.type == ItemType.SHORT) return
-        val exo = PlaybackManager.exo
-        val playing = exo.playWhenReady
-        val pos = exo.currentPosition.coerceAtLeast(0)
         val now = System.currentTimeMillis()
+        val cur = PlaybackManager.current
+        if (cur == null || cur.type == ItemType.SHORT) {
+            // Host belum memutar apa pun: tetap kirim status kosong (izin anggota & jumlah anggota),
+            // jadi anggota yang diizinkan bisa memilih lebih dulu.
+            if (force || sentId != "" || now - sentAt > 15_000) {
+                sentId = ""; sentPlaying = false; sentAt = now
+                send(JSONObject().put("t", "state").put("id", "").put("play", false).put("at", now).put("n", members).put("gc", guestControl))
+            }
+            return
+        }
+        val exo = PlaybackManager.exo
+        // Host sedang memuat / buffering / offline (lebih dari sebentar): anggota ikut berhenti di posisi yang sama.
+        val rawBuf = PlaybackManager.loading || exo.playbackState == androidx.media3.common.Player.STATE_BUFFERING ||
+            !com.lumitube.app.data.Net.online
+        if (!rawBuf) bufSince = 0L else if (bufSince == 0L) bufSince = now
+        val buf = rawBuf && now - bufSince > 1200
+        val playing = exo.playWhenReady && !buf
+        val pos = when {
+            PlaybackManager.loading && cur.id != sentId -> 0L
+            PlaybackManager.loading -> sentPos
+            else -> exo.currentPosition.coerceAtLeast(0)
+        }
         val expected = sentPos + if (sentPlaying) now - sentAt else 0L
-        val changed = force || cur.id != sentId || playing != sentPlaying ||
+        val changed = force || cur.id != sentId || playing != sentPlaying || buf != sentBuf ||
             kotlin.math.abs(pos - expected) > 3000 ||
-            (playing && now - sentAt > 90_000)
+            now - sentAt > 15_000
         if (!changed) return
-        sentId = cur.id; sentPlaying = playing; sentPos = pos; sentAt = now
+        sentId = cur.id; sentPlaying = playing; sentPos = pos; sentAt = now; sentBuf = buf
         send(
             JSONObject()
                 .put("t", "state")
@@ -263,9 +314,10 @@ object Together {
                 .put("kind", if (cur.type == ItemType.SONG) "song" else "video")
                 .put("title", cur.title)
                 .put("ch", cur.channelName ?: cur.subtitle)
-                .put("thumb", cur.thumbnail ?: "")
+                .put("thumb", thumbOf(cur.id, cur.thumbnail))
                 .put("pos", pos)
                 .put("play", playing)
+                .put("buf", buf)
                 .put("at", now)
                 .put("n", members)
                 .put("gc", guestControl)
@@ -282,7 +334,7 @@ object Together {
                 id = id,
                 title = st.optString("title"),
                 subtitle = st.optString("ch"),
-                thumbnail = st.optString("thumb").takeIf { it.isNotEmpty() },
+                thumbnail = thumbOf(id, st.optString("thumb")),
                 channelName = st.optString("ch").takeIf { it.isNotEmpty() },
             )
             if (CrossApp.isMusic) PlaybackManager.playMusic(listOf(item), 0, radio = false)
@@ -296,16 +348,29 @@ object Together {
 
     // ---------------------------------------------------------------- tamu
 
+    private var lastStateAt = 0L
+    private var waitWarned = false
+
     private suspend fun guestLoop() {
         while (scope.isActive && roomCode != null && !isHost) {
             checkGuestChange()
             pending?.let { st ->
                 val cur = PlaybackManager.current
                 val exo = PlaybackManager.exo
-                if (cur?.id == st.optString("id") && exo.duration > 0) {
+                if (cur?.id == st.optString("id") && exo.duration > 0 && !PlaybackManager.loading) {
                     pending = null
+                    lastApplied = System.currentTimeMillis()
                     exo.seekTo(expectedPos(st))
                     if (st.optBoolean("play")) exo.play() else exo.pause()
+                }
+            }
+            // Host tidak terdengar lagi (aplikasi tertutup / offline): berhenti, jangan jalan sendiri.
+            val st = hostState
+            if (st != null && st.optBoolean("play") && System.currentTimeMillis() - lastStateAt > 40_000) {
+                if (PlaybackManager.exo.playWhenReady) PlaybackManager.exo.pause()
+                if (!waitWarned) {
+                    waitWarned = true
+                    appContext?.let { com.lumitube.app.ui.common.LumiToast.makeText(it, "Menunggu host…", Toast.LENGTH_SHORT).show() }
                 }
             }
             delay(400)
@@ -328,11 +393,13 @@ object Together {
         val cur = PlaybackManager.current ?: return
         if (cur.type == ItemType.SHORT) return
         val now = System.currentTimeMillis()
-        if (now - lastApplied < 2000) return
+        if (now - lastApplied < 2500) return
         val exo = PlaybackManager.exo
+        // Sedang memuat / buffering: belum bisa dibandingkan (hindari putar-ulang yang berulang).
+        if (PlaybackManager.loading || exo.playbackState == androidx.media3.common.Player.STATE_BUFFERING) return
         val hostId = st.optString("id")
         val idDiff = cur.id != hostId
-        val playDiff = !idDiff && exo.playWhenReady != st.optBoolean("play")
+        val playDiff = !idDiff && hostId.isNotEmpty() && exo.playWhenReady != st.optBoolean("play")
         if (!idDiff && !playDiff) return
         if (guestControl) {
             if (now - lastReqAt < 3000) return
@@ -347,19 +414,16 @@ object Together {
                     .put("pos", exo.currentPosition.coerceAtLeast(0))
                     .put("play", exo.playWhenReady)
             )
-        } else {
-            if (now - lastWarnAt > 5000) {
-                lastWarnAt = now
-                appContext?.let {
-                    com.lumitube.app.ui.common.LumiToast.makeText(it, "Hanya pembuat room yang bisa memilih", Toast.LENGTH_SHORT).show()
-                }
-            }
+        } else if (hostId.isNotEmpty()) {
+            // Tidak diizinkan: kembali ke pilihan host (pemberitahuan sudah muncul saat menekan).
             applyState(st)
         }
     }
 
     private fun applyState(st: JSONObject) {
         hostState = st
+        lastStateAt = System.currentTimeMillis()
+        waitWarned = false
         lastApplied = System.currentTimeMillis()
         guestControl = st.optBoolean("gc", false)
         members = st.optInt("n", members)
@@ -371,19 +435,28 @@ object Together {
                 id = id,
                 title = st.optString("title"),
                 subtitle = st.optString("ch"),
-                thumbnail = st.optString("thumb").takeIf { it.isNotEmpty() },
+                thumbnail = thumbOf(id, st.optString("thumb")),
                 channelName = st.optString("ch").takeIf { it.isNotEmpty() },
             )
-            if (CrossApp.isMusic) PlaybackManager.playMusic(listOf(item), 0, radio = false)
-            else PlaybackManager.playVideo(item)
+            asSync {
+                if (CrossApp.isMusic) PlaybackManager.playMusic(listOf(item), 0, radio = false)
+                else PlaybackManager.playVideo(item)
+            }
             onOpen?.invoke(item)
             pending = st
             return
         }
         val exo = PlaybackManager.exo
+        // Lagu/video yang sama masih dimuat (mis. pindah Lagu ↔ Video): terapkan setelah siap.
+        if (PlaybackManager.loading || exo.duration <= 0) {
+            pending = st
+            return
+        }
         val target = expectedPos(st)
-        if (exo.duration > 0 && kotlin.math.abs(exo.currentPosition - target) > 1500) exo.seekTo(target)
-        if (st.optBoolean("play")) { if (!exo.playWhenReady) exo.play() } else if (exo.playWhenReady) exo.pause()
+        val play = st.optBoolean("play")
+        // Host berhenti/buffering: diam di posisi host. Host berjalan: koreksi hanya bila selisih jelas.
+        if (kotlin.math.abs(exo.currentPosition - target) > (if (play) 2500 else 1500)) exo.seekTo(target)
+        if (play) { if (!exo.playWhenReady) exo.play() } else if (exo.playWhenReady) exo.pause()
     }
 
     // ---------------------------------------------------------------- util

@@ -407,7 +407,7 @@ fun YtVideoPlayer(
             onSeekStart = { touch = System.currentTimeMillis() },
         ) { fraction ->
             touch = System.currentTimeMillis()
-            if (duration > 0) PlaybackManager.exo.seekTo((fraction * duration).toLong())
+            if (duration > 0) PlaybackManager.seekTo((fraction * duration).toLong())
         }
     }
 }

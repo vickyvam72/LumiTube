@@ -97,6 +97,7 @@ object PlaybackManager {
 
     /** 1 = putar 2x lebih cepat, -1 = mundur dengan kecepatan 2x. */
     fun startHoldSeek(direction: Int) {
+        if (Together.guestBlocked()) return
         holdJob?.cancel()
         holdWasPlaying = exo.playWhenReady
         if (direction > 0) {
@@ -538,6 +539,8 @@ object PlaybackManager {
 
     /** Putar daftar video (mis. playlist); lanjut otomatis ke video berikutnya. */
     fun playVideos(items: List<Item>, start: Int) {
+        // Shorts tidak ikut Watch Together.
+        if (items.getOrNull(start)?.type != ItemType.SHORT && Together.guestBlocked()) return
         if (items.isEmpty()) return
         queueJob?.cancel()
         queue.clear()
@@ -559,9 +562,11 @@ object PlaybackManager {
     }
 
     /** Putar daftar lagu. Jika [radio] true, antrean diisi otomatis dari radio YT Music. */
-    fun playMusic(items: List<Item>, start: Int = 0, radio: Boolean = items.size == 1) {
+    fun playMusic(items: List<Item>, start: Int = 0, radio: Boolean = items.size == 1, loop: Boolean = false) {
+        if (Together.guestBlocked()) return
         if (items.isEmpty()) return
         queueJob?.cancel()
+        loopQueue = loop
         queue.clear()
         queue.addAll(items)
         index = start.coerceIn(0, items.size - 1)
@@ -593,6 +598,7 @@ object PlaybackManager {
     }
 
     fun playAt(i: Int) {
+        if (Together.guestBlocked()) return
         if (i !in queue.indices) return
         index = i
         load(queue[i])
@@ -606,18 +612,59 @@ object PlaybackManager {
         }
     }
 
+    /** Geser posisi (penggeser durasi, lirik, bab): ditolak untuk tamu room yang tidak diizinkan. */
+    fun seekTo(ms: Long) {
+        if (Together.guestBlocked()) return
+        exo.seekTo(ms)
+    }
+
     fun next() {
+        if (Together.guestBlocked()) return
         if (index + 1 < queue.size) {
             index++
             load(queue[index])
-        } else if (repeat == RepeatMode.ALL && playlistQueue && queue.isNotEmpty()) {
+        } else if ((repeat == RepeatMode.ALL && playlistQueue || (!isVideo && loopQueue)) && queue.isNotEmpty()) {
+            // Ulangi playlist / lagu teratas artis: kembali ke lagu pertama (tetap artis yang sama).
             index = 0
             load(queue[0])
+        } else if (!isVideo && queue.isNotEmpty()) {
+            // Lagu terakhir antrean: lanjutkan dengan lagu serupa (radio), jadi Next tidak pernah buntu.
+            extendMusicQueue(playNext = true)
+        }
+    }
+
+    /** Antrean lagu diulang dari awal saat habis (lagu teratas artis), bukan diisi radio. */
+    private var loopQueue = false
+    private var extendJob: Job? = null
+
+    /** Tambah lagu serupa (radio YT Music dari lagu terakhir) ke ujung antrean. */
+    private fun extendMusicQueue(playNext: Boolean) {
+        if (extendJob?.isActive == true || queueJob?.isActive == true) return
+        val last = queue.lastOrNull() ?: return
+        if (last.localUri != null && !com.lumitube.app.data.Net.online) return
+        extendJob = scope.launch {
+            try {
+                val q = Repo.musicQueue(last.id)
+                val ids = queue.map { it.id }.toHashSet()
+                val keys = queue.map { songKey(it.title) }.toHashSet()
+                val add = q.items.filter { it.id !in ids && songKey(it.title) !in keys }.distinctBy { it.id }
+                if (add.isNotEmpty() && !isVideo) {
+                    queue.addAll(add)
+                    if (playNext && index + 1 < queue.size) {
+                        index++
+                        load(queue[index])
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
         }
     }
 
     /** Next untuk mode video: antrean dulu, lalu video terkait (dan siapkan terkait berikutnya). */
     fun nextVideo() {
+        if (Together.guestBlocked()) return
         if (!isVideo || index + 1 < queue.size) {
             next()
             return
@@ -639,6 +686,7 @@ object PlaybackManager {
     }
 
     fun previous() {
+        if (Together.guestBlocked()) return
         if (exo.currentPosition > 3000 || index <= 0) {
             exo.seekTo(0)
         } else {
@@ -648,6 +696,7 @@ object PlaybackManager {
     }
 
     fun togglePlay() {
+        if (Together.guestBlocked()) return
         if (exo.playbackState == Player.STATE_ENDED) exo.seekTo(0)
         // Pemutar berhenti karena gangguan (IDLE): tombol play memuat ulang dari posisi terakhir,
         // bukan diam saja.
@@ -667,6 +716,7 @@ object PlaybackManager {
     }
 
     fun shuffle() {
+        if (Together.guestBlocked()) return
         if (queue.size <= index + 2) return
         val rest = queue.subList(index + 1, queue.size).shuffled()
         while (queue.size > index + 1) queue.removeAt(queue.size - 1)
@@ -895,6 +945,7 @@ object PlaybackManager {
     }
 
     fun seekBy(ms: Long) {
+        if (Together.guestBlocked()) return
         val d = exo.duration
         var t = exo.currentPosition + ms
         if (d > 0) t = t.coerceAtMost(d - 500)
@@ -913,6 +964,8 @@ object PlaybackManager {
             sleepNow()
             return
         }
+        // Tamu Watch/Listen Together: video/lagu berikutnya mengikuti host.
+        if (Together.isGuest) return
         val loop = repeat == RepeatMode.ONE ||
             (isVideo && (Session.loopVideo || current?.type == ItemType.SHORT))
         if (loop) {
@@ -960,6 +1013,8 @@ object PlaybackManager {
             lyricsLoading = false
         }
         loading = true
+        // Hampir di ujung antrean lagu: siapkan lagu berikutnya lebih dulu supaya Next langsung jalan.
+        if (!isVideo && !loopQueue && queue.isNotEmpty() && index >= queue.size - 2) extendMusicQueue(playNext = false)
         if (firstFrameFor == item.id && startPosition == 0L) firstFrameFor = null
         exo.stop()
         val audioOnly = !isVideo

@@ -1,5 +1,6 @@
 package com.lumitube.app.ui.music
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -183,12 +184,23 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
 
             if (panel == 0) {
                 // Judul & artis
+                val artistScope = androidx.compose.runtime.rememberCoroutineScope()
+                val artistCtx = androidx.compose.ui.platform.LocalContext.current
                 Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                     Text(item.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         item.channelName ?: item.subtitle, color = MusicColors.sub, fontSize = 16.sp, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable(enabled = item.channelId != null) { item.channelId?.let(onOpenArtist) },
+                        modifier = Modifier.clickable {
+                            // Artis selalu bisa diketuk: bila ID channel tidak ikut di data lagu, cari dari antrean YT Music.
+                            val id = item.channelId
+                            if (id != null) onOpenArtist(id)
+                            else artistScope.launch {
+                                val found = try { com.lumitube.app.data.Repo.artistIdFor(item.id) } catch (_: Exception) { null }
+                                if (found != null) onOpenArtist(found)
+                                else com.lumitube.app.ui.common.LumiToast.makeText(artistCtx, "Halaman artis tidak ditemukan", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
                     )
                     PlaybackManager.error?.let { err ->
                         Text(
@@ -204,7 +216,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                     value = if (dragging) dragValue else progress,
                     onValueChange = { dragging = true; dragValue = it },
                     onValueChangeFinished = {
-                        PlaybackManager.exo.seekTo((dragValue * duration).toLong())
+                        PlaybackManager.seekTo((dragValue * duration).toLong())
                         position = (dragValue * duration).toLong()
                         dragging = false
                     },

@@ -218,7 +218,7 @@ fun CommentsPanel(
     colors: PanelColors,
     onClose: () -> Unit,
     onChannel: ((String) -> Unit)? = null,
-    onSeek: (Long) -> Unit = { PlaybackManager.exo.seekTo(it) },
+    onSeek: (Long) -> Unit = { PlaybackManager.seekTo(it) },
     /** false bila panel sudah berada di atas navigasi bawah (mis. di Shorts). */
     edgeToEdge: Boolean = true,
 ) {

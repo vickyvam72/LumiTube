@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -96,6 +97,28 @@ sealed interface MRoute {
     data class Browse(val id: String, val params: String?, val title: String?) : MRoute
     data object Downloads : MRoute
     data object Search : MRoute
+    data object History : MRoute
+}
+
+/** Histori YT Music (sama dengan histori di YouTube Music asli), selalu dimuat ulang saat dibuka. */
+@Composable
+private fun MusicHistoryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Unit, onBack: () -> Unit) {
+    val header: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MusicColors.text) }
+            Text("Histori", color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+    if (!Session.loggedIn) {
+        Column {
+            header()
+            MessageBox("Login untuk melihat histori YouTube Music kamu.", MusicColors.sub, "Login", onLogin)
+        }
+        return
+    }
+    val feed = rememberFeed(key = "FEmusic_history", more = { Repo.musicMore(it) }) { Repo.musicBrowse("FEmusic_history") }
+    LaunchedEffect(Unit) { feed.load() }
+    ShelfList(feed, onItem, header)
 }
 
 /** Putar download tanpa internet (semua jadi satu antrean). */
@@ -203,6 +226,7 @@ fun MusicApp(
                     is MRoute.Browse -> MusicBrowseScreen(top, { stack.removeAt(stack.lastIndex) }, onItem, openBrowse)
                     MRoute.Downloads -> OfflineScreen { stack.removeAt(stack.lastIndex) }
                     MRoute.Search -> MusicSearchScreen(onItem) { stack.removeAt(stack.lastIndex) }
+                    MRoute.History -> MusicHistoryScreen(onItem, onLogin) { stack.removeAt(stack.lastIndex) }
                     null -> when (tab) {
                         0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, onSearch = { MusicSearchState.reset(); stack.add(MRoute.Search) }, scrollToTop = homeTop) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
@@ -210,6 +234,7 @@ fun MusicApp(
                         else -> MusicYouTab(
                             onLogin = onLogin, onSettings = { showSettings = true },
                             onDownloads = { stack.add(MRoute.Downloads) }, onSwitchVideo = onSwitchVideo,
+                            onHistory = { stack.add(MRoute.History) },
                         )
                     }
                 }
@@ -239,7 +264,7 @@ fun MusicApp(
 
 /** Tab "Anda": akun, Download, Setelan, dan pindah ke YouTube Lumi (seperti YouTube Lumi). */
 @Composable
-private fun MusicYouTab(onLogin: () -> Unit, onSettings: () -> Unit, onDownloads: () -> Unit, onSwitchVideo: () -> Unit) {
+private fun MusicYouTab(onLogin: () -> Unit, onSettings: () -> Unit, onDownloads: () -> Unit, onSwitchVideo: () -> Unit, onHistory: () -> Unit) {
     val acc = Session.account
     LaunchedEffect(Session.loggedIn) {
         if (Session.loggedIn && Session.account == null) {
@@ -272,6 +297,7 @@ private fun MusicYouTab(onLogin: () -> Unit, onSettings: () -> Unit, onDownloads
         if (!Session.loggedIn) {
             item { MessageBox("Login untuk rekomendasi pribadi, playlist, dan lagu yang kamu sukai.", MusicColors.sub, "Login", onLogin) }
         }
+        item { row(Icons.Filled.History, "Histori", onHistory) }
         item { row(Icons.Filled.DownloadForOffline, "Download", onDownloads) }
         item { row(Icons.Filled.Settings, "Setelan", onSettings) }
         item { row(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", onSwitchVideo) }
@@ -305,6 +331,7 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun MusicHome(
     feed: FeedLoader,
@@ -345,6 +372,22 @@ private fun MusicHome(
     }
     LaunchedEffect(nearEnd, shelves.size, feed.continuation) { if (nearEnd) feed.loadMore() }
 
+    // Tarik ke bawah untuk memuat pilihan lagu baru (seperti YouTube Lumi).
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(feed.loading) {
+        if (!feed.loading && refreshing) {
+            refreshing = false
+            state.scrollToItem(0)
+        }
+    }
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            feed.load()
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
         item { MusicTopBar(onSwitchVideo, onLogin, onSettings, onOffline, onSearch) }
         if (feed.error != null && shelves.isEmpty() && com.lumitube.app.data.Downloader.records.isNotEmpty()) {
@@ -364,6 +407,7 @@ private fun MusicHome(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
     }
 }
 
@@ -617,6 +661,8 @@ private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Uni
         }
         else -> {
             val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
+            // Riwayat selalu terbaru (sama dengan YouTube Music asli).
+            LaunchedEffect(browseId) { if (browseId == "FEmusic_history") feed.load() }
             val deleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
             ShelfList(feed, onItem, chips, deleter = if (browseId == "FEmusic_liked_playlists") deleter else null, library = true)
         }
@@ -714,9 +760,38 @@ private fun MusicBrowseScreen(
         },
     )
 
+    // Lagu teratas artis: daftar lengkapnya (playlist "Lagu teratas") dimuat supaya bisa digeser
+    // dan diputar terus; antreannya tetap lagu artis ini (diulang dari awal saat habis).
+    val topShelf = if (isArtist) shelves.firstOrNull { sh ->
+        sh.items.count { it.row } * 2 > sh.items.size && sh.moreBrowseId?.startsWith("VL") == true
+    } else null
+    val topMore by androidx.compose.runtime.produceState(emptyList<Item>(), topShelf?.moreBrowseId) {
+        val id = topShelf?.moreBrowseId ?: return@produceState
+        value = try {
+            val p = Repo.musicBrowse(id)
+            val all = (p.items + p.shelves.flatMap { it.items }).filter { it.type == ItemType.SONG }.distinctBy { it.id }
+            all.filter { it.setVideoId != null }.ifEmpty { all }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            emptyList()
+        }
+    }
+    val topSongs = (topShelf?.items?.filter { it.type == ItemType.SONG } ?: emptyList()).let { base ->
+        if (topMore.size > base.size) topMore else base
+    }
+    fun playTop(start: Int, shuffle: Boolean = false) {
+        if (topSongs.isEmpty()) return
+        PlaybackManager.playMusic(if (shuffle) topSongs.shuffled() else topSongs, start, radio = false, loop = true)
+    }
+    // Halaman "lainnya" dari Beranda (Dengarkan lagi, Rilis baru, …): isinya ke bawah, bukan ke samping.
+    val isGeneric = !isArtist && !isAlbum && !route.id.startsWith("VL")
+
     fun playFrom(item: Item) {
         val idx = allSongs.indexOfFirst { it.id == item.id }
-        if (idx >= 0 && !isArtist) {
+        val ti = topSongs.indexOfFirst { it.id == item.id }
+        if (ti >= 0) {
+            playTop(ti)
+        } else if (idx >= 0 && !isArtist) {
             PlaybackManager.playMusic(allSongs.map { it.copy(thumbnail = it.thumbnail ?: page?.thumbnail) }, idx, radio = false)
         } else {
             onItem(item, emptyList())
@@ -768,7 +843,7 @@ private fun MusicBrowseScreen(
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         if (isArtist) {
                             Img(page.thumbnail, Modifier.size(200.dp).clip(CircleShape))
-                        } else {
+                        } else if (!isGeneric || page.thumbnail != null) {
                             Img(page.thumbnail, Modifier.size(240.dp).clip(RoundedCornerShape(8.dp)))
                         }
                         Text(
@@ -784,10 +859,10 @@ private fun MusicBrowseScreen(
                         if (allSongs.isNotEmpty()) {
                             Row(Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 PillButton(Icons.Filled.PlayArrow, "Putar", true) {
-                                    PlaybackManager.playMusic(allSongs, 0, radio = isArtist)
+                                    if (topSongs.isNotEmpty()) playTop(0) else PlaybackManager.playMusic(allSongs, 0, radio = isArtist)
                                 }
                                 PillButton(Icons.Filled.Shuffle, "Acak", false) {
-                                    PlaybackManager.playMusic(allSongs.shuffled(), 0, radio = false)
+                                    if (topSongs.isNotEmpty()) playTop(0, shuffle = true) else PlaybackManager.playMusic(allSongs.shuffled(), 0, radio = false)
                                 }
                             }
                             if (!isArtist) {
@@ -860,7 +935,38 @@ private fun MusicBrowseScreen(
             }
             shelves.forEachIndexed { si, shelf ->
                 val rows = shelf.items.count { it.row } * 2 > shelf.items.size
-                if (rows) {
+                if (shelf === topShelf && topSongs.isNotEmpty()) {
+                    // Lagu teratas: geser kanan-kiri (4 lagu per kolom) + Putar semua, seperti YT Music.
+                    item(key = "top$si") {
+                        Column {
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 16.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(shelf.title, color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, MusicColors.sub, RoundedCornerShape(16.dp))
+                                        .clickable { playTop(0) }.padding(horizontal = 14.dp, vertical = 6.dp),
+                                ) { Text("Putar semua", color = MusicColors.text, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+                                shelf.moreBrowseId?.let { more ->
+                                    IconButton(onClick = { openBrowse(more, shelf.moreParams, shelf.title) }) {
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Lainnya", tint = MusicColors.text)
+                                    }
+                                }
+                            }
+                            val shown = topSongs.take(40)
+                            val n = shown.size.coerceIn(1, 4)
+                            androidx.compose.foundation.lazy.grid.LazyHorizontalGrid(
+                                rows = androidx.compose.foundation.lazy.grid.GridCells.Fixed(n),
+                                modifier = Modifier.fillMaxWidth().height((n * 68).dp),
+                            ) {
+                                items(shown.size, key = { "tp" + shown[it].key }) { i ->
+                                    Box(Modifier.width(320.dp)) { SongRow(shown[i]) { playTop(i) } }
+                                }
+                            }
+                        }
+                    }
+                } else if (rows) {
                     if (shelf.title.isNotBlank()) {
                         item(key = "t$si") {
                             Text(shelf.title, color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
@@ -869,6 +975,20 @@ private fun MusicBrowseScreen(
                     itemsIndexed(shelf.items.filter { it.id !in removed && !movable(it) }, key = { _, it -> "r$si" + it.key }) { i, item ->
                         SongRow(item, index = if (isAlbum) i + 1 else null, fallbackThumb = if (isAlbum) null else page?.thumbnail, menu = removeMenu(item)) {
                             if (item.type == ItemType.SONG) playFrom(item) else onItem(item, shelf.items)
+                        }
+                    }
+                } else if (isGeneric) {
+                    // Kisi 2 kolom ke bawah.
+                    if (shelf.title.isNotBlank() && shelves.size > 1) {
+                        item(key = "gt$si") {
+                            Text(shelf.title, color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
+                        }
+                    }
+                    val pairs = shelf.items.chunked(2)
+                    items(pairs.size, key = { "g$si-$it" }) { r ->
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            pairs[r].forEach { it2 -> Box(Modifier.weight(1f)) { MusicCard(it2, fill = true) { onItem(it2, shelf.items) } } }
+                            if (pairs[r].size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 } else {

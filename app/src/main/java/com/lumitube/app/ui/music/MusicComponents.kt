@@ -1,5 +1,7 @@
 package com.lumitube.app.ui.music
 
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -123,7 +125,7 @@ fun MoodChips(chips: List<Chip>, selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-fun ShelfHeader(shelf: Shelf, avatar: Boolean, onMore: (() -> Unit)?) {
+fun ShelfHeader(shelf: Shelf, avatar: Boolean, onMore: (() -> Unit)?, onPlayAll: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -135,6 +137,12 @@ fun ShelfHeader(shelf: Shelf, avatar: Boolean, onMore: (() -> Unit)?) {
         Column(Modifier.weight(1f)) {
             shelf.strapline?.let { Text(it.uppercase(), color = MusicColors.sub, fontSize = 13.sp, letterSpacing = 0.5.sp) }
             Text(shelf.title, color = MusicColors.text, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (onPlayAll != null) {
+            Box(
+                Modifier.padding(end = 4.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, MusicColors.sub, RoundedCornerShape(16.dp))
+                    .clickable(onClick = onPlayAll).padding(horizontal = 14.dp, vertical = 6.dp),
+            ) { Text("Putar semua", color = MusicColors.text, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
         }
         if (onMore != null) {
             IconButton(onClick = onMore) {
@@ -152,9 +160,11 @@ fun SpeedDial(items: List<Item>, onClick: (Item) -> Unit) {
     val current = PlaybackManager.current?.id
     Column {
         HorizontalPager(state = state, contentPadding = PaddingValues(horizontal = 16.dp), pageSpacing = 8.dp) { page ->
-            val chunk = items.drop(page * 9).take(9)
+            // Halaman terakhir tetap penuh: ambil 9 terakhir (tanpa kotak kosong).
+            val from = if (items.size > 9) (page * 9).coerceAtMost(items.size - 9) else 0
+            val chunk = items.drop(from).take(9)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (r in 0 until 3) {
+                for (r in 0 until if (items.size >= 9) 3 else ceil(items.size / 3.0).toInt().coerceAtLeast(1)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (c in 0 until 3) {
                             val cell = chunk.getOrNull(r * 3 + c)
@@ -179,14 +189,17 @@ fun SpeedDial(items: List<Item>, onClick: (Item) -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun DialTile(item: Item, active: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
+    var menu by remember { mutableStateOf(false) }
     Box(
         Modifier.fillMaxSize().clip(shape)
             .then(if (active) Modifier.border(3.dp, Color.White, shape) else Modifier)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
     ) {
+        LongPressMenu(item, menu) { menu = false }
         Img(item.thumbnail, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xCC000000))))
         Text(
@@ -196,12 +209,31 @@ private fun DialTile(item: Item, active: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Kartu persegi (album, playlist, mix) atau lebar (video musik). */
+/** Menu tekan lama (lagu/playlist di Beranda): Tambahkan ke playlist, Download, Bagikan. */
 @Composable
-fun MusicCard(item: Item, onClick: () -> Unit) {
+fun LongPressMenu(item: Item, open: Boolean, onDismiss: () -> Unit) {
+    if (!open) return
+    val actions = SongActions.menuFor(item)
+    if (actions.isEmpty()) { LaunchedEffect(Unit) { onDismiss() }; return }
+    androidx.compose.material3.DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
+        for ((label, action) in actions) {
+            androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { onDismiss(); action() })
+        }
+    }
+}
+
+/** Kartu persegi (album, playlist, mix) atau lebar (video musik). [fill] = isi lebar kolom (kisi). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun MusicCard(item: Item, fill: Boolean = false, onClick: () -> Unit) {
     val width = if (item.wide) 260.dp else 150.dp
     val circle = item.type == ItemType.ARTIST
-    Column(Modifier.width(width).clickable(onClick = onClick)) {
+    var menu by remember { mutableStateOf(false) }
+    Column(
+        (if (fill) Modifier.fillMaxWidth() else Modifier.width(width))
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true })
+    ) {
+        Box { LongPressMenu(item, menu) { menu = false } }
         Img(
             item.thumbnail,
             Modifier.fillMaxWidth().aspectRatio(if (item.wide) 16f / 9f else 1f)
@@ -268,7 +300,12 @@ fun SongRow(
 fun ShelfView(shelf: Shelf, index: Int, onItem: (Item, List<Item>) -> Unit, onMore: ((Shelf) -> Unit)?) {
     val rows = shelf.items.count { it.row } * 2 > shelf.items.size
     val speedDial = !rows && index == 0 && shelf.strapline != null
-    ShelfHeader(shelf, avatar = speedDial, onMore = if (shelf.moreBrowseId != null && onMore != null) ({ onMore(shelf) }) else null)
+    // Pilihan cepat dan rak lagu lain: tombol Putar semua (antrean berlanjut setelah lagu terakhir).
+    val songs = shelf.items.filter { it.type == ItemType.SONG }
+    ShelfHeader(
+        shelf, avatar = speedDial, onMore = if (shelf.moreBrowseId != null && onMore != null) ({ onMore(shelf) }) else null,
+        onPlayAll = if (rows && songs.size > 1) ({ PlaybackManager.playMusic(songs, 0, radio = false) }) else null,
+    )
     when {
         speedDial -> SpeedDial(shelf.items) { onItem(it, shelf.items) }
         rows -> {
