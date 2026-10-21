@@ -38,7 +38,8 @@
 - Daftar video terkait kini diberi penanda Shorts dan Video, seperti di Histori
 - **Subtitle Bahasa Indonesia**: bila video tidak punya subtitle Indonesia, subtitle aslinya diterjemahkan otomatis ke Bahasa Indonesia; bila video tidak punya subtitle sama sekali, muncul keterangan "tidak punya subtitle". Judul dan audio video tetap asli
 - Menghapus penelusuran di YouTube Lumi dan YT Music Lumi (tekan lama di histori penelusuran) kini ikut menghapusnya dari histori penelusuran YouTube dan YouTube Music asli
-- Layar perkenalan dan izin saat pertama dibuka kini berwarna biru Lumi
+- Layar perkenalan dan izin saat pertama dibuka, serta jendela Watch & Listen Together, kini berwarna biru Lumi
+- Link di komentar kini bisa dipencet: link YouTube dibuka di Lumi, link lain di browser
 - YT Music Lumi: **lagu tidak pernah berhenti di akhir daftar**. Setelah lagu terakhir (Pilihan cepat, Favorit yang terlupakan, playlist, dll.), Next berlanjut dengan lagu serupa
 - YT Music Lumi: halaman artis punya **Lagu teratas** yang bisa digeser kanan-kiri dengan tombol **Putar semua**. Lagu yang diputar dari sini tetap lagu artis itu dan diulang dari awal saat habis
 - YT Music Lumi: tombol **Putar semua** di Pilihan cepat dan rak lagu lainnya
@@ -93,7 +94,8 @@
 - Related videos are now labeled Shorts and Video, like in History
 - **Indonesian subtitles**: if a video has no Indonesian subtitles, its original subtitles are automatically translated into Indonesian; if it has no subtitles at all, a "no subtitles" notice appears. Video titles and audio stay original
 - Deleting a search in YouTube Lumi and YT Music Lumi (long-press it in search history) now also removes it from the official YouTube and YouTube Music search history
-- The welcome and permission screens on first launch now use Lumi blue
+- The welcome and permission screens on first launch, and the Watch & Listen Together window, now use Lumi blue
+- Links in comments can now be tapped: YouTube links open in Lumi, other links in the browser
 - YT Music Lumi: **songs never stop at the end of a list**. After the last song (Quick picks, Forgotten favorites, playlists, etc.), Next continues with similar songs
 - YT Music Lumi: artist pages have **Top songs** you can swipe left and right, with a **Play all** button. Songs played from there stay with that artist and start over when the list ends
 - YT Music Lumi: a **Play all** button on Quick picks and other song shelves

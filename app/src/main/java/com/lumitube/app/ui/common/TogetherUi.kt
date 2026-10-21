@@ -65,6 +65,23 @@ fun TogetherHost() {
     val ctx = LocalContext.current
     val code = Together.roomCode
     var input by remember { mutableStateOf("") }
+    // Warna biru Lumi (bukan ungu bawaan Material), terang atau gelap mengikuti tema aplikasi.
+    val dark = LumiStyle.dark
+    val blue = if (dark) Color(0xFF38BDF8) else Color(0xFF2563EB)
+    val base = androidx.compose.material3.MaterialTheme.colorScheme
+    val scheme = base.copy(
+        primary = blue, onPrimary = if (dark) Color(0xFF04203A) else Color.White,
+        secondary = blue, onSecondary = Color.White,
+        primaryContainer = if (dark) Color(0xFF123A66) else Color(0xFFDBEAFE),
+        onPrimaryContainer = if (dark) Color.White else Color(0xFF0B2A5B),
+        surface = if (dark) Color(0xFF0F1E36) else Color(0xFFF2F7FF),
+        surfaceContainerHigh = if (dark) Color(0xFF0F1E36) else Color(0xFFF2F7FF),
+        surfaceContainerHighest = if (dark) Color(0xFF16294A) else Color(0xFFE3EEFF),
+        onSurface = if (dark) Color(0xFFEAF2FF) else Color(0xFF0B1B33),
+        onSurfaceVariant = if (dark) Color(0xFFB8C7DE) else Color(0xFF3B4D66),
+        outline = if (dark) Color(0xFF4A6A93) else Color(0xFF8AA6CC),
+    )
+    androidx.compose.material3.MaterialTheme(colorScheme = scheme) {
     AlertDialog(
         onDismissRequest = { Together.showSheet = false },
         icon = { Icon(Icons.Filled.Groups, null) },
@@ -119,7 +136,7 @@ fun TogetherHost() {
                             Switch(
                                 checked = Together.guestControl,
                                 onCheckedChange = { Together.updateGuestControl(it) },
-                                colors = SwitchDefaults.colors(checkedTrackColor = YtRed),
+                                colors = SwitchDefaults.colors(checkedTrackColor = blue),
                             )
                         }
                     }
@@ -140,6 +157,7 @@ fun TogetherHost() {
         },
         confirmButton = { TextButton(onClick = { Together.showSheet = false }) { Text("Tutup") } },
     )
+    }
 }
 
 private fun shareRoom(ctx: Context, code: String) {

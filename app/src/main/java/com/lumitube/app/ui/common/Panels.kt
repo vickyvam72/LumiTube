@@ -191,24 +191,29 @@ fun descriptionText(
     append(text.substring(last))
 }
 
-/** Teks komentar dengan timestamp (mis. 4:19) yang bisa diklik untuk lompat di video. */
-private fun commentText(text: String, onSeek: (Long) -> Unit) = androidx.compose.ui.text.buildAnnotatedString {
-    var last = 0
-    for (m in timestampRegex.findAll(text)) {
-        append(text.substring(last, m.range.first))
-        val ms = timestampMs(m.value)
-        withLink(
-            androidx.compose.ui.text.LinkAnnotation.Clickable(
-                tag = "ts",
-                styles = androidx.compose.ui.text.TextLinkStyles(
-                    androidx.compose.ui.text.SpanStyle(color = LinkBlue, background = LinkBlue.copy(alpha = 0.12f))
-                ),
-                linkInteractionListener = { onSeek(ms) },
-            )
-        ) { append(m.value) }
-        last = m.range.last + 1
+/**
+ * Teks komentar dengan timestamp (mis. 4:19, lompat di video) dan link yang bisa dipencet.
+ * Link YouTube dibuka di aplikasi ini, link lain di browser.
+ */
+private fun commentText(text: String, onSeek: (Long) -> Unit, onUrl: (String) -> Unit) =
+    descriptionText(text, emptyList()) { t ->
+        when {
+            t.startsWith("t:") -> onSeek(t.substring(2).toLongOrNull() ?: 0L)
+            t.startsWith("v:") -> onUrl("https://www.youtube.com/watch?v=" + t.substring(2))
+            else -> onUrl(t)
+        }
     }
-    append(text.substring(last))
+
+/** Buka link dari komentar: link YouTube di Lumi sendiri, lainnya di browser. */
+private fun openCommentLink(ctx: android.content.Context, url: String) {
+    val uri = android.net.Uri.parse(url)
+    val yt = Regex("(^|\\.)(youtube\\.com|youtu\\.be)$").containsMatchIn(uri.host ?: "")
+    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        ctx.startActivity(if (yt) android.content.Intent(intent).setPackage(ctx.packageName) else intent)
+    } catch (_: Exception) {
+        try { ctx.startActivity(intent) } catch (_: Exception) { }
+    }
 }
 
 @Composable
@@ -451,6 +456,7 @@ private fun CommentRow(
     var expanded by remember(c.id) { mutableStateOf(false) }
     var overflow by remember(c.id) { mutableStateOf(false) }
     val lineColor = colors.sub.copy(alpha = 0.25f)
+    val linkCtx = androidx.compose.ui.platform.LocalContext.current
     Row(
         Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)
             .drawBehind {
@@ -487,7 +493,7 @@ private fun CommentRow(
                 Text(" • ${c.published}", color = colors.sub, fontSize = 12.sp)
             }
             Text(
-                commentText(c.text, onSeek),
+                commentText(c.text, onSeek) { u -> openCommentLink(linkCtx, u) },
                 style = androidx.compose.ui.text.TextStyle(color = colors.text, fontSize = 14.sp, lineHeight = 20.sp),
                 maxLines = if (expanded) Int.MAX_VALUE else 4,
                 overflow = TextOverflow.Ellipsis,
