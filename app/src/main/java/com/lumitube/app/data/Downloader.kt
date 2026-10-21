@@ -145,7 +145,7 @@ object Downloader {
     // ---------------- Pilihan kualitas ----------------
 
     suspend fun options(videoId: String): List<DownloadOption> {
-        val s = StreamResolver.resolve(videoId, audioOnly = false)
+        val s = StreamResolver.resolveForDownload(videoId)
         val audios = s.formats.filter { it.isAudio }
         val m4a = audios.filter { it.isMp4 }.maxByOrNull { it.bitrate }
         val opus = audios.filter { it.codec == "opus" }.maxByOrNull { it.bitrate }
@@ -271,7 +271,15 @@ object Downloader {
                             ?: opts.lastOrNull { it.video != null }
                     }
                     active.remove(waitKey)
-                    if (opt != null && perform(item, opt, asSong = audioOnly, batch = batchId to step)) ok++
+                    var done = opt != null && perform(item, opt, asSong = audioOnly, batch = batchId to step)
+                    // Gagal sekali (mis. sinyal putus): coba sekali lagi dengan data stream baru.
+                    if (!done && opt != null && batchId !in stopped) {
+                        kotlinx.coroutines.delay(1500)
+                        StreamResolver.invalidate(item.id)
+                        val retry = options(item.id).firstOrNull { it.label == opt.label && it.detail == opt.detail } ?: opt
+                        done = perform(item, retry, asSong = audioOnly, batch = batchId to step)
+                    }
+                    if (done) ok++
                 } catch (_: Exception) {
                     active.remove(waitKey)
                 }

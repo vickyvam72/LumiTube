@@ -278,7 +278,8 @@ fun VideoRow(item: Item, menu: List<Pair<String, () -> Unit>>? = null, onClick: 
             Text(item.subtitle, color = yt.sub, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
         }
         // Menu: aksi khusus (mis. hapus dari playlist) + aksi standar video.
-        val all = (menu ?: emptyList()) + VideoActions.menuFor(item)
+        val all = if (item.type == ItemType.PLAYLIST) VideoActions.menuFor(item) + (menu ?: emptyList())
+        else (menu ?: emptyList()) + VideoActions.menuFor(item)
         if (all.isNotEmpty()) com.lumitube.app.ui.common.ItemMenu(all, yt.text)
     }
 }

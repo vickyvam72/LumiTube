@@ -106,6 +106,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - Home feed with pull-to-refresh that keeps your scroll position
 - Subscriptions, **history grouped by day** (All / Videos / Shorts), Liked videos and Watch later
 - The **⋮ menu** on every video: Add to playlist · Download · Share · Listen in YT Music Lumi
+- ⋮ menu on playlists: Download all · Share · Delete playlist
 - A green **Members only** badge on videos available only to channel members
 - Create playlists, reorder them by drag and drop, and delete your own (synced with YouTube; auto-generated playlists like Recap cannot be deleted)
 

@@ -41,6 +41,8 @@ data class Stream(
     val title: String?,
     val author: String?,
     val formats: List<Format> = emptyList(),
+    /** Manifest DASH (dipakai untuk live bila tidak ada HLS, mis. live untuk anak). */
+    val dashUrl: String? = null,
     val lengthSeconds: Long = 0,
     val captions: List<Caption> = emptyList(),
     /** Bahasa terjemahan otomatis yang didukung YouTube (kode, nama). */
@@ -256,16 +258,24 @@ object StreamResolver {
         }
     }
 
-    private suspend fun raw(videoId: String): Stream {
+    /**
+     * Data stream untuk download: harus punya format terpisah (video/audio), jadi klien yang
+     * hanya memberi HLS dilewati.
+     */
+    suspend fun resolveForDownload(videoId: String): Stream = withContext(Dispatchers.IO) {
+        raw(videoId, needFormats = true)
+    }
+
+    private suspend fun raw(videoId: String, needFormats: Boolean = false): Stream {
         cache[videoId]?.let { (time, s) ->
-            if (System.currentTimeMillis() - time < 3 * 60 * 60 * 1000L) return s
+            if (System.currentTimeMillis() - time < 3 * 60 * 60 * 1000L && (!needFormats || s.formats.isNotEmpty() || s.isLive)) return s
         }
         // Gabungkan permintaan yang sama yang sedang berjalan (mis. dari prefetch).
-        val job = inFlight.getOrPut(videoId) {
+        val job = inFlight.getOrPut(videoId + if (needFormats) "|f" else "") {
             prefetchScope.async {
                 var lastError: Exception? = null
                 val bad = rejected[videoId]?.toSet() ?: emptySet()
-                val ordered = clients.withIndex()
+                val ordered = clients.filter { !needFormats || !it.hlsOnly }.withIndex()
                     .sortedWith(compareBy<IndexedValue<PlayerClient>> { if (key(it.value) in bad) 1 else 0 }
                         .thenBy { minOf(failures[key(it.value)] ?: 0, 3) }
                         .thenBy { it.index })
@@ -296,7 +306,7 @@ object StreamResolver {
                         } catch (e: Exception) {
                             if (c.kind == Kind.EMBED) Cipher.dropEmbed()
                             errors.add(e)
-                            errorsByClient.add("${c.name}${if (c.auth) "+" else ""}: ${e.message?.take(40)}")
+                            errorsByClient.add("${c.name}${if (c.auth) "+" else ""}: ${e.message?.take(70)}")
                         } finally {
                             if (finished.incrementAndGet() == list.size && !result.isCompleted) {
                                 val err = errors.firstOrNull { it.message?.contains("bot", true) == true }
@@ -320,7 +330,7 @@ object StreamResolver {
         try {
             return job.await()
         } finally {
-            inFlight.remove(videoId, job)
+            inFlight.remove(videoId + if (needFormats) "|f" else "", job)
         }
     }
 
@@ -339,7 +349,7 @@ object StreamResolver {
             .firstOrNull()?.url
             ?: videos.minByOrNull { it.quality }?.url
         val ok = when {
-            raw.isLive -> raw.hlsUrl != null
+            raw.isLive -> raw.hlsUrl != null || raw.dashUrl != null
             audioOnly -> audio != null || raw.hlsUrl != null
             else -> (video != null && audio != null) || raw.hlsUrl != null
         }
@@ -466,8 +476,11 @@ object StreamResolver {
         val sd = json.obj("streamingData") ?: throw IOException("Tidak ada data stream")
         val isLive = json.obj("videoDetails")?.optBoolean("isLive", false) == true
         val hls = sd.str("hlsManifestUrl")
-        // Siaran langsung diputar lewat HLS; klien tanpa HLS dilewati.
-        if (isLive && hls == null) throw IOException("Live tanpa HLS")
+        val dash = sd.str("dashManifestUrl")
+        // Siaran langsung diputar lewat HLS (atau DASH bila HLS tidak ada); klien tanpa keduanya dilewati.
+        if (isLive && hls == null && dash == null) {
+            throw IOException("Live tanpa HLS [" + sd.keys().asSequence().joinToString(",") + "]")
+        }
         val raw = if (c.hlsOnly) emptyList() else sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null || it.str("signatureCipher") != null } ?: emptyList()
         if (raw.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
             throw IOException("Format stream tidak tersedia")
@@ -556,6 +569,7 @@ object StreamResolver {
             videoUrl = null,
             audioUrl = null,
             hlsUrl = hls,
+            dashUrl = dash,
             captions = json.arr("captions", "playerCaptionsTracklistRenderer", "captionTracks")?.objects()
                 ?.mapNotNull { t ->
                     val base = t.str("baseUrl") ?: return@mapNotNull null

@@ -63,19 +63,19 @@ fun BoxScope.OfflineBanner(pip: Boolean) {
     ) {
         val offline = !online
         Row(
-            Modifier.shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
+            Modifier.shadow(4.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))
                 .background(if (offline) Color(0xFF323232) else Color(0xFF2E7D32))
-                .padding(horizontal = if (pip) 8.dp else 14.dp, vertical = if (pip) 4.dp else 8.dp),
+                .padding(horizontal = if (pip) 5.dp else 10.dp, vertical = if (pip) 2.dp else 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 if (offline) Icons.Filled.WifiOff else Icons.Filled.Wifi, null, tint = Color.White,
-                modifier = Modifier.size(if (pip) 12.dp else 16.dp),
+                modifier = Modifier.size(if (pip) 8.dp else 12.dp),
             )
-            Spacer(Modifier.width(if (pip) 4.dp else 8.dp))
+            Spacer(Modifier.width(if (pip) 3.dp else 5.dp))
             Text(
                 if (offline) (if (pip) "Offline" else "Kamu sedang offline") else "Kembali online",
-                color = Color.White, fontSize = if (pip) 10.sp else 13.sp, fontWeight = FontWeight.Medium,
+                color = Color.White, fontSize = if (pip) 7.sp else 11.sp, fontWeight = FontWeight.Medium,
             )
         }
     }

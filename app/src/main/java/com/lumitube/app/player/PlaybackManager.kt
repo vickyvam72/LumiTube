@@ -1022,7 +1022,7 @@ object PlaybackManager {
                 } else {
                     // Sertakan alasan tiap cara putar (ringkas) supaya mudah dilaporkan.
                     val detail = StreamResolver.lastFailure
-                    if (detail.isNotBlank()) com.lumitube.app.tr(msg) + "\n" + detail.take(220) else msg
+                    if (detail.isNotBlank()) com.lumitube.app.tr(msg) + "\n" + detail.take(700) else msg
                 }
             } finally {
                 if (current?.id == item.id) loading = false
@@ -1157,6 +1157,8 @@ object PlaybackManager {
         return when {
             s.isLive && hls != null ->
                 HlsMediaSource.Factory(plainHttp).createMediaSource(mediaItem(hls))
+            s.isLive && s.dashUrl != null ->
+                androidx.media3.exoplayer.dash.DashMediaSource.Factory(plainHttp).createMediaSource(mediaItem(s.dashUrl))
             audioOnly && audioUrl != null ->
                 ProgressiveMediaSource.Factory(http).createMediaSource(mediaItem(audioUrl))
             !audioOnly && videoUrl != null && audioUrl != null -> {

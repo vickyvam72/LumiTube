@@ -106,6 +106,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Beranda dengan tarik-untuk-refresh, posisi scroll tetap diingat
 - Subscription, **histori per hari** (Semua / Video / Shorts), Video yang disukai, dan Tonton nanti
 - **Menu ⋮** di setiap video: Tambahkan ke playlist · Download · Bagikan · Dengarkan di YT Music Lumi
+- Menu ⋮ di playlist: Download semua · Bagikan · Hapus playlist
 - Lencana hijau **Khusus anggota** pada video yang hanya tersedia untuk anggota channel
 - Buat playlist, atur urutannya dengan seret dan lepas, dan hapus playlist milikmu (sinkron dengan YouTube asli; playlist otomatis seperti Recap tidak bisa dihapus)
 
