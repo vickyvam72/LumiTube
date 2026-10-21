@@ -714,6 +714,8 @@ private fun MusicBrowseScreen(
     val allSongs = (plItems + shelves.flatMap { s -> s.items.filter { it.type == ItemType.SONG && it.row && !movable(it) } } +
         feed.items.filter { it.type == ItemType.SONG && !movable(it) })
         .distinctBy { it.id }
+        // Lagu album/single sering tanpa gambar sendiri: pakai sampul halaman ini.
+        .map { it.copy(thumbnail = it.thumbnail ?: page?.thumbnail) }
     val reorder = com.lumitube.app.ui.common.rememberReorderState(
         state,
         canDrop = { k -> plItems.any { "p" + it.key == k } },

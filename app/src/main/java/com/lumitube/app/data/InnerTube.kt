@@ -148,6 +148,32 @@ object InnerTube {
         }
 
         var ok = false
+        // YT Music: histori YouTube Music hanya tercatat lewat respons pemutar YT Music (WEB_REMIX)
+        // yang login; URL pelacakan klien lain hanya masuk histori YouTube biasa. Jadi YT Music dulu.
+        if (music) {
+            try {
+                val body = JSONObject().put("videoId", videoId)
+                if (playlistId != null) body.put("playlistId", playlistId)
+                val r = post(Client.MUSIC, "player", body)
+                val tracking = r.optJSONObject("playbackTracking")
+                val playback = tracking?.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
+                if (playback != null) {
+                    val watchtime = tracking.optJSONObject("videostatsWatchtimeUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
+                    val len = r.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toDoubleOrNull() ?: 1.0
+                    ok = send(playback, watchtime, Client.MUSIC.clientName, Client.MUSIC.version, Client.MUSIC.origin, len, "MUSIC")
+                } else {
+                    log += "MUSIC:${r.optJSONObject("playabilityStatus")?.optString("status") ?: "no-tracking"}"
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log += "MUSIC:${e.message}"
+            }
+            if (ok) {
+                lastHistoryResult = log.joinToString(", ")
+                return@withContext true
+            }
+        }
         // 1) URL pelacakan dari stream yang sedang diputar (respons yang sama dengan pemutarannya).
         if (stream != null) {
             try {

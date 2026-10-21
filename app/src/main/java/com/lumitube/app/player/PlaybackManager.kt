@@ -568,7 +568,8 @@ object PlaybackManager {
         queueJob?.cancel()
         loopQueue = loop
         queue.clear()
-        queue.addAll(items)
+        // Lagu tanpa gambar (mis. dari daftar album): pakai gambar dari YouTube supaya poster tidak kosong.
+        queue.addAll(items.map { withThumb(it) })
         index = start.coerceIn(0, items.size - 1)
         isVideo = false
         playlistQueue = !radio && items.size > 1
@@ -632,6 +633,9 @@ object PlaybackManager {
             extendMusicQueue(playNext = true)
         }
     }
+
+    private fun withThumb(it: Item) =
+        if (it.thumbnail.isNullOrBlank() && it.localUri == null) it.copy(thumbnail = "https://i.ytimg.com/vi/${it.id}/hqdefault.jpg") else it
 
     /** Antrean lagu diulang dari awal saat habis (lagu teratas artis), bukan diisi radio. */
     private var loopQueue = false
@@ -826,7 +830,9 @@ object PlaybackManager {
                 val tracking = st?.trackPlayback?.let {
                     com.lumitube.app.data.InnerTube.Tracking(it, st.trackWatchtime, st.trackClient, st.trackVersion, st.lengthSeconds)
                 }
-                val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo, stream = tracking, short = item.type == ItemType.SHORT)
+                // Semua yang diputar di YT Music Lumi (lagu maupun video, dari bagian mana pun) masuk Histori YT Music.
+                val music = com.lumitube.app.CrossApp.isMusic || !isVideo
+                val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = music, stream = tracking, short = item.type == ItemType.SHORT)
                 if (!ok && !historyWarned) {
                     historyWarned = true
                     com.lumitube.app.ui.common.LumiToast.makeText(
