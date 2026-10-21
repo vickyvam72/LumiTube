@@ -766,10 +766,10 @@ private fun MusicBrowseScreen(
     // Lagu teratas artis: daftar lengkapnya (playlist "Lagu teratas") dimuat supaya bisa digeser
     // dan diputar terus; antreannya tetap lagu artis ini (diulang dari awal saat habis).
     val topShelf = if (isArtist) shelves.firstOrNull { sh ->
-        sh.items.count { it.row } * 2 > sh.items.size && sh.moreBrowseId?.startsWith("VL") == true
+        sh.items.count { it.row } * 2 > sh.items.size && sh.items.any { it.type == ItemType.SONG }
     } else null
     val topMore by androidx.compose.runtime.produceState(emptyList<Item>(), topShelf?.moreBrowseId) {
-        val id = topShelf?.moreBrowseId ?: return@produceState
+        val id = topShelf?.moreBrowseId?.takeIf { it.startsWith("VL") } ?: return@produceState
         value = try {
             val p = Repo.musicBrowse(id)
             val all = (p.items + p.shelves.flatMap { it.items }).filter { it.type == ItemType.SONG }.distinctBy { it.id }

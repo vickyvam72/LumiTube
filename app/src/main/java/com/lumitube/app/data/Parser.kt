@@ -432,7 +432,9 @@ object Parser {
                     true
                 }
                 "musicShelfRenderer" -> {
-                    out.add(Shelf(text(v.obj("title")) ?: "", null, items(v.arr("contents"), true)))
+                    // "Lagu teratas" artis: tautan ke playlist lengkapnya (judul atau tombol bawah).
+                    val more = v.obj("bottomEndpoint", "browseEndpoint") ?: v.obj("title", "runs", 0, "navigationEndpoint", "browseEndpoint")
+                    out.add(Shelf(text(v.obj("title")) ?: "", null, items(v.arr("contents"), true), moreBrowseId = more?.str("browseId"), moreParams = more?.str("params")))
                     true
                 }
                 "musicPlaylistShelfRenderer" -> {

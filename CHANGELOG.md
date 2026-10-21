@@ -60,6 +60,7 @@
 - Hapus dari histori tontonan tidak lagi gagal dan ikut terhapus di YouTube asli
 - Login: keyboard tidak lagi tertutup saat saran email muncul
 - YT Music Lumi: nama artis di pemutar selalu bisa diketuk untuk membuka halaman artis
+- YT Music Lumi: Lagu teratas di halaman artis kini memuat daftar lengkapnya (bukan hanya 5 lagu), dan antrean Berikutnya hanya berisi lagu artis tersebut
 - Watch & Listen Together: pemutaran tidak lagi berhenti sendiri lalu mengulang dari awal. Saat host memuat, buffering, atau offline, anggota ikut berhenti di posisi yang sama
 - Watch & Listen Together: poster lagu tidak lagi hilang dan pindah ke Video tidak lagi kosong
 - YT Music Lumi: poster lagu dari album/single tidak lagi kosong di pemutar
@@ -116,6 +117,7 @@
 - Remove from watch history no longer fails, and the video is removed on the official YouTube too
 - Sign-in: the keyboard no longer closes when email suggestions appear
 - YT Music Lumi: the artist name in the player can always be tapped to open the artist page
+- YT Music Lumi: Top songs on artist pages now load the full list (not just 5 songs), and the Up next queue only has that artist's songs
 - Watch & Listen Together: playback no longer pauses by itself and restarts from the beginning. While the host is loading, buffering or offline, members pause at the same spot
 - Watch & Listen Together: the song poster no longer disappears, and switching to Video is no longer blank
 - YT Music Lumi: songs from albums/singles no longer show an empty poster in the player
