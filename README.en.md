@@ -34,7 +34,6 @@
 | 🚫 **No ads** | No ads, analytics or trackers. |
 | 📱 **Real Shorts feed** | Shorts come from YouTube's own recommendation engine, tailored to your account. |
 | 👥 **Watch & Listen Together** | Watch videos or listen to songs **with friends at the same time**, each on their own phone, with just a room code. |
-| 🌐 **16 languages** | The app and subtitles in **16 languages** (English by default). Video titles and audio stay original. |
 | 🔴 **Download live streams** | Record a **stream while it's live**, from the start of the live or from this second. |
 | 🎨 **Light, dark or Lumi blue** | Pick a light or dark theme, and turn on **Lumi blue colors** for a look that matches the logo. |
 | 🔁 **Auto-recovery** | Network dropped? Playback resumes and lyrics reload automatically once it's back. |
@@ -144,7 +143,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - 👥 **Watch Together** (YouTube Lumi) and **Listen Together** (YT Music Lumi): create a room, share the 6-letter code, and everyone plays the same video or song in sync. By default only the room creator picks, with an option to let members pick too
 - 🔗 Open YouTube / YouTube Music links directly in Lumi
 - 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
-- 🌐 **16 languages** for the app & subtitles (English by default)
+- 🔒 **Members-only** videos and Shorts are hidden from Home
 - 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and **Lumi blue colors** (on by default, can be turned off)
 - 📶 A small **"You're offline"** pop-up when the internet drops, also in PiP mode
 - ⏹️ A **Close** button in the player notification (the PiP window closes too)
@@ -173,11 +172,11 @@ Both apps can be installed side by side and work independently. You can also sen
 
 ## 📖 User Guide
 
-> 🗣️ The app is in **English** by default, and 15 other languages can be picked on the first screen or in **Settings**. Button names below are written as they appear in English.
+> 🗣️ The app is in **Indonesian** only. Button names below are English translations of the Indonesian labels.
 
 ### 0️⃣ First launch
 On first launch LumiTube shows two short screens, each fitting on a single screen without scrolling:
-1. **Welcome**: the language button 🌐 in the top-right corner lets you pick another language. Then tap **Connect Google account** to sign in, or **Skip** for now.
+1. **Welcome**: tap **Connect Google account** to sign in, or **Skip** for now.
 2. **One more step**: allow **notifications** and **background running** (required). There are also two optional extras: **Autostart** for Xiaomi, Oppo, Vivo, Realme and Infinix phones, and **link setup** so YouTube links open in Lumi.
 
 After that you land straight on Home.
@@ -193,9 +192,8 @@ Your session is stored **only on your device**.
 
 Then follow the 2-step on-screen guide: first release links from the official YouTube app, then connect them to Lumi. The **Reset links** button opens the same guide at any time.
 
-### 🌐 Change language and appearance
+### 🎨 Change appearance
 Open **Settings**:
-- **App & subtitle language**: pick one of 16 languages. Subtitles automatically use the same language, while video titles and audio stay original.
 - **Theme**: Light or Dark.
 - **Lumi blue colors**: a mostly blue look like the Lumi logo, including the progress bar and Shorts. On by default.
 

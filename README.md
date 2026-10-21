@@ -34,7 +34,6 @@
 | 🚫 **Tanpa iklan** | Tanpa iklan, analitik, atau pelacak. |
 | 📱 **Feed Shorts asli** | Shorts diambil dari mesin rekomendasi YouTube sendiri, disesuaikan dengan akunmu. |
 | 👥 **Watch & Listen Together** | Nonton video atau dengar lagu **bareng teman secara bersamaan** dari HP masing-masing, cukup dengan kode room. |
-| 🌐 **16 bahasa** | Tampilan aplikasi dan subtitle dalam **16 bahasa** (bawaan English), termasuk Bahasa Indonesia. Judul dan audio video tetap asli. |
 | 🔴 **Download live** | Rekam **siaran live yang sedang berjalan**, dari awal live atau mulai dari detik ini. |
 | 🎨 **Terang, gelap, atau biru Lumi** | Pilih tema terang atau gelap, dan nyalakan **warna biru Lumi** kalau ingin tampilan seperti logonya. |
 | 🔁 **Pulih otomatis** | Internet putus? Lagu lanjut diputar dan liriknya dimuat ulang begitu koneksi kembali. |
@@ -144,7 +143,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - 👥 **Watch Together** (YouTube Lumi) dan **Listen Together** (YT Music Lumi): buat room, bagikan kode 6 huruf, dan semua peserta memutar video atau lagu yang sama secara bersamaan. Bawaannya hanya pembuat room yang memilih, dengan opsi agar anggota juga bisa memilih
 - 🔗 Buka link YouTube / YouTube Music langsung di Lumi
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
-- 🌐 **16 bahasa** aplikasi & subtitle (bawaan English)
+- 🔒 Video dan Shorts **khusus anggota** tidak tampil di Beranda
 - 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** (aktif secara bawaan, bisa dimatikan)
 - 📶 Pop up kecil **"Kamu sedang offline"** saat internet putus, juga di mode PiP
 - ⏹️ Tombol **Tutup** di notifikasi pemutar (jendela PiP ikut tertutup)
@@ -175,7 +174,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 ### 0️⃣ Pertama kali dibuka
 Saat pertama dipasang, LumiTube menampilkan dua layar singkat, masing-masing pas dalam satu layar tanpa perlu scroll:
-1. **Perkenalan**: bahasa bawaannya English. Ketuk tombol bahasa 🌐 di pojok kanan atas untuk memilih **Bahasa Indonesia** atau bahasa lain. Lalu pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
+1. **Perkenalan**: pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
 2. **Satu langkah lagi**: aktifkan **notifikasi** dan **izin berjalan di latar belakang** (wajib). Ada juga dua pilihan opsional: **Mulai otomatis** untuk HP Xiaomi, Oppo, Vivo, Realme, dan Infinix, serta **atur link** supaya link YouTube terbuka di Lumi.
 
 Setelah itu kamu langsung masuk ke Beranda.
@@ -191,9 +190,8 @@ Sesi login hanya disimpan **di HP-mu**.
 
 Lalu ikuti panduan 2 langkah di layar: pertama lepaskan link dari aplikasi YouTube asli, lalu sambungkan link ke Lumi. Tombol **Atur ulang link** membuka panduan yang sama kapan saja.
 
-### 🌐 Ganti bahasa dan tampilan
+### 🎨 Ganti tampilan
 Buka **Setelan**:
-- **Bahasa aplikasi & subtitle**: pilih dari 16 bahasa. Subtitle otomatis memakai bahasa yang sama, sedangkan judul dan audio video tetap asli.
 - **Tema**: Terang atau Gelap.
 - **Warna biru Lumi**: tampilan dominan biru seperti logo Lumi, termasuk garis putar dan Shorts. Aktif secara bawaan.
 

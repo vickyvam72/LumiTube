@@ -201,7 +201,7 @@ fun YouTubeApp(
     }
 
     val loggedIn = Session.loggedIn
-    val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
+    val home = rememberFeed(key = "home$loggedIn", more = { Repo.ytHomeMore(it) }, peek = { Repo.ytHomeCached() }) { Repo.ytHome() }
     // Ketuk "Beranda" saat sudah di Beranda = langsung kembali ke paling atas.
     var homeTop by remember { mutableIntStateOf(0) }
     val shorts = rememberFeed(key = "shorts", more = { Repo.ytShortsMore(it) }) { Repo.ytShorts() }
@@ -482,7 +482,7 @@ private fun HomeTab(
                 ChipRow(chips, selected, onExplore = onSearch) { i ->
                     selected = i
                     val token = chips[i].continuation
-                    if (i == 0 || token == null) feed.load() else feed.replaceWith { Repo.ytMore(token) }
+                    if (i == 0 || token == null) feed.load() else feed.replaceWith { Repo.ytHomeMore(token) }
                 }
             }
         },
@@ -627,7 +627,6 @@ private fun YtSettingsPage(onBack: () -> Unit) {
     com.lumitube.app.ui.common.SettingsPage("Setelan", colors, onBack, insets = false) {
         com.lumitube.app.ui.common.SettingHeader("Tampilan", colors)
         com.lumitube.app.ui.common.AppearanceSettings(colors)
-        com.lumitube.app.ui.common.LanguageSetting(colors)
         com.lumitube.app.ui.common.SettingHeader("Pemutaran", colors)
         com.lumitube.app.ui.common.SettingSegment(
             "Kualitas video maksimal", listOf(360 to "360p", 480 to "480p", 720 to "720p", 1080 to "1080p"), quality, colors,

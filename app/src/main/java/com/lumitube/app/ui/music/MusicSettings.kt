@@ -32,7 +32,6 @@ import com.lumitube.app.data.Session
 import com.lumitube.app.data.lyrics.LyricsRepo
 import com.lumitube.app.player.PlaybackManager
 import com.lumitube.app.ui.common.AppearanceSettings
-import com.lumitube.app.ui.common.LanguageSetting
 import com.lumitube.app.ui.common.LinkSettings
 import com.lumitube.app.ui.common.MusicPanelColors
 import com.lumitube.app.ui.common.SettingHeader
@@ -56,7 +55,6 @@ fun MusicSettingsPanel(onClose: () -> Unit) {
     SettingsPage("Setelan", colors, onClose) {
         SettingHeader("Tampilan", colors)
         AppearanceSettings(colors)
-        LanguageSetting(colors)
         SettingHeader("Lirik & pemutaran", colors)
         SettingSwitch(
             "PiP lirik saat diminimalkan", "Lirik tetap tampil di jendela kecil saat aplikasi diminimalkan", pip, colors,

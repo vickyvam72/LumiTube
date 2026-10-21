@@ -184,20 +184,6 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Pilih bahasa langsung di layar pertama (bawaan: English).
-            var picking by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Row(
-                    Modifier.clip(RoundedCornerShape(18.dp)).background(CardBg).clickable { picking = true }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Language, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    androidx.compose.material3.Text(com.lumitube.app.I18n.current.name, color = Color.White, fontSize = 14.sp)
-                }
-            }
-            if (picking) LanguagePicker(onDismiss = { picking = false })
             AppIcon(96)
             Spacer(Modifier.height(18.dp))
             Text(appName, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium)

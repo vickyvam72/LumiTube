@@ -146,44 +146,6 @@ fun AppearanceSettings(colors: PanelColors) {
     ) { LumiStyle.updateBlue(it) }
 }
 
-/** Bahasa aplikasi & subtitle (judul dan audio video tetap asli). */
-@Composable
-fun LanguageSetting(colors: PanelColors) {
-    var picking by remember { mutableStateOf(false) }
-    SettingAction("Bahasa aplikasi & subtitle", I18n.current.name, colors) { picking = true }
-    if (picking) LanguagePicker(onDismiss = { picking = false })
-}
-
-@Composable
-fun LanguagePicker(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Bahasa aplikasi & subtitle") },
-        text = {
-            Column {
-                Text("Judul dan audio video tetap asli.", fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
-                LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                    items(I18n.langs) { l ->
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable {
-                                I18n.set(l.code)
-                                onDismiss()
-                            }.padding(horizontal = 8.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // Nama bahasa ditulis dalam bahasanya sendiri (tidak diterjemahkan).
-                            androidx.compose.material3.Text(l.name, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                            if (l.code == I18n.lang) Icon(Icons.Filled.Check, null, tint = YtRed)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Tutup") } },
-    )
-}
-
-/** Buka link YouTube / YT Music di aplikasi ini + tombol panduan "Atur ulang link". */
 @Composable
 fun LinkSettings(colors: PanelColors) {
     val ctx = LocalContext.current

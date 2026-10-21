@@ -17,9 +17,15 @@ object Repo {
 
     private fun ytHomePage(r: org.json.JSONObject) = Page(
         chips = Parser.ytChips(r),
-        items = Parser.items(r, false),
+        items = Parser.items(r, false).filter { !it.membersOnly },
         continuation = Parser.continuation(r),
     )
+
+    /** Lanjutan Beranda (juga chip Beranda): video & Shorts khusus anggota tidak ditampilkan. */
+    suspend fun ytHomeMore(token: String): Page {
+        val p = ytMore(token)
+        return p.copy(items = p.items.filter { !it.membersOnly })
+    }
 
     /** Beranda terakhir yang tersimpan di HP: tampil seketika saat aplikasi dibuka. */
     fun ytHomeCached(): Page? = loadRaw("yt_home_${Session.loggedIn}")?.let {
