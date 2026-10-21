@@ -562,11 +562,12 @@ object PlaybackManager {
     }
 
     /** Putar daftar lagu. Jika [radio] true, antrean diisi otomatis dari radio YT Music. */
-    fun playMusic(items: List<Item>, start: Int = 0, radio: Boolean = items.size == 1, loop: Boolean = false) {
+    fun playMusic(items: List<Item>, start: Int = 0, radio: Boolean = items.size == 1, loop: Boolean = false, endless: Boolean = radio) {
         if (Together.guestBlocked()) return
         if (items.isEmpty()) return
         queueJob?.cancel()
         loopQueue = loop
+        endlessQueue = endless && !loop
         queue.clear()
         // Lagu tanpa gambar (mis. dari daftar album): pakai gambar dari YouTube supaya poster tidak kosong.
         queue.addAll(items.map { withThumb(it) })
@@ -619,20 +620,31 @@ object PlaybackManager {
         exo.seekTo(ms)
     }
 
-    fun next() {
-        if (Together.guestBlocked()) return
+    fun next() = next(auto = false)
+
+    /**
+     * [auto] = lagu/video selesai sendiri (bukan tombol Next).
+     * Playlist/album/download: hanya isinya sendiri, tidak pernah lanjut ke saran. Next di item terakhir
+     * kembali ke item pertama; selesai sendiri di item terakhir berhenti, kecuali Ulangi semua aktif.
+     * Radio / lagu dari Beranda: diisi lagu serupa supaya tidak pernah buntu.
+     */
+    private fun next(auto: Boolean) {
+        if (!auto && Together.guestBlocked()) return
         if (index + 1 < queue.size) {
             index++
             load(queue[index])
-        } else if ((repeat == RepeatMode.ALL && playlistQueue || (!isVideo && loopQueue)) && queue.isNotEmpty()) {
-            // Ulangi playlist / lagu teratas artis: kembali ke lagu pertama (tetap artis yang sama).
+        } else if (queue.isEmpty()) {
+            return
+        } else if (loopQueue || repeat == RepeatMode.ALL && playlistQueue || (!auto && playlistQueue && !endlessQueue)) {
             index = 0
             load(queue[0])
-        } else if (!isVideo && queue.isNotEmpty()) {
-            // Lagu terakhir antrean: lanjutkan dengan lagu serupa (radio), jadi Next tidak pernah buntu.
+        } else if (!isVideo && endlessQueue) {
             extendMusicQueue(playNext = true)
         }
     }
+
+    /** Antrean boleh diisi lagu serupa saat habis (radio / Beranda), bukan playlist. */
+    private var endlessQueue = false
 
     private fun withThumb(it: Item) =
         if (it.thumbnail.isNullOrBlank() && it.localUri == null) it.copy(thumbnail = "https://i.ytimg.com/vi/${it.id}/hqdefault.jpg") else it
@@ -669,7 +681,8 @@ object PlaybackManager {
     /** Next untuk mode video: antrean dulu, lalu video terkait (dan siapkan terkait berikutnya). */
     fun nextVideo() {
         if (Together.guestBlocked()) return
-        if (!isVideo || index + 1 < queue.size) {
+        // Playlist video: Next di video terakhir kembali ke video pertama, bukan ke video terkait.
+        if (!isVideo || index + 1 < queue.size || playlistQueue) {
             next()
             return
         }
@@ -992,12 +1005,12 @@ object PlaybackManager {
             // Ulangi playlist: kembali ke item pertama.
             index = 0
             load(queue[0])
-        } else if (isVideo && index + 1 >= queue.size && Session.autoplay && relatedNext != null &&
+        } else if (isVideo && !playlistQueue && index + 1 >= queue.size && Session.autoplay && relatedNext != null &&
             current?.type != ItemType.SHORT
         ) {
             nextVideo()
         } else {
-            next()
+            next(auto = true)
         }
     }
 
@@ -1031,7 +1044,7 @@ object PlaybackManager {
         }
         loading = true
         // Hampir di ujung antrean lagu: siapkan lagu berikutnya lebih dulu supaya Next langsung jalan.
-        if (!isVideo && !loopQueue && queue.isNotEmpty() && index >= queue.size - 2) extendMusicQueue(playNext = false)
+        if (!isVideo && endlessQueue && queue.isNotEmpty() && index >= queue.size - 2) extendMusicQueue(playNext = false)
         if (firstFrameFor == item.id && startPosition == 0L) firstFrameFor = null
         exo.stop()
         val audioOnly = !isVideo

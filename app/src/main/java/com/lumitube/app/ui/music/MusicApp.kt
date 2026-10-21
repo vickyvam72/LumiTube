@@ -180,6 +180,15 @@ fun MusicApp(
             else -> stack.add(MRoute.Browse(item.id, null, item.title))
         }
     }
+    // Beranda (Pilihan cepat dll.) bukan playlist: setelah lagu terakhir lanjut dengan lagu serupa.
+    val onHomeItem: (Item, List<Item>) -> Unit = { item, context ->
+        val songs = context.filter { it.type == ItemType.SONG && it.row }
+        if (item.type == ItemType.SONG && item.row && songs.size > 1 && songs.any { it.id == item.id }) {
+            PlaybackManager.playMusic(songs, songs.indexOfFirst { it.id == item.id }, radio = false, endless = true)
+        } else {
+            onItem(item, context)
+        }
+    }
     val openBrowse: (String, String?, String?) -> Unit = { id, params, title -> stack.add(MRoute.Browse(id, params, title)) }
     // Video diputar di pemutar penuh (mode Video), tetap di dalam YT Music Lumi.
     val onOpenVideo: (Item) -> Unit = { item ->
@@ -229,7 +238,7 @@ fun MusicApp(
                     MRoute.Search -> MusicSearchScreen(onItem) { stack.removeAt(stack.lastIndex) }
                     MRoute.History -> MusicHistoryScreen(onItem, onLogin) { stack.removeAt(stack.lastIndex) }
                     null -> when (tab) {
-                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, onSearch = { MusicSearchState.reset(); stack.add(MRoute.Search) }, scrollToTop = homeTop) { showSettings = true }
+                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onHomeItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, onSearch = { MusicSearchState.reset(); stack.add(MRoute.Search) }, scrollToTop = homeTop) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
                         2 -> LibraryScreen(onItem, onLogin, onOpenVideo)
                         else -> MusicYouTab(
@@ -715,6 +724,8 @@ private fun MusicBrowseScreen(
     val allSongs = (plItems + shelves.flatMap { s -> s.items.filter { it.type == ItemType.SONG && it.row && !movable(it) } } +
         feed.items.filter { it.type == ItemType.SONG && !movable(it) })
         .distinctBy { it.id }
+        // Playlist: hanya lagu milik playlist (punya setVideoId), bukan lagu "Saran" di bawahnya.
+        .let { all -> if (route.id.startsWith("VL")) all.filter { it.setVideoId != null }.ifEmpty { all } else all }
         // Lagu album/single sering tanpa gambar sendiri: pakai sampul halaman ini.
         .map { it.copy(thumbnail = it.thumbnail ?: page?.thumbnail) }
     val reorder = com.lumitube.app.ui.common.rememberReorderState(

@@ -304,7 +304,7 @@ fun ShelfView(shelf: Shelf, index: Int, onItem: (Item, List<Item>) -> Unit, onMo
     val songs = shelf.items.filter { it.type == ItemType.SONG }
     ShelfHeader(
         shelf, avatar = speedDial, onMore = if (shelf.moreBrowseId != null && onMore != null) ({ onMore(shelf) }) else null,
-        onPlayAll = if (rows && songs.size > 1) ({ PlaybackManager.playMusic(songs, 0, radio = false) }) else null,
+        onPlayAll = if (rows && songs.size > 1) ({ PlaybackManager.playMusic(songs, 0, radio = false, endless = true) }) else null,
     )
     when {
         speedDial -> SpeedDial(shelf.items) { onItem(it, shelf.items) }
