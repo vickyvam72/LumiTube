@@ -73,7 +73,7 @@ fun SearchSuggestions(
     val past = if (q.isEmpty()) history.take(25) else history.filter { it.contains(q, ignoreCase = true) }.take(4)
     val rows = past.map { it to true } + suggestions.filter { s -> past.none { it.equals(s, ignoreCase = true) } }.map { it to false }
     var confirm by remember { mutableStateOf<String?>(null) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = searchScope
 
     LazyColumn(modifier.fillMaxSize().imePadding()) {
         items(rows, key = { (if (it.second) "h:" else "s:") + it.first }) { (s, isHistory) ->
@@ -121,6 +121,9 @@ fun SearchSuggestions(
         )
     }
 }
+
+/** Hapus penelusuran di akun tetap berjalan meski kotak cari sudah ditutup. */
+private val searchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
 
 /** Bagian yang sudah diketik tampil biasa, sisanya tebal (seperti YouTube). */
 private fun highlight(s: String, q: String) = buildAnnotatedString {

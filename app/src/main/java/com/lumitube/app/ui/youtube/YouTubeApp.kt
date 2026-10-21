@@ -1697,7 +1697,7 @@ private fun WatchDetails(
                         }
                     }
                 }
-                if (list.isNotEmpty() && shorts.isNotEmpty()) item(key = "relVideoLabel") {
+                if (list.isNotEmpty()) item(key = "relVideoLabel") {
                     HistorySectionLabel(Icons.Filled.SmartDisplay, "Video")
                 }
                 items(list, key = { "rel" + it.key }) { r ->
@@ -1772,16 +1772,17 @@ private fun HistoryShortCard(s: Item, modifier: Modifier, menu: List<Pair<String
 
 /** Item yang dihapus dari histori di sesi ini (langsung hilang dari daftar). */
 private val historyRemoved = androidx.compose.runtime.mutableStateListOf<String>()
+private val historyScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
 
 /** Pilihan "Hapus dari histori tontonan" untuk satu item Histori (null bila YouTube tidak menawarkannya). */
 @Composable
 private fun historyRemoveAction(item: Item): Pair<String, () -> Unit>? {
     val token = item.historyToken ?: return null
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current.applicationContext
     return "Hapus dari histori tontonan" to {
         historyRemoved.add(item.id)
-        scope.launch {
+        // Lingkup di luar tampilan: item langsung hilang dari daftar, permintaan tetap berjalan sampai selesai.
+        historyScope.launch {
             try {
                 Repo.removeFromHistory(token)
                 com.lumitube.app.ui.common.FeedLoader.invalidate("FEhistory")
