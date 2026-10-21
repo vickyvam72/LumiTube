@@ -42,7 +42,7 @@
 - Tab channel tetap lengkap di semua bahasa
 - Pencarian di YT Music Lumi tidak lagi gagal dengan pesan "HTTP 400"
 - Video dan live untuk anak (YouTube Kids) kini bisa diputar
-- Download playlist kini menyimpan semua isinya (sebelumnya sebagian bisa terlewat)
+- Download playlist kini menyimpan semua isinya saja, tanpa video saran yang ikut terdownload
 - Mengetuk foto channel yang sedang live kini membuka halaman channel, bukan siarannya
 
 </details>
@@ -75,7 +75,7 @@
 - Channel tabs stay complete in every language
 - Searching in YT Music Lumi no longer fails with "HTTP 400"
 - Videos and live streams made for kids (YouTube Kids) now play
-- Playlist downloads now save every item (some could be skipped before)
+- Playlist downloads now save exactly the playlist's items, without suggested videos
 - Tapping the picture of a channel that's live now opens the channel page instead of the stream
 
 </details>

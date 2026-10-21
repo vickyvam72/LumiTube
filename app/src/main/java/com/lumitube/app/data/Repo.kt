@@ -241,7 +241,8 @@ object Repo {
                 val own = Parser.items(list, false)
                 val keys = own.map { it.key }.toHashSet()
                 val rest = Parser.items(r, false).filter { it.key !in keys }
-                return header.copy(items = own, continuation = Parser.continuation(list) ?: Parser.continuation(r), suggestions = rest)
+                // Lanjutan hanya dari daftar playlist itu sendiri (bukan video saran di bawahnya).
+                return header.copy(items = own, continuation = Parser.continuation(list), suggestions = rest)
             }
         }
         if (browseId == "FEhistory") {

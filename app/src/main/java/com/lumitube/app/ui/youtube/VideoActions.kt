@@ -57,7 +57,9 @@ private fun downloadPlaylist(ctx: android.content.Context, item: Item) {
                 all += p.items
                 c = p.continuation
             }
-            val videos = all.filter { it.type == ItemType.VIDEO }.distinctBy { it.id }
+            // Hanya isi playlist (punya setVideoId), bukan video saran.
+            val own = all.filter { it.type == ItemType.VIDEO && it.setVideoId != null }
+            val videos = own.ifEmpty { first.items.filter { it.type == ItemType.VIDEO } }.distinctBy { it.id }
             if (videos.isEmpty()) {
                 com.lumitube.app.ui.common.LumiToast.makeText(app, "Tidak ada format yang bisa diunduh.", android.widget.Toast.LENGTH_SHORT).show()
                 return@launch

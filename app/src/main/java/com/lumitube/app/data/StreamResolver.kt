@@ -125,7 +125,8 @@ object StreamResolver {
         "WEB", 1, InnerTube.Client.WEB.version, SAFARI_UA, WWW, false,
         mapOf("Origin" to "https://www.youtube.com", "X-Origin" to "https://www.youtube.com", "Referer" to "https://www.youtube.com/"),
         mediaUa = SAFARI_UA,
-        mediaHeaders = mapOf("Origin" to "https://www.youtube.com", "Referer" to "https://www.youtube.com/"),
+        mediaHeaders = mapOf("Origin" to "https://www.youtube.com", "Referer" to "https://www.youtube.com/") +
+            (if (auth) Session.cookie?.let { mapOf("Cookie" to it) } ?: emptyMap() else emptyMap()),
         auth = auth,
         hlsOnly = true,
     ) { }
@@ -243,6 +244,13 @@ object StreamResolver {
     /** Alasan gagal per klien untuk video terakhir yang tidak bisa diputar (untuk laporan). */
     @Volatile var lastFailure: String = ""
 
+    /** Klien yang URL-nya didapat tapi gagal diputar, per video (untuk laporan). */
+    private val playNotes = ConcurrentHashMap<String, MutableList<String>>()
+
+    fun notePlaybackError(videoId: String, client: String, reason: String) {
+        playNotes.getOrPut(videoId) { java.util.Collections.synchronizedList(mutableListOf()) }.add("$client: putar gagal ($reason)")
+    }
+
     private val inFlight = ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Stream>>()
     private val prefetchScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + com.lumitube.app.CrashLog.handler)
 
@@ -311,7 +319,7 @@ object StreamResolver {
                             if (finished.incrementAndGet() == list.size && !result.isCompleted) {
                                 val err = errors.firstOrNull { it.message?.contains("bot", true) == true }
                                     ?: errors.firstOrNull() ?: lastError ?: IOException("Video tidak bisa diputar")
-                                lastFailure = errorsByClient.joinToString(" · ")
+                                lastFailure = ((playNotes[videoId] ?: emptyList<String>()) + errorsByClient).joinToString(" · ")
                                 result.completeExceptionally(err)
                             }
                         }

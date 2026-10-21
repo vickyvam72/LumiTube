@@ -363,6 +363,8 @@ object PlaybackManager {
                     val network = e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
                         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
                     if (!network || retries > 2) {
+                        val http = (e.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode
+                        StreamResolver.notePlaybackError(item.id, currentClient.substringBefore('/'), http?.let { "HTTP $it" } ?: e.errorCodeName)
                         if (!StreamResolver.markRejected(item.id, currentClient)) StreamResolver.resetRejected(item.id)
                     } else {
                         StreamResolver.invalidate(item.id)

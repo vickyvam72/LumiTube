@@ -1130,7 +1130,10 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
                         }
                     } catch (_: Exception) {
                     }
-                    val list = (if (limit != null) all.take(limit) else all).filter { it.type == ItemType.VIDEO }
+                    // Hanya isi playlist (punya setVideoId), bukan video saran yang ikut termuat.
+                    val inPl = all.filter { it.type == ItemType.VIDEO && it.setVideoId != null }
+                    val base = if (inPl.isNotEmpty()) inPl else all
+                    val list = (if (limit != null) base.take(limit) else base).filter { it.type == ItemType.VIDEO }
                     all.clear(); all.addAll(list)
                     val todo = all.distinctBy { it.id }.count { !com.lumitube.app.data.Downloader.isDownloaded(it.id, false) }
                     com.lumitube.app.data.Downloader.downloadAll(
