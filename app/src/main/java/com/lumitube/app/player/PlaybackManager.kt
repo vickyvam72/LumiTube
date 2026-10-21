@@ -347,6 +347,14 @@ object PlaybackManager {
                 // URL kedaluwarsa / ditolak (HTTP 403 di tengah lagu): ambil URL baru
                 // dari klien lain dan lanjutkan dari posisi yang sama, sampai beberapa kali.
                 val item = current
+                // Live dijeda terlalu lama (tertinggal dari jendela siaran): langsung lompat ke bagian terkini,
+                // bukan layar hitam.
+                if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                    exo.seekToDefaultPosition()
+                    exo.prepare()
+                    exo.play()
+                    return
+                }
                 if (item != null && item.localUri == null && isNetworkError(e.cause) && netRetries < 4) {
                     // Internet putus sesaat: tunggu sebentar lalu lanjut dari posisi yang sama.
                     netRetries++
@@ -649,7 +657,13 @@ object PlaybackManager {
             load(item, exo.currentPosition.coerceAtLeast(0))
             return
         }
-        if (exo.isPlaying) exo.pause() else exo.play()
+        if (exo.isPlaying) {
+            exo.pause()
+        } else {
+            // Live tanpa pemutaran ulang: lanjut dari bagian terkini (bukan layar hitam menunggu).
+            if (isLiveStream && (exo.duration < 120_000 || !exo.isCurrentMediaItemSeekable)) exo.seekToDefaultPosition()
+            exo.play()
+        }
     }
 
     fun shuffle() {

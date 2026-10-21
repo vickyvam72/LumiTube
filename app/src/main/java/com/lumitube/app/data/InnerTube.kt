@@ -274,10 +274,10 @@ object InnerTube {
 
     // ---------- Endpoint ----------
 
-    suspend fun browse(client: Client, browseId: String, params: String? = null): JSONObject {
+    suspend fun browse(client: Client, browseId: String, params: String? = null, auth: Boolean = true): JSONObject {
         val body = JSONObject().put("browseId", browseId)
         if (params != null) body.put("params", params)
-        return post(client, "browse", body)
+        return post(client, "browse", body, auth = auth)
     }
 
     /**

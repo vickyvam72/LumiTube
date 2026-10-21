@@ -1679,7 +1679,23 @@ private fun WatchDetails(
                 }
             }
             if (i == null) item { LoadingBox() }
-            i?.related?.let { list ->
+            i?.related?.let { all ->
+                // Shorts di daftar terkait ditampilkan sebagai rak Shorts (kartu tegak), bukan kartu video.
+                val shorts = all.filter { it.type == ItemType.SHORT }
+                val list = all.filter { it.type != ItemType.SHORT }
+                if (shorts.isNotEmpty()) item(key = "relShorts") {
+                    Column(Modifier.padding(vertical = 8.dp)) {
+                        Text("Shorts", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
+                        androidx.compose.foundation.lazy.LazyRow(
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(shorts, key = { "rs" + it.key }) { sh ->
+                                ShortCard(sh, Modifier.width(150.dp)) { onOpen(sh) }
+                            }
+                        }
+                    }
+                }
                 items(list, key = { "rel" + it.key }) { r ->
                     if (r.type == ItemType.PLAYLIST) VideoRow(r) { onOpen(r) }
                     else VideoCard(r, { onOpen(r) }, r.channelId?.let { id -> { onChannel(id) } })

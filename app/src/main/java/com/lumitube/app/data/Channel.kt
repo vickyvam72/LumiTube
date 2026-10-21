@@ -99,11 +99,31 @@ object ChannelRepo {
             if (e is kotlinx.coroutines.CancellationException) throw e
             InnerTube.browse(InnerTube.Client.WEB, channelId)
         }
-        return parseInfo(channelId, r) to parseTab(r)
+        val info = parseInfo(channelId, r)
+        val page = parseTab(r)
+        // Channel konten anak (YouTube Kids) kadang kosong bila dibuka dengan akun: buka tanpa akun.
+        if (Session.loggedIn && (info.tabs.isEmpty() || (page.items.isEmpty() && page.posts.isEmpty()))) {
+            try {
+                val r2 = InnerTube.browse(InnerTube.Client.WEB, channelId, VIDEOS_PARAMS, auth = false)
+                val info2 = parseInfo(channelId, r2)
+                val page2 = parseTab(r2)
+                if (info2.tabs.isNotEmpty() || page2.items.isNotEmpty()) {
+                    anonymous.add(channelId)
+                    // Status subscribe tetap dari akun.
+                    return info2.copy(subscribed = info.subscribed) to page2
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
+        }
+        return info to page
     }
 
+    /** Channel yang isinya hanya tampil bila dibuka tanpa akun. */
+    private val anonymous = java.util.Collections.synchronizedSet(HashSet<String>())
+
     suspend fun tab(channelId: String, params: String?): ChannelTabPage {
-        val r = InnerTube.browse(InnerTube.Client.WEB, channelId, params)
+        val r = InnerTube.browse(InnerTube.Client.WEB, channelId, params, auth = channelId !in anonymous)
         return parseTab(r)
     }
 
