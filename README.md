@@ -133,7 +133,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Menu ⋮ di setiap lagu: Tambahkan ke playlist · Download · Bagikan
 - Menu ⋮ di playlist dan album (juga di hasil pencarian dan di pojok kanan atas halaman album/playlist): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
 - Atur urutan dengan seret, hapus lagu, dan hapus playlist milikmu (playlist otomatis seperti Recap tidak bisa dihapus, sama seperti YT Music asli)
-- **Download satu playlist penuh** sekali tekan
+- **Download satu playlist penuh** sekali tekan (disimpan sebagai audio)
 - Pilihan download dimulai dari **audio**, baru video
 
 ### 🧩 Ada di kedua aplikasi
@@ -144,9 +144,10 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - 🔗 Buka link YouTube / YouTube Music langsung di Lumi
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
 - 🌐 **16 bahasa** aplikasi & subtitle (bawaan English)
-- 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** opsional
+- 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** (aktif secara bawaan, bisa dimatikan)
 - 📶 Pop up kecil **"Kamu sedang offline"** saat internet putus, juga di mode PiP
-- ⏹️ Tombol **Tutup** di notifikasi pemutar
+- ⏹️ Tombol **Tutup** di notifikasi pemutar (jendela PiP ikut tertutup)
+- ⏸️ **Hentikan** download playlist kapan saja dari aplikasi atau notifikasi; yang sudah selesai tetap tersimpan
 - ⚙️ **Setelan dalam satu layar**, tanpa scroll
 
 ---
@@ -193,7 +194,7 @@ Lalu ikuti panduan 2 langkah di layar: pertama lepaskan link dari aplikasi YouTu
 Buka **Setelan**:
 - **Bahasa aplikasi & subtitle**: pilih dari 16 bahasa. Subtitle otomatis memakai bahasa yang sama, sedangkan judul dan audio video tetap asli.
 - **Tema**: Terang atau Gelap.
-- **Warna biru Lumi**: tampilan dominan biru seperti logo Lumi, termasuk garis putar dan Shorts.
+- **Warna biru Lumi**: tampilan dominan biru seperti logo Lumi, termasuk garis putar dan Shorts. Aktif secara bawaan.
 
 ### 3️⃣ Nyalakan lirik Picture-in-Picture 🎤🪟
 YT Music Lumi → **Setelan** → nyalakan **"PiP lirik saat diminimalkan"**.

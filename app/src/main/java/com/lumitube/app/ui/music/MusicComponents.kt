@@ -346,7 +346,6 @@ fun MusicBottomNav(selected: Int, onSelect: (Int) -> Unit) {
     val specs = listOf(
         MNav("Beranda", Icons.Filled.Home, Icons.Outlined.Home),
         MNav("Jelajahi", Icons.Filled.Explore, Icons.Outlined.Explore),
-        MNav("Telusuri", Icons.Filled.Search, Icons.Outlined.Search),
         MNav("Koleksi", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
     )
     Row(

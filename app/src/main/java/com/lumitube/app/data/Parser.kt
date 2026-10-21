@@ -159,7 +159,17 @@ object Parser {
         val badge = badgeVm?.str("text")
         val live = badgeVm?.str("badgeStyle")?.contains("LIVE") == true ||
             badge?.trim()?.uppercase() in setOf("LIVE", "LANGSUNG", "EN DIRECT", "EN VIVO")
-        val channelId = findFirst(meta.obj("image"), "browseEndpoint")?.str("browseId")
+        // Avatar channel yang sedang live mengarah ke siaran (watchEndpoint), bukan ke channel:
+        // cari id channel (UC…) di bagian lain kartu supaya avatar tetap membuka channel.
+        val channelId = findFirst(meta.obj("image"), "browseEndpoint")?.str("browseId")?.takeIf { it.startsWith("UC") }
+            ?: run {
+                var found: String? = null
+                walk(v) { k, o ->
+                    if (found == null && k == "browseEndpoint") o.str("browseId")?.takeIf { it.startsWith("UC") }?.let { found = it }
+                    found != null
+                }
+                found
+            }
         // Shorts di daftar biasa (mis. Histori) dibuka dengan reelWatchEndpoint.
         val isShortLockup = findFirst(v.obj("rendererContext"), "reelWatchEndpoint") != null
         return when {

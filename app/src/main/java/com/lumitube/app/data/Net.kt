@@ -18,7 +18,7 @@ object Net {
     fun init(ctx: Context) {
         val c = ctx.getSystemService(ConnectivityManager::class.java) ?: return
         cm = c
-        online = check()
+        post()
         try {
             c.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) = post()
@@ -30,19 +30,42 @@ object Net {
         }
     }
 
+    /** Periksa ulang (mis. saat aplikasi dibuka lagi). */
+    fun refresh() = post()
+
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    /**
+     * Periksa ulang status (beberapa kali, karena Android kadang masih melaporkan jaringan
+     * lama sesaat setelah putus).
+     */
     private fun post() {
-        val now = check()
-        android.os.Handler(android.os.Looper.getMainLooper()).post { online = now }
+        for (delay in longArrayOf(0, 1500, 4000)) {
+            main.postDelayed({ worker.execute { val now = check(); main.post { online = now } } }, delay)
+        }
     }
 
+    /** Ada jaringan dan internetnya benar-benar tersambung (bukan sekadar data aktif tanpa kuota). */
     private fun check(): Boolean {
         val c = cm ?: return true
         return try {
             val n = c.activeNetwork ?: return false
             val caps = c.getNetworkCapabilities(n) ?: return false
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+            if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return true
+            // Belum tervalidasi oleh Android: coba langsung ke server YouTube.
+            probe()
         } catch (_: Exception) {
             true
         }
+    }
+
+    private fun probe(): Boolean = try {
+        val req = okhttp3.Request.Builder().url("https://www.youtube.com/generate_204").head().build()
+        InnerTube.http.newBuilder().callTimeout(4, java.util.concurrent.TimeUnit.SECONDS).build()
+            .newCall(req).execute().use { it.code in 200..399 }
+    } catch (_: Exception) {
+        false
     }
 }

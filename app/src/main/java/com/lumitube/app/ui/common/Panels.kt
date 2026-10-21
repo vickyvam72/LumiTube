@@ -757,6 +757,24 @@ fun DownloadsList(
 
     LazyColumn(Modifier.fillMaxSize()) {
         // Download yang sedang berjalan selalu terlihat di atas.
+        // "Download semua" yang sedang berjalan, dengan tombol Hentikan.
+        val batches = Downloader.batches.toList()
+        items(batches, key = { "b" + it.first }) { (id, info) ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(info.first, color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(com.lumitube.app.tr("Download playlist %s", info.second), color = colors.sub, fontSize = 12.sp)
+                }
+                Box(
+                    Modifier.padding(start = 12.dp).clip(RoundedCornerShape(16.dp)).background(YtRed)
+                        .clickable { Downloader.stopBatch(id) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                ) { Text("Hentikan", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium) }
+            }
+        }
         val active = Downloader.active.values.toList()
         items(active, key = { "a" + it.key }) { a ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {

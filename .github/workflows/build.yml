@@ -100,6 +100,8 @@ jobs:
           for t in $(gh release list -R "$REPO" --limit 200 --json tagName -q '.[].tagName' | grep '^build-' || true); do
             gh release delete "$t" -R "$REPO" --cleanup-tag -y || true
           done
+          # Branch uji sementara tidak diperlukan lagi.
+          git push origin --delete wip 2>/dev/null || true
           for a in YouTubeLumi.apk YTMusicLumi.apk; do
             gh release delete-asset "$TAG" "$a" -R "$REPO" -y 2>/dev/null || true
           done

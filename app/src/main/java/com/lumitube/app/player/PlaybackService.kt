@@ -60,6 +60,7 @@ class PlaybackService : MediaSessionService() {
 
     /** Tombol Tutup di notifikasi: hentikan video/lagu dan hilangkan notifikasinya. */
     private fun closeAll() {
+        PlaybackManager.pipCloseRequested++
         PlaybackManager.stop()
         session?.player?.stop()
         stopForeground(STOP_FOREGROUND_REMOVE)

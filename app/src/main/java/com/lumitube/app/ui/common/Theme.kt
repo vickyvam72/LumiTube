@@ -85,7 +85,7 @@ object LumiStyle {
     private val music get() = com.lumitube.app.CrossApp.isMusic
 
     fun load() {
-        blue = Session.getString("lumi_blue") == "1"
+        blue = Session.getString("lumi_blue")?.let { it == "1" } ?: true
         dark = Session.getString("theme_dark")?.let { it == "1" } ?: music
     }
 

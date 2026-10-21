@@ -133,7 +133,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - ⋮ menu on every song: Add to playlist · Download · Share
 - ⋮ menu on playlists and albums (also in search results and in the top-right corner of album/playlist pages): save all their songs to your playlist · Download all · Share
 - Drag-to-reorder, remove songs and delete your own playlists (auto-generated ones like Recap cannot be deleted, just like in YT Music)
-- **Download a whole playlist** in one tap
+- **Download a whole playlist** in one tap (saved as audio)
 - Download options list **audio** first, then video
 
 ### 🧩 Shared by both apps
@@ -144,9 +144,10 @@ Both apps can be installed side by side and work independently. You can also sen
 - 🔗 Open YouTube / YouTube Music links directly in Lumi
 - 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
 - 🌐 **16 languages** for the app & subtitles (English by default)
-- 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and optional **Lumi blue colors**
+- 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and **Lumi blue colors** (on by default, can be turned off)
 - 📶 A small **"You're offline"** pop-up when the internet drops, also in PiP mode
-- ⏹️ A **Close** button in the player notification
+- ⏹️ A **Close** button in the player notification (the PiP window closes too)
+- ⏸️ **Stop** a playlist download at any time from the app or the notification; finished items are kept
 - ⚙️ **Settings on a single screen**, no scrolling
 
 ---
@@ -195,7 +196,7 @@ Then follow the 2-step on-screen guide: first release links from the official Yo
 Open **Settings**:
 - **App & subtitle language**: pick one of 16 languages. Subtitles automatically use the same language, while video titles and audio stay original.
 - **Theme**: Light or Dark.
-- **Lumi blue colors**: a mostly blue look like the Lumi logo, including the progress bar and Shorts.
+- **Lumi blue colors**: a mostly blue look like the Lumi logo, including the progress bar and Shorts. On by default.
 
 ### 3️⃣ Turn on lyrics Picture-in-Picture 🎤🪟
 YT Music Lumi → **Settings** → turn on **"Lyrics PiP when minimized"**.

@@ -36,6 +36,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.outlined.Download
@@ -1108,9 +1109,15 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
     val scope = rememberCoroutineScope()
     val ids = videos.map { it.id }
     val offline = ids.mapNotNull { id -> com.lumitube.app.data.Downloader.records.firstOrNull { it.videoId == id && !it.audioOnly } }
+    val running = playlistId?.removePrefix("VL")?.let { com.lumitube.app.data.Downloader.batchOf[it] }
     Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
-            Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(yt.chip).clickable {
+            Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(if (running != null) YtRed else yt.chip).clickable {
+                // Sedang mendownload playlist ini: tombol menjadi "Hentikan".
+                if (running != null) {
+                    com.lumitube.app.data.Downloader.stopBatch(running)
+                    return@clickable
+                }
                 scope.launch {
                     // Ambil semua isi playlist (bukan hanya yang sudah tampil), lalu download satu per satu.
                     val all = feed.items.toMutableList()
@@ -1140,8 +1147,13 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
             },
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.Download, null, tint = yt.text, modifier = Modifier.size(20.dp))
-            Text("Download semua", color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            if (running != null) {
+                Icon(Icons.Filled.Stop, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Text("Hentikan", color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            } else {
+                Icon(Icons.Filled.Download, null, tint = yt.text, modifier = Modifier.size(20.dp))
+                Text("Download semua", color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+            }
         }
         if (offline.isNotEmpty()) {
             Row(

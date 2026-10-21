@@ -99,6 +99,8 @@ object StreamResolver {
         val chunk: Long = 0,
         /** Pakai cookie akun (lolos "konfirmasi bukan bot"). */
         val auth: Boolean = false,
+        /** Hanya pakai HLS (format terpisahnya butuh PO token). */
+        val hlsOnly: Boolean = false,
         val extra: (JSONObject) -> Unit,
     )
 
@@ -149,6 +151,18 @@ object StreamResolver {
             ) {
                 it.put("deviceMake", "Oculus").put("deviceModel", "Quest 3")
                     .put("androidSdkVersion", 32).put("osName", "Android").put("osVersion", "12L")
+            },
+            // Klien iOS: satu-satunya yang bisa memutar video & live "untuk anak" (YouTube Kids)
+            // tanpa login; dipakai lewat HLS saja. Dicoba belakangan.
+            PlayerClient(
+                "IOS", 5, "20.10.4",
+                "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
+                WWW, false, emptyMap(),
+                mediaUa = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
+                hlsOnly = true,
+            ) {
+                it.put("deviceMake", "Apple").put("deviceModel", "iPhone16,2")
+                    .put("osName", "iPhone").put("osVersion", "18.3.2.22D82")
             },
             PlayerClient(
                 "ANDROID_VR", 28, "1.64.34",
@@ -434,7 +448,7 @@ object StreamResolver {
         val hls = sd.str("hlsManifestUrl")
         // Siaran langsung diputar lewat HLS; klien tanpa HLS dilewati.
         if (isLive && hls == null) throw IOException("Live tanpa HLS")
-        val raw = sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null || it.str("signatureCipher") != null } ?: emptyList()
+        val raw = if (c.hlsOnly) emptyList() else sd.arr("adaptiveFormats")?.objects()?.filter { it.str("url") != null || it.str("signatureCipher") != null } ?: emptyList()
         if (raw.none { it.str("mimeType")?.startsWith("audio/") == true } && hls == null) {
             throw IOException("Format stream tidak tersedia")
         }
@@ -551,7 +565,7 @@ object StreamResolver {
             author = json.str("videoDetails", "author"),
         )
         // Klien web dengan cipher tidak kena batas 1 MB; uji hanya klien lain (hemat satu permintaan).
-        if (!isLive && probeMedia && c.kind != Kind.EMBED) probe(stream)
+        if (!isLive && probeMedia && c.kind != Kind.EMBED && !c.hlsOnly) probe(stream)
         return stream
     }
 

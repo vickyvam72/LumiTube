@@ -305,7 +305,6 @@ object InnerTube {
         if (auth && params == null) {
             // Statistik kotak pencarian seperti yang dikirim youtube.com / music.youtube.com saat
             // pengguna menekan Enter: dengan ini pencarian tercatat di histori pencarian akun.
-            val now = System.currentTimeMillis()
             if (client == Client.MUSIC) {
                 body.put(
                     "suggestStats", JSONObject()
@@ -317,8 +316,9 @@ object InnerTube {
                         .put("originalQuery", query)
                         .put("availableSuggestions", JSONArray())
                         .put("zeroPrefixEnabled", true)
-                        .put("firstEditTimeMsec", now - 3000)
-                        .put("lastEditTimeMsec", now - 500)
+                        // Waktu relatif (milidetik sejak halaman dibuka), bukan jam: harus muat di uint32.
+                        .put("firstEditTimeMsec", 1500)
+                        .put("lastEditTimeMsec", 3800)
                 )
             } else {
                 val oq = java.net.URLEncoder.encode(query, "UTF-8")

@@ -36,8 +36,10 @@ import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OndemandVideo
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -91,6 +93,7 @@ import com.lumitube.app.ui.common.reorderItem
 sealed interface MRoute {
     data class Browse(val id: String, val params: String?, val title: String?) : MRoute
     data object Downloads : MRoute
+    data object Search : MRoute
 }
 
 /** Putar download tanpa internet (semua jadi satu antrean). */
@@ -197,10 +200,10 @@ fun MusicApp(
                 when (val top = stack.lastOrNull()) {
                     is MRoute.Browse -> MusicBrowseScreen(top, { stack.removeAt(stack.lastIndex) }, onItem, openBrowse)
                     MRoute.Downloads -> OfflineScreen { stack.removeAt(stack.lastIndex) }
+                    MRoute.Search -> MusicSearchScreen(onItem) { stack.removeAt(stack.lastIndex) }
                     null -> when (tab) {
-                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, scrollToTop = homeTop) { showSettings = true }
+                        0 -> MusicHome(home, homeChips, chipIndex, { i -> chipIndex = if (chipIndex == i) -1 else i }, onItem, openBrowse, onSwitchVideo, onLogin, onOffline = { stack.add(MRoute.Downloads) }, onSearch = { MusicSearchState.reset(); stack.add(MRoute.Search) }, scrollToTop = homeTop) { showSettings = true }
                         1 -> ExploreScreen(onItem, openBrowse)
-                        2 -> MusicSearchScreen(onItem)
                         else -> LibraryScreen(onItem, onLogin, onOpenVideo)
                     }
                 }
@@ -229,7 +232,7 @@ fun MusicApp(
 // ---------------------------------------------------------------- Beranda
 
 @Composable
-private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettings: () -> Unit, onOffline: () -> Unit) {
+private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettings: () -> Unit, onOffline: () -> Unit, onSearch: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().height(60.dp).padding(start = 16.dp, end = 8.dp),
@@ -243,6 +246,10 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
         }
         IconButton(onClick = onSwitchVideo) {
             Icon(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", tint = MusicColors.text)
+        }
+        // Tombol cari di bilah atas, seperti YouTube Lumi.
+        IconButton(onClick = onSearch) {
+            Icon(Icons.Filled.Search, "Cari", tint = MusicColors.text, modifier = Modifier.size(26.dp))
         }
         Box {
             Box(Modifier.padding(horizontal = 8.dp)) { Avatar(34) { menu = true } }
@@ -272,6 +279,7 @@ private fun MusicHome(
     onSwitchVideo: () -> Unit,
     onLogin: () -> Unit,
     onOffline: () -> Unit,
+    onSearch: () -> Unit,
     scrollToTop: Int = 0,
     onSettings: () -> Unit,
 ) {
@@ -301,7 +309,7 @@ private fun MusicHome(
     LaunchedEffect(nearEnd, shelves.size, feed.continuation) { if (nearEnd) feed.loadMore() }
 
     LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-        item { MusicTopBar(onSwitchVideo, onLogin, onSettings, onOffline) }
+        item { MusicTopBar(onSwitchVideo, onLogin, onSettings, onOffline, onSearch) }
         if (feed.error != null && shelves.isEmpty() && com.lumitube.app.data.Downloader.records.isNotEmpty()) {
             item { MessageBox("Sedang offline? Putar lagu yang sudah kamu download.", MusicColors.sub, "Buka Download", onOffline) }
         }
@@ -350,7 +358,7 @@ private fun ExploreScreen(onItem: (Item, List<Item>) -> Unit, openBrowse: (Strin
 @Composable
 private fun ExploreButton(title: String, onClick: () -> Unit) {
     Box(
-        Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(MusicColors.card)
+        Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(MusicColors.chip)
             .clickable(onClick = onClick).padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
     ) { Text(title, color = MusicColors.text, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
@@ -372,10 +380,15 @@ private object MusicSearchState {
     var editing by mutableStateOf(true)
     var chips by mutableStateOf(emptyList<Chip>())
     var chip by mutableStateOf<Chip?>(null)
+
+    /** Pencarian baru dari tombol cari: kolom kosong, siap mengetik. */
+    fun reset() {
+        query = ""; editing = true; chips = emptyList(); chip = null
+    }
 }
 
 @Composable
-private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
+private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit, onBack: () -> Unit) {
     var field by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
     var query by MusicSearchState::query
     var editing by MusicSearchState::editing
@@ -400,6 +413,10 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
         focusManager.clearFocus()
     }
     Column(Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack, modifier = Modifier.padding(start = 4.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MusicColors.text)
+        }
         TextField(
             value = field,
             // Setelah memilih saran, keyboard kadang mengirim ulang teks lama ("tre"); abaikan saat tidak mengetik.
@@ -425,9 +442,10 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { submit(field.text) }),
-            modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus)
+            modifier = Modifier.weight(1f).padding(top = 12.dp, bottom = 12.dp, end = 16.dp).focusRequester(focus)
                 .onFocusChanged { if (it.isFocused) editing = true },
         )
+        }
         if (editing || query.isEmpty()) {
             com.lumitube.app.ui.common.SearchSuggestions(
                 text = field.text, textColor = MusicColors.text, subColor = MusicColors.sub,
@@ -742,7 +760,12 @@ private fun MusicBrowseScreen(
                                     com.lumitube.app.data.Downloader.records.firstOrNull { it.videoId == s.id && it.audioOnly }
                                 }
                                 Row(Modifier.padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    PillButton(Icons.Filled.Download, "Download semua", false) {
+                                    val running = com.lumitube.app.data.Downloader.batchOf[route.id.removePrefix("VL")]
+                                    PillButton(if (running != null) Icons.Filled.Stop else Icons.Filled.Download, if (running != null) "Hentikan" else "Download semua", running != null) {
+                                        if (running != null) {
+                                            com.lumitube.app.data.Downloader.stopBatch(running)
+                                            return@PillButton
+                                        }
                                         scope.launch {
                                             // Semua lagu (termasuk halaman berikutnya), beserta liriknya.
                                             val all = allSongs.toMutableList()

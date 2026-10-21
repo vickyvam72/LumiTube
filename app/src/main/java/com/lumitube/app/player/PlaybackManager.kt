@@ -138,6 +138,9 @@ object PlaybackManager {
         private set
     /** Bertambah saat timer habis; MainActivity menutup aplikasi. */
     var closeRequested by mutableIntStateOf(0)
+
+    /** Tombol Tutup di notifikasi ditekan: jendela PiP (bila ada) ikut ditutup. */
+    var pipCloseRequested by mutableIntStateOf(0)
         private set
 
     /** Dipanggil MainActivity setelah menutup aplikasi, supaya bisa dibuka lagi. */

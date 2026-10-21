@@ -83,6 +83,17 @@ object Downloader {
     private var notifId = 2000
 
     val active = mutableStateMapOf<String, ActiveDownload>()
+    /** "Download semua" yang sedang berjalan: id → (judul playlist, langkah "7/18"). */
+    val batches = mutableStateMapOf<Int, Pair<String, String>>()
+    private val stopped = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+    /** Playlist (id tanpa "VL") → id "Download semua" yang sedang berjalan. */
+    val batchOf = mutableStateMapOf<String, Int>()
+    private const val ACTION_STOP_BATCH = "com.lumitube.app.STOP_BATCH"
+
+    /** Hentikan "Download semua": lagu/video yang sudah selesai tetap tersimpan. */
+    fun stopBatch(id: Int) {
+        stopped.add(id)
+    }
     val records = mutableStateListOf<DownloadRecord>()
     val playlists = mutableStateListOf<DownloadedPlaylist>()
 
@@ -112,6 +123,17 @@ object Downloader {
         } catch (_: Exception) {
         }
         LiveDownloader.init(ctx)
+        try {
+            val receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                    intent?.getIntExtra("batch", -1)?.takeIf { it >= 0 }?.let { stopBatch(it) }
+                }
+            }
+            val filter = android.content.IntentFilter(ACTION_STOP_BATCH)
+            if (Build.VERSION.SDK_INT >= 33) ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            else ctx.registerReceiver(receiver, filter)
+        } catch (_: Exception) {
+        }
         // Bersihkan notifikasi download yang menggantung dari sesi sebelumnya.
         try {
             val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -222,21 +244,27 @@ object Downloader {
         }
         val todo = items.filter { !isDownloaded(it.id, audioOnly) }.distinctBy { it.id }
         if (todo.isEmpty()) return
+        val listTitle = playlistTitle ?: "Playlist"
         scope.launch {
             val batchId = notifId++
             var ok = 0
-            todo.forEachIndexed { n, item ->
+            var wasStopped = false
+            val plKey = playlistId?.removePrefix("VL")
+            if (plKey != null) batchOf[plKey] = batchId
+            for ((n, item) in todo.withIndex()) {
+                if (batchId in stopped) { wasStopped = true; break }
                 val waitKey = "batch:${item.id}"
                 val step = "${n + 1}/${todo.size}"
+                batches[batchId] = listTitle to step
                 active[waitKey] = ActiveDownload(waitKey, item.title, step, 0f, "Menyiapkan…")
-                notify(batchId, com.lumitube.app.tr("Download playlist %s", step), item.title, 0, false)
+                notify(batchId, com.lumitube.app.tr("Download playlist %s", step), item.title, 0, false, stopBatch = batchId)
                 try {
                     val opts = options(item.id)
-                    // YT Music: MP4 144p (kecil & paling lancar), disimpan sebagai lagu.
+                    // YT Music: audio M4A terbaik (lalu Opus), disimpan sebagai lagu.
                     // YouTube: MP4 maksimal 720p (atau kualitas setelan bila lebih rendah).
                     val opt = if (audioOnly) {
-                        opts.filter { it.video != null }.minByOrNull { it.video?.quality ?: 9999 }
-                            ?: opts.firstOrNull { it.audioOnly && it.ext == "m4a" } ?: opts.firstOrNull { it.audioOnly }
+                        opts.firstOrNull { it.audioOnly && it.ext == "m4a" } ?: opts.firstOrNull { it.audioOnly }
+                            ?: opts.filter { it.video != null }.minByOrNull { it.video?.quality ?: 9999 }
                     } else {
                         val max = minOf(Session.maxQuality, 720)
                         opts.filter { it.video != null }.firstOrNull { (it.video?.quality ?: 0) <= max }
@@ -248,9 +276,14 @@ object Downloader {
                     active.remove(waitKey)
                 }
             }
+            if (batchId in stopped) wasStopped = true
+            stopped.remove(batchId)
+            batches.remove(batchId)
+            if (plKey != null && batchOf[plKey] == batchId) batchOf.remove(plKey)
             // Coba lagi lirik yang tadi belum ketemu.
             backfillLyrics()
-            finish(batchId, com.lumitube.app.tr("Download playlist selesai"), if (audioOnly) com.lumitube.app.tr("%s dari %s lagu tersimpan", ok, todo.size) else com.lumitube.app.tr("%s dari %s video tersimpan", ok, todo.size))
+            val summary = if (audioOnly) com.lumitube.app.tr("%s dari %s lagu tersimpan", ok, todo.size) else com.lumitube.app.tr("%s dari %s video tersimpan", ok, todo.size)
+            finish(batchId, com.lumitube.app.tr(if (wasStopped) "Download playlist dihentikan" else "Download playlist selesai"), summary)
         }
     }
 
@@ -277,6 +310,8 @@ object Downloader {
                 val total = (option.video?.contentLength ?: 0L) + option.audio.contentLength
                 var doneVideo = 0L
                 val report: (Long) -> Unit = { done ->
+                    // "Hentikan" ditekan: batalkan lagu/video yang sedang diunduh.
+                    if (batch != null && batch.first in stopped) throw IllegalStateException("Dihentikan")
                     val p = if (total > 0) done.toFloat() / total else 0f
                     active[key] = ActiveDownload(key, item.title, option.label, p, "${(p * 100).toInt()}%")
                     // Android membuang update notifikasi yang terlalu sering (termasuk update "Selesai"),
@@ -284,7 +319,7 @@ object Downloader {
                     val now = System.currentTimeMillis()
                     if (now - lastNotify > 1000) {
                         lastNotify = now
-                        notify(id, notifTitle, notifText, (p * 100).toInt().coerceAtLeast(1), false)
+                        notify(id, notifTitle, notifText, (p * 100).toInt().coerceAtLeast(1), false, stopBatch = batch?.first)
                     }
                 }
                 option.video?.let { v ->
@@ -489,9 +524,19 @@ object Downloader {
         save()
     }
 
-    private fun notify(id: Int, title: String, text: String, progress: Int, done: Boolean) {
+    private fun notify(id: Int, title: String, text: String, progress: Int, done: Boolean, stopBatch: Int? = null) {
         try {
             val n = NotificationCompat.Builder(ctx, CHANNEL)
+                .apply {
+                    if (stopBatch != null && !done) {
+                        val pi = android.app.PendingIntent.getBroadcast(
+                            ctx, stopBatch,
+                            android.content.Intent(ACTION_STOP_BATCH).setPackage(ctx.packageName).putExtra("batch", stopBatch),
+                            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+                        )
+                        addAction(0, com.lumitube.app.tr("Hentikan"), pi)
+                    }
+                }
                 .setSmallIcon(if (done) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_sys_download)
                 .setContentTitle(title)
                 .setContentText(text)

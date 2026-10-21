@@ -154,6 +154,10 @@ class MainActivity : ComponentActivity() {
                 finishAndRemoveTask()
             }
         }
+        // Tutup dari notifikasi saat PiP: jendela kecil ikut ditutup.
+        LaunchedEffect(PlaybackManager.pipCloseRequested) {
+            if (PlaybackManager.pipCloseRequested > 0 && inPip) finishAndRemoveTask()
+        }
         // Mode PiP: layar tetap menyala selama video/lagu diputar (meski timeout layar pendek).
         LaunchedEffect(inPip, PlaybackManager.isPlaying) {
             if (inPip && PlaybackManager.isPlaying) {
@@ -222,6 +226,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         CrossApp.resumeLinkSetup(this)
+        com.lumitube.app.data.Net.refresh()
     }
 
     override fun onStop() {
