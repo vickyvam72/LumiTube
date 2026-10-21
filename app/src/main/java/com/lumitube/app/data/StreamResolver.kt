@@ -438,8 +438,31 @@ object StreamResolver {
         master.lines().firstOrNull { it.startsWith("http") }?.let { v ->
             try { collect(fetch(v)) } catch (_: Exception) { }
         }
+        nCfg = cfg
         if (ns.isEmpty()) return emptyMap()
         return Cipher.solve(cfg, emptyList(), ns.toList()).second.filter { (k, v) -> v.isNotBlank() && v != k }
+    }
+
+    @Volatile private var nCfg: Cipher.PlayerConfig? = null
+    private val nSolved = ConcurrentHashMap<String, String>()
+
+    /**
+     * Seperti [rewriteN], tetapi nilai "n" baru yang belum ada di peta (muncul di playlist
+     * potongan berikutnya) langsung dipecahkan, jadi tidak ada potongan yang ditolak (403).
+     */
+    fun rewriteNAny(url: String, map: Map<String, String>): String {
+        val known = map.keys + nSolved.keys
+        val done = map.values.toHashSet() + nSolved.values
+        val unknown = (nPath.findAll(url).map { it.groupValues[1] } + nQuery.findAll(url).map { it.groupValues[2] })
+            .filter { it !in known && it !in done }.distinct().toList()
+        val cfg = nCfg
+        if (unknown.isNotEmpty() && cfg != null) {
+            try {
+                kotlinx.coroutines.runBlocking { Cipher.solve(cfg, emptyList(), unknown).second }
+                    .forEach { (k, v) -> if (v.isNotBlank() && v != k) nSolved[k] = v }
+            } catch (_: Exception) { }
+        }
+        return rewriteN(url, if (nSolved.isEmpty()) map else map + nSolved)
     }
 
     private fun visitorFor(c: PlayerClient): String? {
@@ -523,7 +546,8 @@ object StreamResolver {
         val hls = sd.str("hlsManifestUrl")
         val dash = sd.str("dashManifestUrl")
         // Live dari klien web: parameter "n" di URL HLS harus diubah dengan skrip pemutar YouTube.
-        val liveN: Map<String, String>? = if (isLive && hls != null && (c.kind == Kind.EMBED || c.name == "WEB")) {
+        // Video biasa lewat HLS klien web (mis. konten anak) juga butuh ini.
+        val liveN: Map<String, String>? = if (hls != null && ((isLive && (c.kind == Kind.EMBED || c.name == "WEB")) || (c.name == "WEB" && c.hlsOnly))) {
             try {
                 val cfgN = cipherCfg ?: Cipher.config(Cipher.embedPage(videoId).playerUrl)
                 if (cfgN != null) liveNMap(hls, cfgN, c) else emptyMap()

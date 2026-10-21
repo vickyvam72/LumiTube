@@ -261,7 +261,7 @@ object Repo {
         val r = InnerTube.continuation(Client.WEB, "browse", token)
         val shelves = historySections(r)
         return if (shelves.isNotEmpty()) Page(shelves = shelves, continuation = Parser.continuation(r))
-        else Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+        else Page(items = withHistoryTokens(Parser.items(r, false), historyTokens(r)), continuation = Parser.continuation(r))
     }
 
     /**
@@ -320,13 +320,58 @@ object Repo {
             }
         }
         visit(r)
+        val tokens = historyTokens(r)
+        return out.map { sh -> sh.copy(items = withHistoryTokens(sh.items, tokens)) }
+    }
+
+    /** videoId -> token "Hapus dari histori tontonan" dari menu setiap item Histori. */
+    private fun historyTokens(r: org.json.JSONObject): Map<String, String> {
+        val out = HashMap<String, String>()
+        fun first(node: Any?, key: String): String? {
+            when (node) {
+                is org.json.JSONObject -> {
+                    (node.opt(key) as? String)?.takeIf { it.isNotEmpty() }?.let { return it }
+                    for (k in node.keys()) first(node.opt(k), key)?.let { return it }
+                }
+                is org.json.JSONArray -> for (i in 0 until node.length()) first(node.opt(i), key)?.let { return it }
+            }
+            return null
+        }
+        fun visit(node: Any?) {
+            when (node) {
+                is org.json.JSONObject -> for (k in node.keys()) {
+                    val v = node.opt(k)
+                    if (k in historyItemKeys && v is org.json.JSONObject) {
+                        val id = first(v, "videoId") ?: (v.opt("contentId") as? String)
+                        val token = first(v, "feedbackToken")
+                        if (id != null && token != null) out.putIfAbsent(id, token)
+                    } else visit(v)
+                }
+                is org.json.JSONArray -> for (i in 0 until node.length()) visit(node.opt(i))
+            }
+        }
+        visit(r)
         return out
+    }
+
+    private fun withHistoryTokens(items: List<Item>, tokens: Map<String, String>) =
+        items.map { it.copy(historyToken = tokens[it.id] ?: it.historyToken) }
+
+    /** Hapus satu video/Short dari histori tontonan akun (seperti menu di YouTube asli). */
+    suspend fun removeFromHistory(token: String) {
+        val r = InnerTube.post(
+            Client.WEB, "feedback",
+            org.json.JSONObject().put("feedbackTokens", org.json.JSONArray().put(token))
+                .put("isFeedbackTokenUnencrypted", false).put("shouldMerge", false),
+        )
+        val ok = r.optJSONArray("feedbackResponses")?.optJSONObject(0)?.optBoolean("isProcessed", true) ?: true
+        if (!ok) throw java.io.IOException("Gagal menghapus")
     }
 
     /** "Telusuri histori tontonan". */
     suspend fun ytHistorySearch(query: String): Page {
         val r = InnerTube.post(Client.WEB, "browse", org.json.JSONObject().put("browseId", "FEhistory").put("query", query))
-        return Page(items = Parser.items(r, false), continuation = Parser.continuation(r))
+        return Page(items = withHistoryTokens(Parser.items(r, false), historyTokens(r)), continuation = Parser.continuation(r))
     }
 
     /** Cari video di dalam satu channel (tab "Telusuri" di halaman channel). */

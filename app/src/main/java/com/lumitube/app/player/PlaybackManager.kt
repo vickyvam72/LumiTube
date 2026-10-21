@@ -1100,10 +1100,10 @@ object PlaybackManager {
             .setUserAgent(s.userAgent.ifEmpty { null })
             .setDefaultRequestProperties(s.headers)
         if (s.nMap.isEmpty()) return base
-        // Live web: ubah parameter "n" di setiap URL playlist & potongan HLS.
+        // HLS klien web (live & konten anak): ubah parameter "n" di setiap URL playlist & potongan.
         return androidx.media3.datasource.ResolvingDataSource.Factory(base) { spec ->
             val u = spec.uri.toString()
-            val r = StreamResolver.rewriteN(u, s.nMap)
+            val r = StreamResolver.rewriteNAny(u, s.nMap)
             if (r == u) spec else spec.withUri(android.net.Uri.parse(r))
         }
     }

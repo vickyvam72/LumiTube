@@ -1001,7 +1001,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, groups) ->
                     // Shorts dari rak YouTube didahulukan (urutan terbaru), lalu Shorts di daftar biasa.
-                    val all = groups.filter { it.first }.flatMap { it.second } + groups.filter { !it.first }.flatMap { it.second }
+                    val all = (groups.filter { it.first }.flatMap { it.second } + groups.filter { !it.first }.flatMap { it.second })
+                        .filter { it.id !in historyRemoved }
                     val dayShorts = if (histFilter == 1) emptyList() else all.filter { it.type == ItemType.SHORT || groups.any { g -> g.first && it in g.second } }.distinctBy { it.id }
                     val dayVideos = if (histFilter == 2) emptyList() else all.filter { it !in dayShorts && it.type != ItemType.SHORT }.distinctBy { it.id }
                     if (dayShorts.isNotEmpty() || dayVideos.isNotEmpty()) {
@@ -1017,7 +1018,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                 item(key = "hsl$di") {
                                     Column {
                                         HistorySectionLabel(Icons.Filled.SlowMotionVideo, "Shorts")
-                                        HistoryShorts(dayShorts) { s -> open(s) }
+                                        HistoryShorts(dayShorts, { historyShortMenu(it) }) { s -> open(s) }
                                     }
                                 }
                             }
@@ -1028,7 +1029,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    rowsOf3[r].forEach { sh -> HistoryShortCard(sh, Modifier.weight(1f)) { open(sh) } }
+                                    rowsOf3[r].forEach { sh -> HistoryShortCard(sh, Modifier.weight(1f), historyShortMenu(sh)) { open(sh) } }
                                     repeat(3 - rowsOf3[r].size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
@@ -1041,7 +1042,8 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             }
                         }
                         items(dayVideos, key = { "h$di" + it.key }) { v ->
-                            if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) } else VideoRow(v) { open(v) }
+                            if (v.type == ItemType.CHANNEL) ChannelRow(v) { open(v) }
+                            else VideoRow(v, historyRemoveAction(v)?.let { listOf(it) }) { open(v) }
                         }
                     }
                 }
@@ -1684,8 +1686,8 @@ private fun WatchDetails(
                 val shorts = all.filter { it.type == ItemType.SHORT }
                 val list = all.filter { it.type != ItemType.SHORT }
                 if (shorts.isNotEmpty()) item(key = "relShorts") {
-                    Column(Modifier.padding(vertical = 8.dp)) {
-                        Text("Shorts", color = yt.text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
+                    Column(Modifier.padding(top = 8.dp, bottom = 14.dp)) {
+                        HistorySectionLabel(Icons.Filled.SlowMotionVideo, "Shorts")
                         androidx.compose.foundation.lazy.LazyRow(
                             contentPadding = PaddingValues(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1695,6 +1697,9 @@ private fun WatchDetails(
                             }
                         }
                     }
+                }
+                if (list.isNotEmpty() && shorts.isNotEmpty()) item(key = "relVideoLabel") {
+                    HistorySectionLabel(Icons.Filled.SmartDisplay, "Video")
                 }
                 items(list, key = { "rel" + it.key }) { r ->
                     if (r.type == ItemType.PLAYLIST) VideoRow(r) { onOpen(r) }
@@ -1734,19 +1739,19 @@ private fun ActionChip(icon: ImageVector, label: String, onClick: () -> Unit) {
 
 /** Rak Shorts di Histori: kartu tegak dengan judul & jumlah tayangan di atas gambar. */
 @Composable
-private fun HistoryShorts(items: List<Item>, onClick: (Item) -> Unit) {
+private fun HistoryShorts(items: List<Item>, menu: @Composable (Item) -> List<Pair<String, () -> Unit>>, onClick: (Item) -> Unit) {
     androidx.compose.foundation.lazy.LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.padding(bottom = 14.dp),
     ) {
-        items(items, key = { it.key }) { s -> HistoryShortCard(s, Modifier.width(118.dp)) { onClick(s) } }
+        items(items, key = { it.key }) { s -> HistoryShortCard(s, Modifier.width(118.dp), menu(s)) { onClick(s) } }
     }
 }
 
 /** Kartu Short tegak 9:16 dengan judul & tayangan di atas gambar. */
 @Composable
-private fun HistoryShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
+private fun HistoryShortCard(s: Item, modifier: Modifier, menu: List<Pair<String, () -> Unit>> = emptyList(), onClick: () -> Unit) {
     Box(modifier.aspectRatio(9f / 16f).clip(RoundedCornerShape(10.dp)).background(Color.Black).clickable(onClick = onClick)) {
         Img(s.thumbnail ?: "https://i.ytimg.com/vi/${s.id}/oar2.jpg", Modifier.fillMaxSize())
         Box(
@@ -1759,7 +1764,47 @@ private fun HistoryShortCard(s: Item, modifier: Modifier, onClick: () -> Unit) {
             val views = s.subtitle.split(" • ").lastOrNull()?.takeIf { it.isNotBlank() }
             if (views != null) Text(views, color = Color(0xDDFFFFFF), fontSize = 11.sp, maxLines = 1)
         }
+        // Titik tiga di pojok kanan atas: playlist, download, bagikan, hapus dari histori.
+        if (menu.isNotEmpty()) {
+            Box(Modifier.align(Alignment.TopEnd)) { com.lumitube.app.ui.common.ItemMenu(menu, Color.White) }
+        }
     }
+}
+
+/** Item yang dihapus dari histori di sesi ini (langsung hilang dari daftar). */
+private val historyRemoved = androidx.compose.runtime.mutableStateListOf<String>()
+
+/** Pilihan "Hapus dari histori tontonan" untuk satu item Histori (null bila YouTube tidak menawarkannya). */
+@Composable
+private fun historyRemoveAction(item: Item): Pair<String, () -> Unit>? {
+    val token = item.historyToken ?: return null
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    return "Hapus dari histori tontonan" to {
+        historyRemoved.add(item.id)
+        scope.launch {
+            try {
+                Repo.removeFromHistory(token)
+                com.lumitube.app.ui.common.FeedLoader.invalidate("FEhistory")
+                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Dihapus dari histori tontonan", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                historyRemoved.remove(item.id)
+                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus dari histori", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
+/** Menu titik tiga Short di Histori: Tambahkan ke playlist, Download, Bagikan, Hapus dari histori tontonan. */
+@Composable
+private fun historyShortMenu(item: Item): List<Pair<String, () -> Unit>> {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    return listOfNotNull(
+        "Tambahkan ke playlist" to { VideoActions.addTarget = item },
+        "Download" to { VideoActions.downloadTarget = item },
+        "Bagikan" to { com.lumitube.app.ui.common.shareVideo(ctx, item.id, item.title, false) },
+        historyRemoveAction(item),
+    )
 }
 
 /** Penanda bagian di Histori ("Shorts" / "Video"). */
