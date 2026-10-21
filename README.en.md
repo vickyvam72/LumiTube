@@ -34,6 +34,9 @@
 | 🚫 **No ads** | No ads, analytics or trackers. |
 | 📱 **Real Shorts feed** | Shorts come from YouTube's own recommendation engine, tailored to your account. |
 | 👥 **Watch & Listen Together** | Watch videos or listen to songs **with friends at the same time**, each on their own phone, with just a room code. |
+| 🌐 **16 languages** | The app and subtitles in **16 languages** (English by default). Video titles and audio stay original. |
+| 🔴 **Download live streams** | Record a **stream while it's live**, from the start of the live or from this second. |
+| 🎨 **Light, dark or Lumi blue** | Pick a light or dark theme, and turn on **Lumi blue colors** for a look that matches the logo. |
 | 🔁 **Auto-recovery** | Network dropped? Playback resumes and lyrics reload automatically once it's back. |
 | 👤 **Your account, synced** | Sign in with Google to see your subscriptions, playlists, likes, Watch later and history. |
 
@@ -77,7 +80,7 @@ Both apps can be installed side by side and work independently. You can also sen
 - **Chapters** on the timeline and a **thumbnail preview** while scrubbing
 - Quality, playback speed, loop, **subtitles with auto-translate**, and the original audio track
 - **Picture-in-Picture** and background playback
-- Full-screen mode with an optional **live chat** side panel
+- Full-screen mode with an optional **live chat** side panel, and the **video title** shown with the controls
 
 **📱 Shorts**
 - A full-screen vertical feed powered by **YouTube's own recommendations**
@@ -103,10 +106,13 @@ Both apps can be installed side by side and work independently. You can also sen
 - Home feed with pull-to-refresh that keeps your scroll position
 - Subscriptions, **history grouped by day** (All / Videos / Shorts), Liked videos and Watch later
 - The **⋮ menu** on every video: Add to playlist · Download · Share · Listen in YT Music Lumi
+- A green **Members only** badge on videos available only to channel members
 - Create playlists, reorder them by drag and drop, and delete your own (synced with YouTube; auto-generated playlists like Recap cannot be deleted)
 
 **🔴 Live streams**
 - Live badges, a jump-to-live button and **real-time live chat**
+- **Download a stream while it's live**: record from the start of the live or from this second, then tap **Stop & save** at any time (or it saves automatically when the live ends)
+- Live streams that can't be rewound: the red bar stays at the end and can't be dragged
 
 ### 🎵 YT Music Lumi
 
@@ -128,15 +134,20 @@ Both apps can be installed side by side and work independently. You can also sen
 - ⋮ menu on playlists and albums (also in search results and in the top-right corner of album/playlist pages): save all their songs to your playlist · Download all · Share
 - Drag-to-reorder, remove songs and delete your own playlists (auto-generated ones like Recap cannot be deleted, just like in YT Music)
 - **Download a whole playlist** in one tap
+- Download options list **audio** first, then video
 
 ### 🧩 Shared by both apps
 
 - 📥 A **Downloads** page with auto-collections (Songs / Videos) and downloaded playlists
 - 🔔 A single, tidy progress notification for each batch download
-- 👥 **Watch Together** (YouTube Lumi) and **Listen Together** (YT Music Lumi): create a room, share the 6-letter code, and everyone plays the same video or song in sync
+- 👥 **Watch Together** (YouTube Lumi) and **Listen Together** (YT Music Lumi): create a room, share the 6-letter code, and everyone plays the same video or song in sync. By default only the room creator picks, with an option to let members pick too
 - 🔗 Open YouTube / YouTube Music links directly in Lumi
 - 🛡️ A built-in **crash reporter** with a one-tap *"Copy report"* button
-- 🌗 Light and dark themes
+- 🌐 **16 languages** for the app & subtitles (English by default)
+- 🌗 **Light/dark** themes (default: YouTube Lumi light, YT Music Lumi dark) and optional **Lumi blue colors**
+- 📶 A small **"You're offline"** pop-up when the internet drops, also in PiP mode
+- ⏹️ A **Close** button in the player notification
+- ⚙️ **Settings on a single screen**, no scrolling
 
 ---
 
@@ -144,8 +155,8 @@ Both apps can be installed side by side and work independently. You can also sen
 
 1. Go to the **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)** page.
 2. Under **Assets**, download one or both apps:
-   - `YouTubeLumi-v2.0.apk` for YouTube
-   - `YTMusicLumi-v2.0.apk` for YouTube Music
+   - `YouTubeLumi-v2.2.apk` for YouTube
+   - `YTMusicLumi-v2.2.apk` for YouTube Music
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 
@@ -160,30 +171,36 @@ Both apps can be installed side by side and work independently. You can also sen
 
 ## 📖 User Guide
 
-> 🗣️ The app interface is in **Indonesian**. Button names are written below exactly as they appear in the app, with an English translation in brackets.
+> 🗣️ The app is in **English** by default, and 15 other languages can be picked on the first screen or in **Settings**. Button names below are written as they appear in English.
 
 ### 0️⃣ First launch
 On first launch LumiTube shows two short screens, each fitting on a single screen without scrolling:
-1. **Welcome**: tap **Hubungkan akun Google** (Connect Google account) to sign in, or **Lewati** (Skip) for now.
-2. **Satu langkah lagi** (One more step): allow **notifications** and **background running** (required). There are also two optional extras: **Autostart** for Xiaomi, Oppo, Vivo, Realme and Infinix phones, and **link setup** so YouTube links open in Lumi.
+1. **Welcome**: the language button 🌐 in the top-right corner lets you pick another language. Then tap **Connect Google account** to sign in, or **Skip** for now.
+2. **One more step**: allow **notifications** and **background running** (required). There are also two optional extras: **Autostart** for Xiaomi, Oppo, Vivo, Realme and Infinix phones, and **link setup** so YouTube links open in Lumi.
 
 After that you land straight on Home.
 
 ### 1️⃣ Sign in (optional but recommended)
-If you skipped it, open the **Anda** (You) tab → **Login dengan akun Google** (Sign in with Google), then sign in on Google's own sign-in page.
+If you skipped it, open the **You** tab → **Sign in with Google**, then sign in on Google's own sign-in page.
 After signing in you get your subscriptions, playlists, likes, Watch later, history and personalized Shorts.
 Your session is stored **only on your device**.
 
 ### 2️⃣ Open YouTube links in Lumi
-- **YouTube Lumi:** Settings → turn on **"Buka link YouTube di YouTube Lumi"** (Open YouTube links in YouTube Lumi)
-- **YT Music Lumi:** Settings → turn on **"Buka link YouTube Music di aplikasi ini"** (Open YouTube Music links in this app)
+- **YouTube Lumi:** **You** tab → **Settings** → turn on **"Open YouTube links in this app"**
+- **YT Music Lumi:** profile picture → **Settings** → turn on **"Open YouTube Music links in this app"**
 
-Then follow the short on-screen steps so Android sends YouTube links to Lumi instead of the official app.
+Then follow the 2-step on-screen guide: first release links from the official YouTube app, then connect them to Lumi. The **Reset links** button opens the same guide at any time.
+
+### 🌐 Change language and appearance
+Open **Settings**:
+- **App & subtitle language**: pick one of 16 languages. Subtitles automatically use the same language, while video titles and audio stay original.
+- **Theme**: Light or Dark.
+- **Lumi blue colors**: a mostly blue look like the Lumi logo, including the progress bar and Shorts.
 
 ### 3️⃣ Turn on lyrics Picture-in-Picture 🎤🪟
-YT Music Lumi → **Setelan Music** (Music settings) → turn on **"PiP lirik saat diminimalkan"** (Lyrics PiP when minimized).
+YT Music Lumi → **Settings** → turn on **"Lyrics PiP when minimized"**.
 Play a song and press Home: the lyrics keep running in a floating window.
-Tip: turn on **"Tutup aplikasi saat PiP ditutup"** (Close app when PiP is closed) if you want music to stop when you dismiss the window.
+Tip: turn on **"Close the app when PiP is closed"** if you want music to stop when you dismiss the window.
 
 ### 4️⃣ Player gestures
 | Gesture | Action |
@@ -196,22 +213,24 @@ Tip: turn on **"Tutup aplikasi saat PiP ditutup"** (Close app when PiP is closed
 
 ### 5️⃣ Download for offline
 - **Single item:** tap **⋮** → **Download** and pick a quality.
-- **Whole playlist:** open the playlist → **Download semua** (Download all), or tap **⋮** on a playlist/album (YT Music Lumi) → **Download**.
+- **Whole playlist:** open the playlist → **Download all**, or tap **⋮** on a playlist/album (YT Music Lumi) → **Download**.
+- **A stream that's live right now:** tap **Download** on the video page, choose **From the start of the live** or **Start from now**, then pick a quality. Recording stops by itself when the live ends, or tap **Stop & save** in the notification or on the Downloads page.
 - Find everything under **Downloads**. Music downloads include lyrics.
 
 ### 6️⃣ Save to a playlist
-Tap **⋮** → **Tambahkan ke playlist** (Add to playlist) → choose **Tonton nanti** (Watch later), an existing playlist, or create a new one.
+Tap **⋮** → **Add to playlist** → choose **Watch later**, an existing playlist, or create a new one.
 
 ### 7️⃣ Watch Together / Listen Together 👥
 1. Tap the **group** icon in the Home top bar (next to the download button).
-2. Tap **Buat room** (Create room) to become the host, then **Bagikan** (Share) to send the 6-letter code to your friends.
-3. Your friends open the same icon, enter the code and tap **Gabung** (Join).
+2. Tap **Create room** to become the host, then **Share** to send the 6-letter code to your friends.
+3. Your friends open the same icon, enter the code and tap **Join**.
 4. Everything the host does (changing the video or song, play, pause, seek) is followed by the guests instantly. The icon turns red while you are in a room.
+5. By default only the host picks the video or song. The host can turn on **"Members can also pick"** so friends in the room can pick, play and pause too.
 
 Each phone streams from YouTube on its own, so guests don't need to sign in. Commands between phones are encrypted and relayed through [ntfy.sh](https://ntfy.sh).
 
 ### 8️⃣ Sleep timer ⏰
-In the player, open the **⋮** menu (YT Music Lumi) or the ⚙️ settings (YouTube Lumi) → **Timer tidur** (Sleep timer) → pick a duration, or choose to stop when the current song or video ends.
+In the player, open the **⋮** menu (YT Music Lumi) or the ⚙️ settings (YouTube Lumi) → **Sleep timer** → pick a duration, or choose to stop when the current song or video ends.
 
 ---
 
@@ -232,7 +251,7 @@ YouTube shows this when one network makes a lot of requests. Signing in usually 
 <details>
 <summary><b>Lyrics aren't found for a song</b></summary>
 
-Go to **Setelan Music** → **Cari ulang lirik lagu ini** (Search lyrics again), or turn on more providers under **Penyedia lirik** (Lyrics providers). Lyrics for very new or niche songs may not exist yet.
+Go to **Settings** → **Search lyrics for this song again**, or turn on more providers under **Lyrics providers**. Lyrics for very new or niche songs may not exist yet.
 </details>
 
 <details>
@@ -244,7 +263,7 @@ Yes, if you are signed in. Searches you type in YouTube Lumi and YT Music Lumi a
 <details>
 <summary><b>The app crashed. How do I report it?</b></summary>
 
-On the next launch LumiTube shows the crash details. Tap **Salin laporan** (Copy report) and send it along with your issue.
+On the next launch LumiTube shows the crash details. Tap **Copy report** and send it along with your issue.
 </details>
 
 <details>

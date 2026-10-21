@@ -34,6 +34,9 @@
 | 🚫 **Tanpa iklan** | Tanpa iklan, analitik, atau pelacak. |
 | 📱 **Feed Shorts asli** | Shorts diambil dari mesin rekomendasi YouTube sendiri, disesuaikan dengan akunmu. |
 | 👥 **Watch & Listen Together** | Nonton video atau dengar lagu **bareng teman secara bersamaan** dari HP masing-masing, cukup dengan kode room. |
+| 🌐 **16 bahasa** | Tampilan aplikasi dan subtitle dalam **16 bahasa** (bawaan English), termasuk Bahasa Indonesia. Judul dan audio video tetap asli. |
+| 🔴 **Download live** | Rekam **siaran live yang sedang berjalan**, dari awal live atau mulai dari detik ini. |
+| 🎨 **Terang, gelap, atau biru Lumi** | Pilih tema terang atau gelap, dan nyalakan **warna biru Lumi** kalau ingin tampilan seperti logonya. |
 | 🔁 **Pulih otomatis** | Internet putus? Lagu lanjut diputar dan liriknya dimuat ulang begitu koneksi kembali. |
 | 👤 **Akun tersinkron** | Login dengan Google untuk melihat subscription, playlist, suka, Tonton nanti, dan histori. |
 
@@ -77,7 +80,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - **Bab (chapter)** di garis waktu dan **pratinjau gambar** saat menggeser
 - Kualitas, kecepatan, ulang, **subtitle dengan terjemahan otomatis**, dan trek audio asli
 - **Picture-in-Picture** dan putar di latar belakang
-- Layar penuh dengan panel **live chat** di samping
+- Layar penuh dengan panel **live chat** di samping, dan **judul video** tampil bersama tombol kontrol
 
 **📱 Shorts**
 - Feed vertikal layar penuh dari **rekomendasi asli YouTube**
@@ -103,10 +106,13 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Beranda dengan tarik-untuk-refresh, posisi scroll tetap diingat
 - Subscription, **histori per hari** (Semua / Video / Shorts), Video yang disukai, dan Tonton nanti
 - **Menu ⋮** di setiap video: Tambahkan ke playlist · Download · Bagikan · Dengarkan di YT Music Lumi
+- Lencana hijau **Khusus anggota** pada video yang hanya tersedia untuk anggota channel
 - Buat playlist, atur urutannya dengan seret dan lepas, dan hapus playlist milikmu (sinkron dengan YouTube asli; playlist otomatis seperti Recap tidak bisa dihapus)
 
 **🔴 Siaran langsung**
 - Tanda live, tombol lompat ke bagian live, dan **live chat real-time**
+- **Download live yang sedang berjalan**: rekam dari awal live atau mulai dari detik ini, lalu tekan **Berhenti & simpan** kapan saja (atau rekaman tersimpan otomatis saat live selesai)
+- Live yang tidak bisa diputar ulang: garis merah diam di ujung dan tidak bisa digeser
 
 ### 🎵 YT Music Lumi
 
@@ -128,15 +134,20 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 - Menu ⋮ di playlist dan album (juga di hasil pencarian dan di pojok kanan atas halaman album/playlist): simpan seluruh isinya ke playlist kamu · Download semua · Bagikan
 - Atur urutan dengan seret, hapus lagu, dan hapus playlist milikmu (playlist otomatis seperti Recap tidak bisa dihapus, sama seperti YT Music asli)
 - **Download satu playlist penuh** sekali tekan
+- Pilihan download dimulai dari **audio**, baru video
 
 ### 🧩 Ada di kedua aplikasi
 
 - 📥 Halaman **Download** dengan koleksi otomatis (Lagu / Video) dan playlist yang di-download
 - 🔔 Satu notifikasi progres yang rapi untuk tiap download massal
-- 👥 **Watch Together** (YouTube Lumi) dan **Listen Together** (YT Music Lumi): buat room, bagikan kode 6 huruf, dan semua peserta memutar video atau lagu yang sama secara bersamaan
+- 👥 **Watch Together** (YouTube Lumi) dan **Listen Together** (YT Music Lumi): buat room, bagikan kode 6 huruf, dan semua peserta memutar video atau lagu yang sama secara bersamaan. Bawaannya hanya pembuat room yang memilih, dengan opsi agar anggota juga bisa memilih
 - 🔗 Buka link YouTube / YouTube Music langsung di Lumi
 - 🛡️ **Laporan crash** bawaan dengan tombol *"Salin laporan"*
-- 🌗 Tema terang dan gelap
+- 🌐 **16 bahasa** aplikasi & subtitle (bawaan English)
+- 🌗 Tema **terang/gelap** (bawaan: YouTube Lumi terang, YT Music Lumi gelap) dan **warna biru Lumi** opsional
+- 📶 Pop up kecil **"Kamu sedang offline"** saat internet putus, juga di mode PiP
+- ⏹️ Tombol **Tutup** di notifikasi pemutar
+- ⚙️ **Setelan dalam satu layar**, tanpa scroll
 
 ---
 
@@ -144,8 +155,8 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTube/releases/latest)**.
 2. Di bagian **Assets**, unduh salah satu atau kedua aplikasi:
-   - `YouTubeLumi-v2.0.apk` untuk YouTube
-   - `YTMusicLumi-v2.0.apk` untuk YouTube Music
+   - `YouTubeLumi-v2.2.apk` untuk YouTube
+   - `YTMusicLumi-v2.2.apk` untuk YouTube Music
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 
@@ -162,7 +173,7 @@ Keduanya bisa dipasang bersamaan dan berjalan sendiri-sendiri. Kamu juga bisa me
 
 ### 0️⃣ Pertama kali dibuka
 Saat pertama dipasang, LumiTube menampilkan dua layar singkat, masing-masing pas dalam satu layar tanpa perlu scroll:
-1. **Perkenalan**: pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
+1. **Perkenalan**: bahasa bawaannya English. Ketuk tombol bahasa 🌐 di pojok kanan atas untuk memilih **Bahasa Indonesia** atau bahasa lain. Lalu pilih **Hubungkan akun Google** untuk login, atau **Lewati** dulu.
 2. **Satu langkah lagi**: aktifkan **notifikasi** dan **izin berjalan di latar belakang** (wajib). Ada juga dua pilihan opsional: **Mulai otomatis** untuk HP Xiaomi, Oppo, Vivo, Realme, dan Infinix, serta **atur link** supaya link YouTube terbuka di Lumi.
 
 Setelah itu kamu langsung masuk ke Beranda.
@@ -173,13 +184,19 @@ Setelah login kamu mendapat subscription, playlist, suka, Tonton nanti, histori,
 Sesi login hanya disimpan **di HP-mu**.
 
 ### 2️⃣ Buka link YouTube di Lumi
-- **YouTube Lumi:** Pengaturan → nyalakan **"Buka link YouTube di YouTube Lumi"**
-- **YT Music Lumi:** Setelan Music → nyalakan **"Buka link YouTube Music di aplikasi ini"**
+- **YouTube Lumi:** tab **Anda** → **Setelan** → nyalakan **"Buka link YouTube di aplikasi ini"**
+- **YT Music Lumi:** foto profil → **Setelan** → nyalakan **"Buka link YouTube Music di aplikasi ini"**
 
-Lalu ikuti langkah singkat di layar supaya Android membuka link YouTube di Lumi, bukan di aplikasi resmi.
+Lalu ikuti panduan 2 langkah di layar: pertama lepaskan link dari aplikasi YouTube asli, lalu sambungkan link ke Lumi. Tombol **Atur ulang link** membuka panduan yang sama kapan saja.
+
+### 🌐 Ganti bahasa dan tampilan
+Buka **Setelan**:
+- **Bahasa aplikasi & subtitle**: pilih dari 16 bahasa. Subtitle otomatis memakai bahasa yang sama, sedangkan judul dan audio video tetap asli.
+- **Tema**: Terang atau Gelap.
+- **Warna biru Lumi**: tampilan dominan biru seperti logo Lumi, termasuk garis putar dan Shorts.
 
 ### 3️⃣ Nyalakan lirik Picture-in-Picture 🎤🪟
-YT Music Lumi → **Setelan Music** → nyalakan **"PiP lirik saat diminimalkan"**.
+YT Music Lumi → **Setelan** → nyalakan **"PiP lirik saat diminimalkan"**.
 Putar lagu lalu tekan tombol Home: lirik tetap berjalan di jendela mengambang.
 Tips: nyalakan **"Tutup aplikasi saat PiP ditutup"** kalau ingin musik ikut berhenti saat jendela kecil ditutup.
 
@@ -194,6 +211,7 @@ Tips: nyalakan **"Tutup aplikasi saat PiP ditutup"** kalau ingin musik ikut berh
 
 ### 5️⃣ Download untuk offline
 - **Satu item:** tekan **⋮** → **Download**, lalu pilih kualitas.
+- **Siaran live yang sedang berjalan:** tekan **Download** di halaman video, pilih **Dari awal live** atau **Mulai dari detik ini**, lalu pilih kualitas. Rekaman berhenti sendiri saat live selesai, atau tekan **Berhenti & simpan** di notifikasi atau halaman Download.
 - **Satu playlist penuh:** buka playlist → **Download semua**, atau tekan **⋮** di playlist/album (YT Music Lumi) → **Download**.
 - Semua hasil download ada di halaman **Download**. Download musik sudah termasuk liriknya.
 
@@ -205,6 +223,7 @@ Tekan **⋮** → **Tambahkan ke playlist** → pilih **Tonton nanti**, playlist
 2. **Buat room** untuk jadi host, lalu ketuk **Bagikan** untuk mengirim kode 6 huruf ke teman.
 3. Teman membuka ikon yang sama, memasukkan kode, lalu ketuk **Gabung**.
 4. Semua yang dilakukan host (ganti video atau lagu, putar, jeda, geser) langsung diikuti tamu. Ikon berubah merah selama kamu di dalam room.
+5. Secara bawaan hanya host yang memilih video atau lagu. Host bisa menyalakan **"Anggota juga bisa memilih"** supaya teman di room juga bisa memilih, memutar, dan menjeda.
 
 Setiap HP memutar dari YouTube masing-masing, jadi tamu tidak perlu login. Perintah antar-HP dikirim terenkripsi lewat layanan [ntfy.sh](https://ntfy.sh).
 
@@ -230,7 +249,7 @@ YouTube menampilkan ini kalau satu jaringan mengirim terlalu banyak permintaan. 
 <details>
 <summary><b>Lirik lagu tidak ditemukan</b></summary>
 
-Buka **Setelan Music** → **Cari ulang lirik lagu ini**, atau aktifkan lebih banyak penyedia di **Penyedia lirik**. Lirik lagu yang sangat baru atau kurang dikenal mungkin memang belum tersedia.
+Buka **Setelan** → **Cari ulang lirik lagu ini**, atau aktifkan lebih banyak penyedia di **Penyedia lirik**. Lirik lagu yang sangat baru atau kurang dikenal mungkin memang belum tersedia.
 </details>
 
 <details>

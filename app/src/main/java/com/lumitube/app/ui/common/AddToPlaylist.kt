@@ -28,7 +28,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -107,21 +106,21 @@ fun AddToPlaylistSheet(
                 if (many) Repo.addVideosToPlaylist(o.id, ids) else Repo.setInPlaylist(o.id, videoId, target)
                 FeedLoader.invalidate("VL${o.id}")
                 FeedLoader.libraryChanged()
-                Toast.makeText(
+                com.lumitube.app.ui.common.LumiToast.makeText(
                     appCtx,
-                    if (target) "Disimpan ke ${o.title}" else "Dihapus dari ${o.title}",
+                    if (target) com.lumitube.app.tr("Disimpan ke %s", o.title) else com.lumitube.app.tr("Dihapus dari %s", o.title),
                     Toast.LENGTH_SHORT,
                 ).show()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 val k = options.indexOfFirst { it.id == o.id }
                 if (k >= 0) options[k] = options[k].copy(contains = !target)
-Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).show()
+com.lumitube.app.ui.common.LumiToast.makeText(appCtx, com.lumitube.app.tr("Gagal menyimpan: %s", e.message ?: e), Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    BottomPanel("Simpan ${ids.size} $noun ke playlist", colors, onClose, heightFraction = 0.75f) {
+    BottomPanel(com.lumitube.app.tr("Simpan %s %s ke playlist", ids.size, com.lumitube.app.tr(noun)), colors, onClose, heightFraction = 0.75f) {
         when {
             loading -> LoadingBox(color = colors.text)
             error != null -> Text(error ?: "", color = colors.sub, modifier = Modifier.padding(24.dp))
@@ -242,10 +241,10 @@ Toast.makeText(appCtx, "Gagal menyimpan: ${e.message ?: e}", Toast.LENGTH_LONG).
                             Repo.createPlaylist(title, privacy, ids)
                             // Daftar Playlist / Koleksi dimuat ulang supaya playlist baru langsung tampil.
                             FeedLoader.libraryChanged()
-                            Toast.makeText(appCtx, "Playlist \"$title\" dibuat", Toast.LENGTH_SHORT).show()
+                            com.lumitube.app.ui.common.LumiToast.makeText(appCtx, com.lumitube.app.tr("Playlist \"%s\" dibuat", title), Toast.LENGTH_SHORT).show()
                             onClose()
                         } catch (_: Exception) {
-                            Toast.makeText(appCtx, "Gagal membuat playlist", Toast.LENGTH_SHORT).show()
+                            com.lumitube.app.ui.common.LumiToast.makeText(appCtx, "Gagal membuat playlist", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }) { Text("Buat") }

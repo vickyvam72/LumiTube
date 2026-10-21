@@ -1,16 +1,20 @@
 package com.lumitube.app.ui.music
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -19,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,111 +31,81 @@ import androidx.compose.ui.unit.sp
 import com.lumitube.app.data.Session
 import com.lumitube.app.data.lyrics.LyricsRepo
 import com.lumitube.app.player.PlaybackManager
-import com.lumitube.app.ui.common.BottomPanel
+import com.lumitube.app.ui.common.AppearanceSettings
+import com.lumitube.app.ui.common.LanguageSetting
+import com.lumitube.app.ui.common.LinkSettings
 import com.lumitube.app.ui.common.MusicPanelColors
+import com.lumitube.app.ui.common.SettingHeader
+import com.lumitube.app.ui.common.SettingSwitch
+import com.lumitube.app.ui.common.SettingsPage
+import com.lumitube.app.ui.common.Text
 import com.lumitube.app.ui.common.YtRed
 
-private val providerInfo = mapOf(
-    "BetterLyrics" to "Lirik Apple Music, sinkron per kata",
-    "LyricsPlus" to "Sinkron per kata/suku kata (banyak server)",
-    "LRCLIB" to "Database terbuka, sinkron per baris",
-    "KuGou" to "Koleksi besar, kuat untuk lagu Asia",
-    "YouTube Music" to "Lirik bawaan (tidak sinkron)",
-)
-
+/** Setelan YT Music Lumi dalam satu layar. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MusicSettingsPanel(onClose: () -> Unit) {
     val colors = MusicPanelColors
     var pip by remember { mutableStateOf(Session.lyricsPip) }
+    var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
     val enabled = remember {
         mutableStateMapOf<String, Boolean>().apply {
             LyricsRepo.providers.forEach { put(it.name, Session.isLyricsProviderEnabled(it.name)) }
         }
     }
-    BottomPanel("Setelan Music", colors, onClose, heightFraction = 0.8f) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            item {
-                ToggleRow(
-                    "PiP lirik saat diminimalkan",
-                    "Saat musik diputar dan aplikasi diminimalkan, lirik tampil di jendela kecil",
-                    pip,
+    SettingsPage("Setelan", colors, onClose) {
+        SettingHeader("Tampilan", colors)
+        AppearanceSettings(colors)
+        LanguageSetting(colors)
+        SettingHeader("Lirik & pemutaran", colors)
+        SettingSwitch(
+            "PiP lirik saat diminimalkan", "Lirik tetap tampil di jendela kecil saat aplikasi diminimalkan", pip, colors,
+        ) {
+            pip = it
+            Session.lyricsPip = it
+        }
+        SettingSwitch(
+            "Tutup aplikasi saat PiP ditutup", "Menutup jendela kecil juga menghentikan musik", closePip, colors,
+        ) {
+            closePip = it
+            Session.closeOnPipClose = it
+        }
+        Text(
+            "Penyedia lirik (dicari bersamaan, yang sinkron per kata diutamakan)",
+            color = colors.sub, fontSize = 12.sp, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp),
+        )
+        FlowRow(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LyricsRepo.providers.map { it.name }.forEach { name ->
+                val on = enabled[name] == true
+                Row(
+                    Modifier.clip(RoundedCornerShape(16.dp))
+                        .background(if (on) YtRed.copy(alpha = 0.18f) else Color.Transparent)
+                        .border(1.dp, if (on) YtRed else colors.sub.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                        .clickable {
+                            enabled[name] = !on
+                            Session.setLyricsProviderEnabled(name, !on)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    pip = it
-                    Session.lyricsPip = it
+                    if (on) Icon(Icons.Filled.Check, null, tint = YtRed, modifier = Modifier.size(16.dp).padding(end = 2.dp))
+                    androidx.compose.material3.Text(name, color = colors.text, fontSize = 13.sp)
                 }
-            }
-            item {
-                var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
-                ToggleRow(
-                    "Tutup aplikasi saat PiP ditutup",
-                    "Menutup jendela kecil juga menghentikan musik (tidak lanjut di latar belakang)",
-                    closePip,
-                ) {
-                    closePip = it
-                    Session.closeOnPipClose = it
-                }
-            }
-            item {
-                val ctx = androidx.compose.ui.platform.LocalContext.current
-                var links by remember { mutableStateOf(com.lumitube.app.CrossApp.linksEnabled(ctx)) }
-                ToggleRow(
-                    "Buka link YouTube Music di aplikasi ini",
-                    "Link music.youtube.com yang dibuka atau dibagikan akan diputar di YT Music Lumi",
-                    links,
-                ) {
-                    links = it
-                    com.lumitube.app.CrossApp.setLinksEnabled(ctx, it)
-                    if (it) com.lumitube.app.CrossApp.startLinkSetup(ctx)
-                }
-                if (links) {
-                    Text(
-                        "Atur ulang link (YouTube Music asli → YT Music Lumi)",
-                        color = Color(0xFF3EA6FF), fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth().clickable { com.lumitube.app.CrossApp.startLinkSetup(ctx) }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
-                }
-            }
-            item {
-                Text(
-                    "Penyedia lirik", color = colors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-                )
-                Text(
-                    "Semua penyedia aktif dicari bersamaan; hasil sinkron per kata diutamakan.",
-                    color = colors.sub, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-            items(LyricsRepo.providers.map { it.name }) { name ->
-                ToggleRow(name, providerInfo[name] ?: "", enabled[name] == true) {
-                    enabled[name] = it
-                    Session.setLyricsProviderEnabled(name, it)
-                }
-            }
-            item {
-                Text(
-                    "Cari ulang lirik lagu ini",
-                    color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        PlaybackManager.loadLyrics(force = true)
-                        onClose()
-                    }.padding(16.dp),
-                )
             }
         }
-    }
-}
-
-@Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 15.sp)
-            if (subtitle.isNotBlank()) Text(subtitle, color = MusicPanelColors.sub, fontSize = 12.sp)
-        }
-        Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedTrackColor = YtRed))
+        Box(
+            Modifier.padding(start = 20.dp, top = 2.dp, bottom = 2.dp).clip(RoundedCornerShape(18.dp))
+                .border(1.dp, colors.accent, RoundedCornerShape(18.dp))
+                .clickable {
+                    PlaybackManager.loadLyrics(force = true)
+                    onClose()
+                }.padding(horizontal = 14.dp, vertical = 7.dp),
+        ) { Text("Cari ulang lirik lagu ini", color = colors.accent, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+        SettingHeader("Link", colors)
+        LinkSettings(colors)
     }
 }

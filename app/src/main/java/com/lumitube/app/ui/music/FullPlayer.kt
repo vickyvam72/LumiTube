@@ -41,7 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -140,7 +140,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                             onClick = { menu = false; showAddPlaylist = true },
                         )
                         androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Timer tidur • ${com.lumitube.app.ui.common.sleepTimerLabel()}") },
+                            text = { Text(com.lumitube.app.tr("Timer tidur") + " • " + com.lumitube.app.tr(com.lumitube.app.ui.common.sleepTimerLabel())) },
                             leadingIcon = { Icon(Icons.Outlined.Bedtime, null) },
                             onClick = { menu = false; showSleep = true },
                         )
@@ -192,7 +192,7 @@ fun FullPlayer(onClose: () -> Unit, onOpenArtist: (String) -> Unit, onOpenVideo:
                     )
                     PlaybackManager.error?.let { err ->
                         Text(
-                            "$err (ketuk untuk coba lagi)", color = Color(0xFFFF8A80), fontSize = 13.sp,
+                            com.lumitube.app.tr("%s (ketuk untuk coba lagi)", com.lumitube.app.tr(err)), color = Color(0xFFFF8A80), fontSize = 13.sp,
                             modifier = Modifier.padding(top = 6.dp).clickable { PlaybackManager.retry() },
                         )
                     }

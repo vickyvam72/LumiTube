@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.lumitube.app.data.Item
 import com.lumitube.app.data.ItemType
 import com.lumitube.app.player.PlaybackManager
@@ -42,9 +44,9 @@ object CrossApp {
             // Hanya satu pemutar yang berbunyi.
             if (item != null) PlaybackManager.stop()
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "$otherName belum terpasang", Toast.LENGTH_SHORT).show()
+            com.lumitube.app.ui.common.LumiToast.makeText(context, com.lumitube.app.tr("%s belum terpasang", otherName), Toast.LENGTH_SHORT).show()
         } catch (_: SecurityException) {
-            Toast.makeText(context, "Tidak bisa membuka $otherName", Toast.LENGTH_SHORT).show()
+            com.lumitube.app.ui.common.LumiToast.makeText(context, com.lumitube.app.tr("Tidak bisa membuka %s", otherName), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -128,8 +130,11 @@ object CrossApp {
 
     /** Aplikasi resmi yang biasanya memegang link youtube.com / music.youtube.com. */
     val originalPackage: String get() = if (isMusic) "com.google.android.apps.youtube.music" else "com.google.android.youtube"
-    private val originalName: String get() = if (isMusic) "YouTube Music" else "YouTube"
-    private val ownName: String get() = if (isMusic) "YT Music Lumi" else "YouTube Lumi"
+    val originalName: String get() = if (isMusic) "YouTube Music" else "YouTube"
+    val ownName: String get() = if (isMusic) "YT Music Lumi" else "YouTube Lumi"
+
+    /** Panduan "Atur ulang link" yang sedang tampil: 0 = tidak ada, 1 = langkah 1, 2 = langkah 2. */
+    var guideStep by androidx.compose.runtime.mutableIntStateOf(0)
 
     private var pendingOwnLinkSettings = false
 
@@ -160,36 +165,29 @@ object CrossApp {
     }
 
     /**
-     * Langkah 1: buka info aplikasi YouTube / YouTube Music asli supaya "Buka link yang didukung"
-     * bisa dimatikan. Saat kembali ke aplikasi ini, langkah 2 otomatis membuka info aplikasi Lumi.
+     * Mulai panduan: langkah 1 melepas link dari YouTube / YouTube Music asli (bila terpasang),
+     * langkah 2 menyambungkan link ke aplikasi ini. Tiap langkah dijelaskan dulu di dialog.
      */
     fun startLinkSetup(ctx: Context) {
-        if (isInstalled(ctx, originalPackage)) {
+        guideStep = if (isInstalled(ctx, originalPackage)) 1 else 2
+    }
+
+    /** Tombol di dialog panduan: buka halaman pengaturan untuk langkah yang sedang tampil. */
+    fun continueGuide(ctx: Context) {
+        val step = guideStep
+        guideStep = 0
+        if (step == 1) {
             pendingOwnLinkSettings = true
-            Toast.makeText(
-                ctx,
-                "Langkah 1: di $originalName asli, matikan \"Buka link yang didukung\", lalu kembali ke sini",
-                Toast.LENGTH_LONG,
-            ).show()
             openByDefault(ctx, originalPackage)
         } else {
-            showOwnStep(ctx)
+            openByDefault(ctx, ctx.packageName)
         }
     }
 
-    private fun showOwnStep(ctx: Context) {
-        Toast.makeText(
-            ctx,
-            "Langkah 2: di $ownName, aktifkan \"Buka link yang didukung\" dan tambahkan semua link",
-            Toast.LENGTH_LONG,
-        ).show()
-        openByDefault(ctx, ctx.packageName)
-    }
-
-    /** Dipanggil saat aplikasi kembali tampil (onResume). */
+    /** Dipanggil saat aplikasi kembali tampil (onResume): lanjut ke langkah 2. */
     fun resumeLinkSetup(ctx: Context) {
         if (!pendingOwnLinkSettings) return
         pendingOwnLinkSettings = false
-        showOwnStep(ctx)
+        guideStep = 2
     }
 }

@@ -46,7 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,7 +84,7 @@ fun MusicLogo() {
             }
         }
         Spacer(Modifier.width(6.dp))
-        Text("Music", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
+        Text("Music", color = MusicColors.text, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
     }
 }
 
@@ -111,12 +111,12 @@ fun MoodChips(chips: List<Chip>, selected: Int, onSelect: (Int) -> Unit) {
             val sel = i == selected
             Box(
                 Modifier.height(40.dp).clip(RoundedCornerShape(8.dp))
-                    .background(if (sel) Color.White else MusicColors.chip)
+                    .background(if (sel) MusicColors.text else MusicColors.chip)
                     .clickable { onSelect(i) }
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(chips[i].title, color = if (sel) Color.Black else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(chips[i].title, color = if (sel) MusicColors.bg else MusicColors.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -134,11 +134,11 @@ fun ShelfHeader(shelf: Shelf, avatar: Boolean, onMore: (() -> Unit)?) {
         }
         Column(Modifier.weight(1f)) {
             shelf.strapline?.let { Text(it.uppercase(), color = MusicColors.sub, fontSize = 13.sp, letterSpacing = 0.5.sp) }
-            Text(shelf.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(shelf.title, color = MusicColors.text, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         if (onMore != null) {
             IconButton(onClick = onMore) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Lainnya", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Lainnya", tint = MusicColors.text)
             }
         }
     }
@@ -171,7 +171,7 @@ fun SpeedDial(items: List<Item>, onClick: (Item) -> Unit) {
                 repeat(pages) { i ->
                     Box(
                         Modifier.padding(4.dp).size(if (i == state.currentPage) 9.dp else 7.dp).clip(CircleShape)
-                            .background(if (i == state.currentPage) Color.White else Color(0x66FFFFFF))
+                            .background(if (i == state.currentPage) MusicColors.text else MusicColors.sub)
                     )
                 }
             }
@@ -208,7 +208,7 @@ fun MusicCard(item: Item, onClick: () -> Unit) {
                 .clip(if (circle) CircleShape else RoundedCornerShape(6.dp))
         )
         Text(
-            item.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            item.title, color = MusicColors.text, fontSize = 15.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
         )
         if (item.subtitle.isNotBlank()) {
@@ -242,7 +242,7 @@ fun SongRow(
         }
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
-                item.title, color = if (playing) YtRed else Color.White, fontSize = 15.sp,
+                item.title, color = if (playing) YtRed else MusicColors.text, fontSize = 15.sp,
                 fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             if (item.subtitle.isNotBlank()) {
@@ -306,8 +306,8 @@ fun MusicMiniPlayer(onOpen: () -> Unit) {
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier.fillMaxWidth().height(2.dp),
-            color = Color.White,
-            trackColor = Color(0x33FFFFFF),
+            color = MusicColors.text,
+            trackColor = MusicColors.chip,
         )
         Row(
             Modifier.fillMaxWidth().height(64.dp).clickable(onClick = onOpen).padding(horizontal = 10.dp),
@@ -315,25 +315,25 @@ fun MusicMiniPlayer(onOpen: () -> Unit) {
         ) {
             Img(item.thumbnail, Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(item.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.title, color = MusicColors.text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(item.channelName ?: item.subtitle, color = MusicColors.sub, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (PlaybackManager.loading) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(color = MusicColors.text, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(12.dp))
             } else {
                 IconButton(onClick = { PlaybackManager.togglePlay() }) {
                     Icon(
                         if (PlaybackManager.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Putar/Jeda",
-                        tint = Color.White, modifier = Modifier.size(32.dp),
+                        tint = MusicColors.text, modifier = Modifier.size(32.dp),
                     )
                 }
             }
             IconButton(onClick = { PlaybackManager.next() }) {
-                Icon(Icons.Filled.SkipNext, "Berikutnya", tint = Color.White)
+                Icon(Icons.Filled.SkipNext, "Berikutnya", tint = MusicColors.text)
             }
             IconButton(onClick = { PlaybackManager.stop() }) {
-                Icon(Icons.Filled.Close, "Tutup", tint = Color.White)
+                Icon(Icons.Filled.Close, "Tutup", tint = MusicColors.text)
             }
         }
     }
@@ -359,9 +359,9 @@ fun MusicBottomNav(selected: Int, onSelect: (Int) -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(if (i == selected) s.on else s.off, s.label, tint = Color.White, modifier = Modifier.size(26.dp))
+                Icon(if (i == selected) s.on else s.off, s.label, tint = MusicColors.text, modifier = Modifier.size(26.dp))
                 Text(
-                    s.label, color = if (i == selected) Color.White else MusicColors.sub, fontSize = 12.sp,
+                    s.label, color = if (i == selected) MusicColors.text else MusicColors.sub, fontSize = 12.sp,
                     fontWeight = if (i == selected) FontWeight.Medium else FontWeight.Normal,
                 )
             }

@@ -61,7 +61,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -127,6 +127,9 @@ fun YtVideoPlayer(
             delay(250)
         }
     }
+    // Live tanpa pemutaran ulang (jendela pendek / tidak bisa digeser): garis merah diam penuh di akhir.
+    val liveLocked = PlaybackManager.isLiveStream &&
+        (duration < 120_000 || !PlaybackManager.exo.isCurrentMediaItemSeekable)
     // Sembunyikan kontrol otomatis setelah 3 detik saat video berjalan
     LaunchedEffect(show, touch, PlaybackManager.isPlaying) {
         if (show && PlaybackManager.isPlaying) {
@@ -171,6 +174,10 @@ fun YtVideoPlayer(
                     onPress = { o ->
                         val side = 1 // tahan kiri maupun kanan = maju cepat 2x
                         var started = false
+                        if (liveLocked) {
+                            tryAwaitRelease()
+                            return@detectTapGestures
+                        }
                         val job = holdScope.launch {
                             kotlinx.coroutines.delay(450)
                             started = true
@@ -190,6 +197,7 @@ fun YtVideoPlayer(
                         touch = System.currentTimeMillis()
                     },
                     onDoubleTap = { o ->
+                        if (liveLocked) return@detectTapGestures
                         val side = if (o.x > size.width / 2f) 1 else -1
                         PlaybackManager.seekBy(side * 10_000L)
                         seekAmount = if (seekSide == side) seekAmount + 10 else 10
@@ -227,7 +235,7 @@ fun YtVideoPlayer(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(if (seekSide > 0) Icons.Filled.FastForward else Icons.Filled.FastRewind, null, tint = Color.White)
-                    Text("$seekAmount detik", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(com.lumitube.app.tr("%s detik", seekAmount), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -247,7 +255,17 @@ fun YtVideoPlayer(
                     IconButton(onClick = { if (full) onFullscreen(false) else onMinimize() }) {
                         Icon(Icons.Filled.KeyboardArrowDown, "Perkecil", tint = Color.White, modifier = Modifier.size(30.dp))
                     }
-                    Spacer(Modifier.weight(1f))
+                    // Layar penuh: judul video ikut tampil bersama tombol kontrol (seperti YouTube).
+                    if (full) {
+                        androidx.compose.material3.Text(
+                            PlaybackManager.current?.title.orEmpty(), color = Color.White, fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(start = 4.dp, end = 8.dp),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
                     AutoplayToggle()
                     val hasCaptions = PlaybackManager.captions.isNotEmpty()
                     IconButton(
@@ -382,6 +400,7 @@ fun YtVideoPlayer(
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
                 .then(if (full) Modifier.padding(start = 16.dp, end = 16.dp, bottom = 22.dp) else Modifier),
             chapters = PlaybackManager.chapters.map { it.first },
+            locked = liveLocked,
             onScrub = { scrub = it; touch = System.currentTimeMillis() },
             onSeekStart = { touch = System.currentTimeMillis() },
         ) { fraction ->
@@ -397,7 +416,7 @@ fun YtVideoPlayer(
  */
 internal fun defaultCaption(): Pair<Int, String?> {
     val list = PlaybackManager.captions
-    val lang = Locale.getDefault().language
+    val lang = com.lumitube.app.I18n.current.sub
     list.indexOfFirst { it.lang.startsWith(lang) && !it.auto }.takeIf { it >= 0 }?.let { return it to null }
     list.indexOfFirst { it.lang.startsWith(lang) }.takeIf { it >= 0 }?.let { return it to null }
     val base = list.indexOfFirst { !it.auto }.takeIf { it >= 0 } ?: 0
@@ -452,21 +471,23 @@ internal fun YtSeekBar(
     onScrub: (Float?) -> Unit = {},
     /** Gaya Shorts: lingkaran hanya muncul saat digeser, area sentuh lebih tinggi. */
     shortsStyle: Boolean = false,
+    /** Live tanpa pemutaran ulang: garis penuh di akhir dan tidak bisa digeser. */
+    locked: Boolean = false,
     onSeekStart: () -> Unit,
     onSeek: (Float) -> Unit,
 ) {
     var dragging by remember { mutableStateOf(false) }
     var drag by remember { mutableFloatStateOf(0f) }
-    val played = if (dragging) drag else if (duration > 0) position.toFloat() / duration else 0f
-    val buf = if (duration > 0) (buffered.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    val played = if (locked) 1f else if (dragging) drag else if (duration > 0) position.toFloat() / duration else 0f
+    val buf = if (locked) 1f else if (duration > 0) (buffered.toFloat() / duration).coerceIn(0f, 1f) else 0f
     Box(
         modifier.height(if (!expanded) 3.dp else if (shortsStyle) 28.dp else 22.dp)
-            .pointerInput(expanded) {
-                if (!expanded) return@pointerInput
+            .pointerInput(expanded, locked) {
+                if (!expanded || locked) return@pointerInput
                 detectTapGestures { o -> onSeek((o.x / size.width).coerceIn(0f, 1f)) }
             }
-            .pointerInput(expanded) {
-                if (!expanded) return@pointerInput
+            .pointerInput(expanded, locked) {
+                if (!expanded || locked) return@pointerInput
                 detectHorizontalDragGestures(
                     onDragStart = { o ->
                         dragging = true
@@ -556,7 +577,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
                         if (cap != null) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaptionOff, "Teks",
                         when {
                             cap == null -> if (PlaybackManager.captions.isEmpty()) "Tidak tersedia" else "Nonaktif"
-                            tl != null -> "$tl (terjemahan)"
+                            tl != null -> com.lumitube.app.tr("%s (terjemahan)", tl)
                             else -> cap.name
                         },
                         arrow = true,
@@ -643,7 +664,7 @@ fun YtSettingsSheet(onListenMusic: (() -> Unit)? = null, onClose: () -> Unit) {
                     val base = PlaybackManager.captionIndex.takeIf { it >= 0 }
                         ?: PlaybackManager.captions.indexOfFirst { !it.auto }.takeIf { it >= 0 } ?: 0
                     val list = PlaybackManager.translations
-                    val mine = Locale.getDefault().language
+                    val mine = com.lumitube.app.I18n.current.sub
                     val ordered = list.filter { it.first == mine } + list.filter { it.first != mine }
                     LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
                         items(ordered.size) { i ->

@@ -2,7 +2,6 @@ package com.lumitube.app.ui.common
 
 import android.widget.Toast
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,8 +58,8 @@ fun rememberPlaylistDeleter(): PlaylistDeleter {
             title = { Text(if (own) "Hapus playlist?" else "Hapus dari koleksi?") },
             text = {
                 Text(
-                    if (own) "\"${item.title.ifBlank { "Playlist" }}\" akan dihapus permanen dari akunmu."
-                    else "\"${item.title.ifBlank { "Playlist" }}\" akan dikeluarkan dari koleksimu."
+                    if (own) com.lumitube.app.tr("\"%s\" akan dihapus permanen dari akunmu.", item.title.ifBlank { "Playlist" })
+                    else com.lumitube.app.tr("\"%s\" akan dikeluarkan dari koleksimu.", item.title.ifBlank { "Playlist" })
                 )
             },
             confirmButton = {
@@ -91,10 +90,10 @@ fun rememberPlaylistDeleter(): PlaylistDeleter {
                             }
                         } catch (e: Exception) {
                             deleted.remove(item.id)
-                            "Gagal menghapus: ${e.message ?: e}"
+                            com.lumitube.app.tr("Gagal menghapus: %s", e.message ?: e)
                         }
                         FeedLoader.libraryChanged()
-                        Toast.makeText(app, msg, Toast.LENGTH_SHORT).show()
+                        com.lumitube.app.ui.common.LumiToast.makeText(app, msg, Toast.LENGTH_SHORT).show()
                     }
                 }) { Text("Hapus") }
             },

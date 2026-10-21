@@ -366,7 +366,7 @@ object PlaybackManager {
                     }
                     load(item, exo.currentPosition.coerceAtLeast(0))
                 } else {
-                    error = "Gagal memutar: ${e.errorCodeName}"
+                    error = com.lumitube.app.tr("Gagal memutar: %s", e.errorCodeName)
                     // Lanjutkan otomatis begitu gangguan selesai (internet kembali / server pulih).
                     if (item != null && item.localUri == null) {
                         resumeFor = item.id
@@ -759,7 +759,7 @@ object PlaybackManager {
                 val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = !isVideo, stream = tracking, short = item.type == ItemType.SHORT)
                 if (!ok && !historyWarned) {
                     historyWarned = true
-                    android.widget.Toast.makeText(
+                    com.lumitube.app.ui.common.LumiToast.makeText(
                         appContext,
                         "Video belum tercatat di Histori (${com.lumitube.app.data.InnerTube.lastHistoryResult.take(120)}). Cek apakah Histori tontonan dijeda di akun YouTube.",
                         android.widget.Toast.LENGTH_LONG,

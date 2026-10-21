@@ -69,7 +69,7 @@ import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -138,6 +138,7 @@ sealed interface YtRoute {
     data object Search : YtRoute
     data class Shorts(val items: List<Item>, val index: Int) : YtRoute
     data object Downloads : YtRoute
+    data object Settings : YtRoute
 }
 
 /** Aplikasi "YouTube" di dalam LumiTube. */
@@ -233,8 +234,8 @@ fun YouTubeApp(
 
     val shortsMode = top is YtRoute.Shorts || (top == null && tab == 1)
     val context = LocalContext.current
-    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    DisposableEffect(shortsMode) {
+    val systemDark = com.lumitube.app.ui.common.LumiStyle.dark
+    DisposableEffect(shortsMode, systemDark) {
         val window = context.findActivity()?.window
         if (window != null) {
             WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !shortsMode && !systemDark
@@ -261,6 +262,7 @@ fun YouTubeApp(
                     onChannel = openChannel, onLogin = onLogin,
                     onBack = { stack.removeAt(stack.lastIndex) },
                 )
+                YtRoute.Settings -> YtSettingsPage { stack.removeAt(stack.lastIndex) }
                 YtRoute.Downloads -> DownloadsScreen(
                     { stack.removeAt(stack.lastIndex) },
                     onPlayAll = { recs, start ->
@@ -282,7 +284,7 @@ fun YouTubeApp(
                     )
                     1 -> ShortsTabPlayer(shorts, openChannel, onLogin)
                     2 -> SubscriptionsTab(subs, open, openChannel, onLogin)
-                    else -> YouTab(open, { id, title -> stack.add(YtRoute.Browse(id, title)) }, onLogin, onSwitchMusic) { stack.add(YtRoute.Downloads) }
+                    else -> YouTab(open, { id, title -> stack.add(YtRoute.Browse(id, title)) }, onLogin, onSwitchMusic, { stack.add(YtRoute.Settings) }) { stack.add(YtRoute.Downloads) }
                 }
             }
         }
@@ -413,7 +415,7 @@ private fun FeedList(
         item { header() }
         if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
         feed.error?.let { err ->
-            if (feed.items.isEmpty()) item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } }
+            if (feed.items.isEmpty()) item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), yt.sub, "Coba lagi") { feed.load() } }
         }
         if (!feed.loading && feed.error == null && feed.items.isEmpty()) item { empty() }
         items(rows.size) { i ->
@@ -508,7 +510,7 @@ private fun ShortsTabPlayer(feed: FeedLoader, openChannel: (String) -> Unit, onL
             )
         }
         feed.loading -> Box(Modifier.fillMaxSize().background(Color.Black))
-        else -> MessageBox("Gagal memuat Shorts: ${feed.error ?: "kosong"}", yt.sub, "Coba lagi") { feed.load() }
+        else -> MessageBox(com.lumitube.app.tr("Gagal memuat Shorts: %s", feed.error ?: com.lumitube.app.tr("kosong")), yt.sub, "Coba lagi") { feed.load() }
     }
 }
 
@@ -570,6 +572,7 @@ private fun YouTab(
     browse: (String, String) -> Unit,
     onLogin: () -> Unit,
     onSwitchMusic: () -> Unit,
+    onSettings: () -> Unit,
     onDownloads: () -> Unit,
 ) {
     val yt = LocalYt.current
@@ -582,8 +585,6 @@ private fun YouTab(
             }
         }
     }
-    var quality by remember { mutableIntStateOf(Session.maxQuality) }
-
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -608,38 +609,39 @@ private fun YouTab(
             item { MenuRow(Icons.Filled.ThumbUp, "Video yang disukai") { browse("VLLL", "Video yang disukai") } }
         }
         item { MenuRow(Icons.Filled.Download, "Download", onDownloads) }
-        item {
-            var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
-            SwitchRow(Icons.Filled.Settings, "Tutup aplikasi saat PiP ditutup", closePip) {
-                closePip = it
-                Session.closeOnPipClose = it
-            }
-        }
-        item {
-            val ctx = LocalContext.current
-            var links by remember { mutableStateOf(com.lumitube.app.CrossApp.linksEnabled(ctx)) }
-            SwitchRow(Icons.Filled.Share, "Buka link YouTube di YouTube Lumi", links) {
-                links = it
-                com.lumitube.app.CrossApp.setLinksEnabled(ctx, links)
-                if (links) com.lumitube.app.CrossApp.startLinkSetup(ctx)
-            }
-            if (links) {
-                MenuRow(Icons.Filled.Settings, "Atur ulang link (YouTube asli → YouTube Lumi)") {
-                    com.lumitube.app.CrossApp.startLinkSetup(ctx)
-                }
-            }
-        }
-        item {
-            MenuRow(Icons.Filled.HighQuality, "Kualitas video maks: ${quality}p") {
-                val next = when (quality) { 360 -> 480; 480 -> 720; 720 -> 1080; else -> 360 }
-                quality = next
-                Session.maxQuality = next
-            }
-        }
+        item { MenuRow(Icons.Filled.Settings, "Setelan", onSettings) }
         if (Session.loggedIn) {
             item { MenuRow(Icons.Filled.Logout, "Keluar") { Session.logout() } }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** Setelan YouTube Lumi dalam satu layar. */
+@Composable
+private fun YtSettingsPage(onBack: () -> Unit) {
+    val colors = ytPanelColors()
+    var quality by remember { mutableIntStateOf(Session.maxQuality) }
+    var closePip by remember { mutableStateOf(Session.closeOnPipClose) }
+    com.lumitube.app.ui.common.SettingsPage("Setelan", colors, onBack, insets = false) {
+        com.lumitube.app.ui.common.SettingHeader("Tampilan", colors)
+        com.lumitube.app.ui.common.AppearanceSettings(colors)
+        com.lumitube.app.ui.common.LanguageSetting(colors)
+        com.lumitube.app.ui.common.SettingHeader("Pemutaran", colors)
+        com.lumitube.app.ui.common.SettingSegment(
+            "Kualitas video maksimal", listOf(360 to "360p", 480 to "480p", 720 to "720p", 1080 to "1080p"), quality, colors,
+        ) {
+            quality = it
+            Session.maxQuality = it
+        }
+        com.lumitube.app.ui.common.SettingSwitch(
+            "Tutup aplikasi saat PiP ditutup", "Menutup jendela kecil juga menghentikan video", closePip, colors,
+        ) {
+            closePip = it
+            Session.closeOnPipClose = it
+        }
+        com.lumitube.app.ui.common.SettingHeader("Link", colors)
+        com.lumitube.app.ui.common.LinkSettings(colors)
     }
 }
 
@@ -820,7 +822,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         com.lumitube.app.ui.common.FeedLoader.invalidate(id)
                     } catch (e: Exception) {
                         com.lumitube.app.ui.common.FeedLoader.invalidate(id)
-                        android.widget.Toast.makeText(appCtx, "Gagal menyimpan urutan: ${e.message ?: e}", android.widget.Toast.LENGTH_LONG).show()
+                        com.lumitube.app.ui.common.LumiToast.makeText(appCtx, com.lumitube.app.tr("Gagal menyimpan urutan: %s", e.message ?: e), android.widget.Toast.LENGTH_LONG).show()
                         // Muat ulang supaya urutan di layar sama dengan yang tersimpan di YouTube.
                         order.clear()
                         feed.load()
@@ -864,7 +866,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text)
                 }
                 YtSearchField(
-                    field, { field = it }, if (isHistory) "Telusuri histori tontonan" else "Telusuri ${page?.title ?: "channel"}",
+                    field, { field = it }, if (isHistory) "Telusuri histori tontonan" else com.lumitube.app.tr("Telusuri %s", page?.title ?: "channel"),
                     onSearch = { submit(field.text) }, onFocus = { editing = true }, focus = focus,
                     modifier = Modifier.weight(1f),
                 )
@@ -877,7 +879,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Filled.Search, null, tint = yt.text)
-                        Text(if (isHistory) "Cari \"${field.text.trim()}\" di histori" else "Cari \"${field.text.trim()}\" di channel ini", color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(start = 18.dp))
+                        Text(if (isHistory) com.lumitube.app.tr("Cari \"%s\" di histori", field.text.trim()) else com.lumitube.app.tr("Cari \"%s\" di channel ini", field.text.trim()), color = yt.text, fontSize = 15.sp, modifier = Modifier.padding(start = 18.dp))
                     }
                 }
             } else if (query.isNotEmpty()) {
@@ -886,7 +888,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                 LoadMoreEffect(rs, results)
                 LazyColumn(state = rs, modifier = Modifier.fillMaxSize()) {
                     if (results.loading && results.items.isEmpty()) item { LoadingBox() }
-                    results.error?.let { err -> item { MessageBox("Gagal mencari: $err", yt.sub, "Coba lagi") { results.load() } } }
+                    results.error?.let { err -> item { MessageBox(com.lumitube.app.tr("Gagal mencari: %s", err), yt.sub, "Coba lagi") { results.load() } } }
                     if (!results.loading && results.error == null && results.items.isEmpty()) {
                         item { MessageBox(if (isHistory) "Tidak ada video yang cocok di histori." else "Tidak ada video yang cocok di channel ini.", yt.sub, null) {} }
                     }
@@ -912,7 +914,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmDelete = false },
                 title = { Text("Hapus playlist?") },
-                text = { Text("\"${page?.title ?: title ?: "Playlist"}\" akan dihapus permanen dari akunmu.") },
+                text = { Text(com.lumitube.app.tr("\"%s\" akan dihapus permanen dari akunmu.", page?.title ?: title ?: "Playlist")) },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         confirmDelete = false
@@ -920,10 +922,10 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                             try {
                                 Repo.deletePlaylist(id)
                                 com.lumitube.app.ui.common.FeedLoader.libraryChanged()
-                                android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
                                 onBack()
                             } catch (_: Exception) {
-                                android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }) { Text("Hapus") }
@@ -994,7 +996,7 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                 }
             }
             if (feed.loading && feed.items.isEmpty()) item { LoadingBox() }
-            feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() } } }
+            feed.error?.let { err -> item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), yt.sub, "Coba lagi") { feed.load() } } }
             if (historyDays.isNotEmpty()) {
                 historyDays.forEachIndexed { di, (day, groups) ->
                     // Shorts dari rak YouTube didahulukan (urutan terbaru), lalu Shorts di daftar biasa.
@@ -1063,10 +1065,10 @@ private fun BrowseScreen(id: String, title: String?, onBack: () -> Unit, open: (
                                     try {
                                         Repo.setInPlaylist(id.removePrefix("VL"), item.id, false)
                                         com.lumitube.app.ui.common.FeedLoader.invalidate(id)
-                                        android.widget.Toast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
+                                        com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
                                     } catch (_: Exception) {
                                         removed.remove(item.id)
-                                        android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                                        com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -1129,9 +1131,9 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
                         playlistId = playlistId, playlistTitle = feed.page?.title,
                         playlistAuthor = feed.page?.subtitle?.substringBefore(" • "),
                     )
-                    android.widget.Toast.makeText(
+                    com.lumitube.app.ui.common.LumiToast.makeText(
                         context,
-                        if (todo == 0) "Semua video sudah di-download" else "Mendownload $todo video… (lihat di Download)",
+                        if (todo == 0) "Semua video sudah di-download" else com.lumitube.app.tr("Mendownload %s video… (lihat di Download)", todo),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -1151,7 +1153,7 @@ private fun PlaylistOfflineRow(feed: FeedLoader, videos: List<Item>, open: (Item
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.DownloadForOffline, null, tint = yt.text, modifier = Modifier.size(20.dp))
-                Text("Putar offline (${offline.size})", color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+                Text(com.lumitube.app.tr("Putar offline (%s)", offline.size), color = yt.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -1327,7 +1329,7 @@ private fun SearchShortsGrid(feed: FeedLoader, openShorts: (List<Item>, Int) -> 
         }
         feed.error?.let { err ->
             if (list.isEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
-                MessageBox("Gagal memuat: $err", yt.sub, "Coba lagi") { feed.load() }
+                MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), yt.sub, "Coba lagi") { feed.load() }
             }
         }
         if (!feed.loading && feed.error == null && list.isEmpty() && feed.continuation == null) {
@@ -1499,7 +1501,7 @@ private fun WatchDetails(
                             color = yt.text, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1,
                             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                         )
-                        Text("  $meta  ...selengkapnya", color = yt.sub, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("  $meta  " + com.lumitube.app.tr("...selengkapnya"), color = yt.sub, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (expanded) {
                         i?.description?.let {

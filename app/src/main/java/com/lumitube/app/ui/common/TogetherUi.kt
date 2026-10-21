@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumitube.app.CrossApp
 import com.lumitube.app.player.Together
+import com.lumitube.app.tr
 
 private val togetherName: String get() = if (CrossApp.isMusic) "Listen Together" else "Watch Together"
 
@@ -86,7 +89,7 @@ fun TogetherHost() {
                     )
                     OutlinedButton(
                         onClick = {
-                            if (!Together.join(ctx, input)) Toast.makeText(ctx, "Kode room harus 6 karakter", Toast.LENGTH_SHORT).show()
+                            if (!Together.join(ctx, input)) com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Kode room harus 6 karakter", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Gabung") }
@@ -97,13 +100,31 @@ fun TogetherHost() {
                         fontFamily = FontFamily.Monospace, letterSpacing = 4.sp,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
+                    val noun = tr(if (CrossApp.isMusic) "lagu" else "video")
                     Text(
-                        if (Together.isHost) "Kamu host. Teman di room akan mengikuti video, posisi, putar, dan jeda dari HP-mu."
-                        else "Kamu tamu. Pemutaran mengikuti host secara otomatis.",
+                        when {
+                            Together.isHost && Together.guestControl -> tr("Kamu host. Kamu dan anggota room bisa memilih %s; semua mengikuti pilihan terakhir.", noun)
+                            Together.isHost -> tr("Kamu host. Hanya kamu yang memilih %s; teman di room mengikuti putar, jeda, dan posisinya.", noun)
+                            Together.guestControl -> tr("Kamu anggota. Host mengizinkan kamu ikut memilih %s, putar, dan jeda.", noun)
+                            else -> tr("Kamu anggota. Pemutaran mengikuti pilihan host secara otomatis.")
+                        },
                         fontSize = 14.sp,
                     )
+                    if (Together.isHost) {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { Together.updateGuestControl(!Together.guestControl) },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(tr("Anggota juga bisa memilih %s", noun), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = Together.guestControl,
+                                onCheckedChange = { Together.updateGuestControl(it) },
+                                colors = SwitchDefaults.colors(checkedTrackColor = YtRed),
+                            )
+                        }
+                    }
                     Text(
-                        "Peserta: ${Together.members} · " + if (Together.connected) "Tersambung" else "Menyambungkan…",
+                        com.lumitube.app.tr("Peserta: %s", Together.members) + " · " + com.lumitube.app.tr(if (Together.connected) "Tersambung" else "Menyambungkan…"),
                         fontSize = 13.sp,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -124,7 +145,7 @@ fun TogetherHost() {
 private fun shareRoom(ctx: Context, code: String) {
     val app = if (CrossApp.isMusic) "YT Music Lumi" else "YouTube Lumi"
     val verb = if (CrossApp.isMusic) "dengerin lagu" else "nonton"
-    val text = "Ayo $verb bareng di $app! Buka $togetherName, lalu masukkan kode room: $code"
+    val text = if (CrossApp.isMusic) com.lumitube.app.tr("Ayo dengerin lagu bareng di %s! Buka %s, lalu masukkan kode room: %s", app, togetherName, code) else com.lumitube.app.tr("Ayo nonton bareng di %s! Buka %s, lalu masukkan kode room: %s", app, togetherName, code)
     val intent = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
     ctx.startActivity(Intent.createChooser(intent, "Bagikan kode room").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
@@ -132,5 +153,5 @@ private fun shareRoom(ctx: Context, code: String) {
 private fun copyRoom(ctx: Context, code: String) {
     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.setPrimaryClip(ClipData.newPlainText("Kode room", code))
-    Toast.makeText(ctx, "Kode disalin", Toast.LENGTH_SHORT).show()
+    com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Kode disalin", Toast.LENGTH_SHORT).show()
 }

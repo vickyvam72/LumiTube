@@ -28,7 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +76,7 @@ fun LiveChatCard(colors: PanelColors, onClick: () -> Unit) {
 }
 
 private fun chatHint(): String =
-    if (Session.loggedIn) "Chat secara publik sebagai ${Session.account?.name ?: "kamu"}..." else "Login untuk ikut chat"
+    if (Session.loggedIn) com.lumitube.app.tr("Chat secara publik sebagai %s...", Session.account?.name ?: com.lumitube.app.tr("kamu")) else "Login untuk ikut chat"
 
 /**
  * Panel live chat seperti YouTube: pesan terbaru di bawah, otomatis bergulir,
@@ -271,7 +270,7 @@ fun LiveChatPanel(
                                 val id = "local" + System.currentTimeMillis()
                                 messages.add(ChatMessage(id, Session.account?.handle ?: Session.account?.name ?: "Kamu", Session.account?.photo, text))
                             } catch (_: Exception) {
-                                Toast.makeText(context, "Pesan tidak terkirim", Toast.LENGTH_SHORT).show()
+                                com.lumitube.app.ui.common.LumiToast.makeText(context, "Pesan tidak terkirim", Toast.LENGTH_SHORT).show()
                             } finally {
                                 sending = false
                             }

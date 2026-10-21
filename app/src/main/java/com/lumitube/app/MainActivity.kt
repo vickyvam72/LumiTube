@@ -42,6 +42,7 @@ import com.lumitube.app.player.PlaybackManager
 import com.lumitube.app.player.PlaybackService
 import com.lumitube.app.ui.common.LoginScreen
 import com.lumitube.app.ui.common.LumiTheme
+import com.lumitube.app.ui.common.OfflineBanner
 import com.lumitube.app.ui.common.VideoSurface
 import com.lumitube.app.ui.music.MusicApp
 import com.lumitube.app.ui.youtube.YouTubeApp
@@ -75,11 +76,11 @@ class MainActivity : ComponentActivity() {
         crashReport?.let { report ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { crashReport = null },
-                title = { androidx.compose.material3.Text("Aplikasi sempat tertutup sendiri") },
+                title = { com.lumitube.app.ui.common.Text("Aplikasi sempat tertutup sendiri") },
                 text = {
                     androidx.compose.foundation.layout.Column {
-                        androidx.compose.material3.Text("Salin laporan ini dan kirimkan supaya penyebabnya bisa diperbaiki.")
-                        androidx.compose.material3.Text(
+                        com.lumitube.app.ui.common.Text("Salin laporan ini dan kirimkan supaya penyebabnya bisa diperbaiki.")
+                        com.lumitube.app.ui.common.Text(
                             report.take(1500),
                             fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
                             modifier = androidx.compose.ui.Modifier.padding(top = androidx.compose.ui.unit.Dp(8f))
@@ -92,12 +93,12 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.material3.TextButton(onClick = {
                         val cm = getSystemService(android.content.ClipboardManager::class.java)
                         cm?.setPrimaryClip(android.content.ClipData.newPlainText("Laporan crash LumiTube", report))
-                        android.widget.Toast.makeText(this, "Laporan disalin", android.widget.Toast.LENGTH_SHORT).show()
+                        com.lumitube.app.ui.common.LumiToast.makeText(this, "Laporan disalin", android.widget.Toast.LENGTH_SHORT).show()
                         crashReport = null
-                    }) { androidx.compose.material3.Text("Salin laporan") }
+                    }) { com.lumitube.app.ui.common.Text("Salin laporan") }
                 },
                 dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { crashReport = null }) { androidx.compose.material3.Text("Tutup") }
+                    androidx.compose.material3.TextButton(onClick = { crashReport = null }) { com.lumitube.app.ui.common.Text("Tutup") }
                 },
             )
         }
@@ -107,7 +108,7 @@ class MainActivity : ComponentActivity() {
         var onboardStep by rememberSaveable { mutableStateOf(if (com.lumitube.app.ui.common.Onboarding.done) 2 else 0) }
         var pendingWatch by remember { mutableStateOf<Item?>(null) }
         var pendingPlay by remember { mutableStateOf<Item?>(null) }
-        val dark = mode == "music" || isSystemInDarkTheme()
+        val dark = com.lumitube.app.ui.common.LumiStyle.dark
 
         LaunchedEffect(dark) {
             val style = if (dark) {
@@ -197,6 +198,7 @@ class MainActivity : ComponentActivity() {
                     if (showLogin) LoginScreen(onClose = { showLogin = false })
                     if (mode == "music") com.lumitube.app.ui.music.SongActionsHost()
                 }
+                com.lumitube.app.ui.common.LinkSetupGuide()
                 // Mode Picture-in-Picture: tampilkan video saja di atas UI (state UI tetap terjaga).
                 if (inPip) {
                     // Selama di YouTube Music: PiP lirik. Di YouTube biasa: PiP video.
@@ -206,6 +208,7 @@ class MainActivity : ComponentActivity() {
                         com.lumitube.app.ui.music.LyricsPip()
                     }
                 }
+                OfflineBanner(pip = inPip)
             }
         }
     }

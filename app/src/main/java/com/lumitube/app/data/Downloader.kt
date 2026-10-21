@@ -67,7 +67,7 @@ data class DownloadedPlaylist(
     val time: Long,
 )
 
-data class ActiveDownload(val key: String, val title: String, val label: String, val progress: Float, val status: String)
+data class ActiveDownload(val key: String, val title: String, val label: String, val progress: Float, val status: String, val live: Boolean = false)
 
 /**
  * Download video/audio dengan berbagai kualitas.
@@ -111,10 +111,11 @@ object Downloader {
             })
         } catch (_: Exception) {
         }
+        LiveDownloader.init(ctx)
         // Bersihkan notifikasi download yang menggantung dari sesi sebelumnya.
         try {
             val nm = ctx.getSystemService(NotificationManager::class.java)
-            for (i in 2000 until 2600) nm?.cancel(i)
+            for (i in 2000 until 2800) nm?.cancel(i)
         } catch (_: Exception) {
         }
     }
@@ -228,7 +229,7 @@ object Downloader {
                 val waitKey = "batch:${item.id}"
                 val step = "${n + 1}/${todo.size}"
                 active[waitKey] = ActiveDownload(waitKey, item.title, step, 0f, "Menyiapkan…")
-                notify(batchId, "Download playlist $step", item.title, 0, false)
+                notify(batchId, com.lumitube.app.tr("Download playlist %s", step), item.title, 0, false)
                 try {
                     val opts = options(item.id)
                     // YT Music: MP4 144p (kecil & paling lancar), disimpan sebagai lagu.
@@ -249,7 +250,7 @@ object Downloader {
             }
             // Coba lagi lirik yang tadi belum ketemu.
             backfillLyrics()
-            finish(batchId, "Download playlist selesai", "$ok dari ${todo.size} ${if (audioOnly) "lagu" else "video"} tersimpan")
+            finish(batchId, com.lumitube.app.tr("Download playlist selesai"), if (audioOnly) com.lumitube.app.tr("%s dari %s lagu tersimpan", ok, todo.size) else com.lumitube.app.tr("%s dari %s video tersimpan", ok, todo.size))
         }
     }
 
@@ -262,7 +263,7 @@ object Downloader {
         val key = "${item.id}:${option.label}:${option.detail}"
         if (active.containsKey(key)) return false
         val id = batch?.first ?: notifId++
-        val notifTitle = if (batch != null) "Download playlist ${batch.second}" else item.title
+        val notifTitle = if (batch != null) com.lumitube.app.tr("Download playlist %s", batch.second) else item.title
         val notifText = if (batch != null) item.title else option.label
         var lastNotify = 0L
         var ok = false
@@ -316,7 +317,7 @@ object Downloader {
                     records.add(0, rec)
                     save()
                 }
-                if (batch == null) finish(id, item.title, "Selesai • ${option.label}")
+                if (batch == null) finish(id, item.title, com.lumitube.app.tr("Selesai") + " • ${option.label}")
                 // Lagu: lirik untuk offline dicari terpisah (maks. 25 detik) supaya download
                 // berikutnya tidak tertahan di 100% menunggu penyedia lirik yang lambat.
                 if (!com.lumitube.app.data.lyrics.LyricsStore.has(item.id)) {
@@ -332,7 +333,7 @@ object Downloader {
                 }
                 ok = true
             } catch (e: Exception) {
-                if (batch == null) finish(id, item.title, "Gagal: ${e.message}")
+                if (batch == null) finish(id, item.title, com.lumitube.app.tr("Gagal: %s", e.message))
             } finally {
                 vFile.delete()
                 aFile.delete()
@@ -444,6 +445,14 @@ object Downloader {
     }
 
     private fun safeName(n: String) = n.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(150)
+
+    /** Simpan file hasil rekaman (mis. live) ke folder Download/LumiTube. */
+    fun saveFile(file: File, name: String, mime: String): String = saveToDownloads(file, name, mime, audio = false)
+
+    fun addRecord(rec: DownloadRecord) {
+        records.add(0, rec)
+        save()
+    }
 
     /** Simpan ke folder Download/LumiTube. */
     private fun saveToDownloads(file: File, name: String, mime: String, audio: Boolean): String {

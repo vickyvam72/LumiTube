@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -155,14 +155,14 @@ private fun LyricsHeader() {
             else -> "teks"
         }
         Text(
-            if (lyrics != null) "Sumber: ${lyrics.source} • $kind" else if (PlaybackManager.lyricsLoading) "Mencari lirik…" else "",
+            if (lyrics != null) com.lumitube.app.tr("Sumber: %s", lyrics.source) + " • " + com.lumitube.app.tr(kind) else if (PlaybackManager.lyricsLoading) "Mencari lirik…" else "",
             color = MusicColors.sub, fontSize = 12.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         if (count > 1) {
             Box(
                 Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0x22FFFFFF))
                     .clickable { PlaybackManager.nextLyricsSource() }.padding(horizontal = 12.dp, vertical = 5.dp)
-            ) { Text("Ganti sumber (${PlaybackManager.lyricsIndex + 1}/$count)", color = Color.White, fontSize = 12.sp) }
+            ) { Text(com.lumitube.app.tr("Ganti sumber (%s)", "${PlaybackManager.lyricsIndex + 1}/$count"), color = Color.White, fontSize = 12.sp) }
         } else if (lyrics == null && !PlaybackManager.lyricsLoading) {
             Box(
                 Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0x22FFFFFF))

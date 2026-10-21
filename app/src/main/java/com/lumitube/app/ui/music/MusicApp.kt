@@ -42,7 +42,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -103,8 +103,8 @@ private val playOffline: (List<com.lumitube.app.data.DownloadRecord>, Int) -> Un
 private fun OfflineScreen(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
-            Text("Download (offline)", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MusicColors.text) }
+            Text("Download (offline)", color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         DownloadsList(MusicPanelColors, playOffline) { }
     }
@@ -237,12 +237,12 @@ private fun MusicTopBar(onSwitchVideo: () -> Unit, onLogin: () -> Unit, onSettin
     ) {
         MusicLogo()
         Spacer(Modifier.weight(1f))
-        com.lumitube.app.ui.common.TogetherButton(Color.White)
+        com.lumitube.app.ui.common.TogetherButton(MusicColors.text)
         IconButton(onClick = onOffline) {
-            Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = Color.White)
+            Icon(Icons.Filled.DownloadForOffline, "Download (offline)", tint = MusicColors.text)
         }
         IconButton(onClick = onSwitchVideo) {
-            Icon(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", tint = Color.White)
+            Icon(Icons.Filled.OndemandVideo, "Buka YouTube Lumi", tint = MusicColors.text)
         }
         Box {
             Box(Modifier.padding(horizontal = 8.dp)) { Avatar(34) { menu = true } }
@@ -306,9 +306,9 @@ private fun MusicHome(
             item { MessageBox("Sedang offline? Putar lagu yang sudah kamu download.", MusicColors.sub, "Buka Download", onOffline) }
         }
         if (chips.isNotEmpty()) item { MoodChips(chips, chipIndex, onChip) }
-        if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = Color.White) }
+        if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = MusicColors.text) }
         feed.error?.let { err ->
-            item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } }
+            item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), MusicColors.sub, "Coba lagi") { feed.load() } }
         }
         itemsIndexed(shelves) { i, shelf ->
             ShelfView(shelf, i, onItem) { s -> s.moreBrowseId?.let { openBrowse(it, s.moreParams, s.title) } }
@@ -330,8 +330,8 @@ private fun ExploreScreen(onItem: (Item, List<Item>) -> Unit, openBrowse: (Strin
     val page = feed.page
     LazyColumn(Modifier.fillMaxSize()) {
         item { PageTitle("Jelajahi") }
-        if (feed.loading && page == null) item { LoadingBox(color = Color.White) }
-        feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } } }
+        if (feed.loading && page == null) item { LoadingBox(color = MusicColors.text) }
+        feed.error?.let { err -> item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), MusicColors.sub, "Coba lagi") { feed.load() } } }
         val chips = page?.chips?.filter { it.browseId != null } ?: emptyList()
         if (chips.isNotEmpty()) {
             item {
@@ -353,12 +353,12 @@ private fun ExploreButton(title: String, onClick: () -> Unit) {
         Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(MusicColors.card)
             .clickable(onClick = onClick).padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
+    ) { Text(title, color = MusicColors.text, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
 }
 
 @Composable
 private fun PageTitle(text: String) {
-    Text(text, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+    Text(text, color = MusicColors.text, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
 }
 
 // ---------------------------------------------------------------- Telusuri
@@ -410,7 +410,7 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
             trailingIcon = if (field.text.isNotEmpty()) {
                 {
                     IconButton(onClick = { editing = true; field = androidx.compose.ui.text.input.TextFieldValue(""); focus.requestFocus() }) {
-                        Icon(Icons.Filled.Close, "Hapus", tint = Color.White)
+                        Icon(Icons.Filled.Close, "Hapus", tint = MusicColors.text)
                     }
                 }
             } else null,
@@ -419,9 +419,9 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
                 unfocusedContainerColor = MusicColors.card,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Color.White,
+                focusedTextColor = MusicColors.text,
+                unfocusedTextColor = MusicColors.text,
+                cursorColor = MusicColors.text,
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { submit(field.text) }),
@@ -430,7 +430,7 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
         )
         if (editing || query.isEmpty()) {
             com.lumitube.app.ui.common.SearchSuggestions(
-                text = field.text, textColor = Color.White, subColor = MusicColors.sub,
+                text = field.text, textColor = MusicColors.text, subColor = MusicColors.sub,
                 onPick = { submit(it) },
                 onFill = {
                     field = androidx.compose.ui.text.input.TextFieldValue("$it ", androidx.compose.ui.text.TextRange(it.length + 1))
@@ -459,9 +459,9 @@ private fun MusicSearchScreen(onItem: (Item, List<Item>) -> Unit) {
                             val c = chips[i]
                             val on = chip?.title == c.title
                             Box(
-                                Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) Color.White else MusicColors.chip)
+                                Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) MusicColors.text else MusicColors.chip)
                                     .clickable { chip = if (on) null else c }.padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) { Text(c.title, color = if (on) Color.Black else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+                            ) { Text(c.title, color = if (on) MusicColors.bg else MusicColors.text, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
                         }
                     }
                 }
@@ -496,8 +496,8 @@ private fun ShelfList(
     }
     LazyColumn(Modifier.fillMaxSize(), state = state) {
         item { header() }
-        if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = Color.White) }
-        feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } } }
+        if (feed.loading && shelves.isEmpty()) item { LoadingBox(color = MusicColors.text) }
+        feed.error?.let { err -> item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), MusicColors.sub, "Coba lagi") { feed.load() } } }
         if (!feed.loading && feed.error == null && shelves.isEmpty()) {
             item { MessageBox("Tidak ada apa-apa di sini.", MusicColors.sub) }
         }
@@ -513,7 +513,7 @@ private fun ShelfList(
             }
             if (shelf.title.isNotBlank()) {
                 item(key = "h$si") {
-                    Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
+                    Text(shelf.title, color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 18.dp, bottom = 6.dp))
                 }
             }
             items(shelf.items.filter { deleter == null || it.id !in deleter.deleted }, key = { "s$si" + it.key }) { item ->
@@ -634,7 +634,7 @@ private fun MusicBrowseScreen(
                         com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
                     } catch (e: Exception) {
                         com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
-                        android.widget.Toast.makeText(appCtx, "Gagal menyimpan urutan: ${e.message ?: e}", android.widget.Toast.LENGTH_LONG).show()
+                        com.lumitube.app.ui.common.LumiToast.makeText(appCtx, com.lumitube.app.tr("Gagal menyimpan urutan: %s", e.message ?: e), android.widget.Toast.LENGTH_LONG).show()
                         // Muat ulang supaya urutan di layar sama dengan yang tersimpan di YouTube.
                         order.clear()
                         feed.load()
@@ -650,10 +650,10 @@ private fun MusicBrowseScreen(
                 try {
                     Repo.setInPlaylist(route.id.removePrefix("VL"), item.id, false)
                     com.lumitube.app.ui.common.FeedLoader.invalidate(feedKey)
-                    android.widget.Toast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
+                    com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Dihapus dari playlist", android.widget.Toast.LENGTH_SHORT).show()
                 } catch (_: Exception) {
                     removed.remove(item.id)
-                    android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                    com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         },
@@ -670,10 +670,10 @@ private fun MusicBrowseScreen(
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = Color.White) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MusicColors.text) }
             Spacer(Modifier.weight(1f))
             if (editable) {
-                com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), Color.White)
+                com.lumitube.app.ui.common.ItemMenu(listOf("Hapus playlist" to { confirmDelete = true }), MusicColors.text)
             } else if (page != null && !isArtist && (isAlbum || route.id.startsWith("VL"))) {
                 // Playlist orang lain / album: simpan seluruh isinya ke playlist sendiri, download, atau bagikan.
                 val self = Item(
@@ -681,14 +681,14 @@ private fun MusicBrowseScreen(
                     title = page.title ?: route.title ?: "", thumbnail = page.thumbnail,
                     playlistId = allSongs.firstOrNull { isAlbum }?.playlistId,
                 )
-                com.lumitube.app.ui.common.ItemMenu(SongActions.menuFor(self), Color.White)
+                com.lumitube.app.ui.common.ItemMenu(SongActions.menuFor(self), MusicColors.text)
             }
         }
         if (confirmDelete) {
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmDelete = false },
                 title = { Text("Hapus playlist?") },
-                text = { Text("\"${page?.title ?: route.title ?: "Playlist"}\" akan dihapus permanen dari akunmu.") },
+                text = { Text(com.lumitube.app.tr("\"%s\" akan dihapus permanen dari akunmu.", page?.title ?: route.title ?: "Playlist")) },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         confirmDelete = false
@@ -696,10 +696,10 @@ private fun MusicBrowseScreen(
                             try {
                                 Repo.deletePlaylist(route.id)
                                 com.lumitube.app.ui.common.FeedLoader.libraryChanged()
-                                android.widget.Toast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Playlist dihapus", android.widget.Toast.LENGTH_SHORT).show()
                                 onBack()
                             } catch (_: Exception) {
-                                android.widget.Toast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
+                                com.lumitube.app.ui.common.LumiToast.makeText(ctx, "Gagal menghapus (hanya playlist milikmu)", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }) { Text("Hapus") }
@@ -717,7 +717,7 @@ private fun MusicBrowseScreen(
                             Img(page.thumbnail, Modifier.size(240.dp).clip(RoundedCornerShape(8.dp)))
                         }
                         Text(
-                            page.title ?: route.title ?: "", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                            page.title ?: route.title ?: "", color = MusicColors.text, fontSize = 26.sp, fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp),
                         )
                         page.subtitle?.takeIf { it.isNotBlank() }?.let {
@@ -769,9 +769,9 @@ private fun MusicBrowseScreen(
                                                         !Regex("^\\d[\\d.,]*\\s").containsMatchIn(p) && !Regex("^\\d{4}$").matches(p)
                                                 },
                                             )
-                                            android.widget.Toast.makeText(
+                                            com.lumitube.app.ui.common.LumiToast.makeText(
                                                 context,
-                                                if (todo == 0) "Semua lagu sudah di-download" else "Mendownload $todo lagu + lirik…",
+                                                if (todo == 0) "Semua lagu sudah di-download" else com.lumitube.app.tr("Mendownload %s lagu + lirik…", todo),
                                                 android.widget.Toast.LENGTH_SHORT,
                                             ).show()
                                         }
@@ -788,8 +788,8 @@ private fun MusicBrowseScreen(
                     }
                 }
             }
-            if (feed.loading && page == null) item { LoadingBox(color = Color.White) }
-            feed.error?.let { err -> item { MessageBox("Gagal memuat: $err", MusicColors.sub, "Coba lagi") { feed.load() } } }
+            if (feed.loading && page == null) item { LoadingBox(color = MusicColors.text) }
+            feed.error?.let { err -> item { MessageBox(com.lumitube.app.tr("Gagal memuat: %s", err), MusicColors.sub, "Coba lagi") { feed.load() } } }
             items(plItems, key = { "p" + it.key }) { item ->
                 Row(Modifier.reorderItem(reorder, "p" + item.key), verticalAlignment = Alignment.CenterVertically) {
                     com.lumitube.app.ui.common.DragHandle(reorder, "p" + item.key, MusicColors.sub)
@@ -803,7 +803,7 @@ private fun MusicBrowseScreen(
                 if (rows) {
                     if (shelf.title.isNotBlank()) {
                         item(key = "t$si") {
-                            Text(shelf.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
+                            Text(shelf.title, color = MusicColors.text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp))
                         }
                     }
                     itemsIndexed(shelf.items.filter { it.id !in removed && !movable(it) }, key = { _, it -> "r$si" + it.key }) { i, item ->
@@ -829,13 +829,13 @@ private fun MusicBrowseScreen(
 private fun PillButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, primary: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.height(42.dp).clip(RoundedCornerShape(21.dp))
-            .background(if (primary) Color.White else MusicColors.chip)
+            .background(if (primary) MusicColors.primary else MusicColors.chip)
             .clickable(onClick = onClick).padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = if (primary) Color.Black else Color.White, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = if (primary) MusicColors.onPrimary else MusicColors.primary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(6.dp))
-        Text(label, color = if (primary) Color.Black else Color.White, fontWeight = FontWeight.Medium)
+        Text(label, color = if (primary) MusicColors.onPrimary else MusicColors.primary, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -849,26 +849,26 @@ private fun TopResultCard(item: Item, onPlay: () -> Unit, onOpen: () -> Unit) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
             Img(item.thumbnail, Modifier.size(64.dp).clip(if (item.type == ItemType.ARTIST) CircleShape else RoundedCornerShape(4.dp)))
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(item.title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(item.title, color = MusicColors.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (item.subtitle.isNotBlank()) Text(item.subtitle, color = MusicColors.sub, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MusicColors.text)
         }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
-                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(Color.White).clickable(onClick = onOpen),
+                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(MusicColors.primary).clickable(onClick = onOpen),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Shuffle, null, tint = Color.Black, modifier = Modifier.size(20.dp))
-                Text(if (item.type == ItemType.SONG) "Radio" else "Buka", color = Color.Black, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+                Icon(Icons.Filled.Shuffle, null, tint = MusicColors.onPrimary, modifier = Modifier.size(20.dp))
+                Text(if (item.type == ItemType.SONG) "Radio" else "Buka", color = MusicColors.onPrimary, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
             }
             Row(
                 Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp))
-                    .border(1.dp, Color(0x66FFFFFF), RoundedCornerShape(20.dp)).clickable(onClick = if (item.type == ItemType.SONG) onPlay else onOpen),
+                    .border(1.dp, MusicColors.sub, RoundedCornerShape(20.dp)).clickable(onClick = if (item.type == ItemType.SONG) onPlay else onOpen),
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Text("Putar", color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
+                Icon(Icons.Filled.PlayArrow, null, tint = MusicColors.text, modifier = Modifier.size(20.dp))
+                Text("Putar", color = MusicColors.text, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }

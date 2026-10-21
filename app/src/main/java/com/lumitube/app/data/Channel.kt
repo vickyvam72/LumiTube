@@ -3,7 +3,13 @@ package com.lumitube.app.data
 import org.json.JSONObject
 
 /** Tab di halaman channel (Beranda, Video, Shorts, Rilis, Playlist, Postingan, …). */
-data class ChannelTab(val title: String, val params: String?, val selected: Boolean)
+data class ChannelTab(
+    val title: String,
+    val params: String?,
+    val selected: Boolean,
+    /** Jenis tab dari URL-nya (videos, shorts, streams, …), tidak bergantung bahasa. */
+    val kind: String = "",
+)
 
 data class ChannelPost(
     val id: String,
@@ -79,6 +85,7 @@ fun realUrl(u: String): String {
 }
 
 object ChannelRepo {
+    private val keepKinds = setOf("videos", "shorts", "streams", "releases", "playlists", "posts", "community", "podcasts")
     private val keepTabs = listOf("Video", "Videos", "Shorts", "Live", "Rilis", "Releases", "Playlist", "Playlists", "Postingan", "Posts", "Komunitas", "Community", "Podcast", "Podcasts")
 
     /** Halaman channel: header lengkap + daftar tab + isi tab pertama (Beranda). */
@@ -148,8 +155,13 @@ object ChannelRepo {
             ?: findFirst(h, "linkViewModel")?.let { text(it.obj("text")) }
         val tabs = findAll(r.obj("contents"), "tabRenderer").mapNotNull { t ->
             val tt = t.str("title") ?: return@mapNotNull null
-            ChannelTab(tt, t.obj("endpoint", "browseEndpoint").str("params"), t.optBoolean("selected"))
-        }.filter { tab -> keepTabs.any { it.equals(tab.title, ignoreCase = true) } }
+            val url = t.obj("endpoint", "commandMetadata", "webCommandMetadata").str("url") ?: ""
+            val kind = url.substringBefore('?').trimEnd('/').substringAfterLast('/').lowercase()
+            ChannelTab(tt, t.obj("endpoint", "browseEndpoint").str("params"), t.optBoolean("selected"), kind)
+        }.filter { tab ->
+            if (tab.kind.isNotEmpty() && !tab.kind.startsWith("@") && !tab.kind.startsWith("uc")) tab.kind in keepKinds
+            else keepTabs.any { it.equals(tab.title, ignoreCase = true) }
+        }
         // Status subscribe: entitas subscriptionState (format baru) atau tombol lama.
         val subscribed = subscriptionState(id, h, r)
             ?: findFirst(c4, "subscribeButtonRenderer")?.optBoolean("subscribed")

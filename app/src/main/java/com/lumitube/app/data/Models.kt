@@ -33,6 +33,8 @@ data class Item(
      */
     val canDelete: Boolean? = null,
     val canRemove: Boolean? = null,
+    /** Video khusus anggota channel (tidak tersedia untuk publik). */
+    val membersOnly: Boolean = false,
 ) {
     val isPlayable: Boolean get() = type == ItemType.VIDEO || type == ItemType.SHORT || type == ItemType.SONG
     val key: String get() = "${type.name}:$id"

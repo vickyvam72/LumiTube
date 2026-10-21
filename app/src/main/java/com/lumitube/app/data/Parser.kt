@@ -36,6 +36,11 @@ object Parser {
                 else -> return@walk false
             }
             if (item != null && seen.add(item.key)) {
+                if ((item.type == ItemType.VIDEO || item.type == ItemType.SONG || item.type == ItemType.SHORT) && isMembersOnly(v)) {
+                    val sv = setVideoIdOf(v)
+                    out.add(item.copy(membersOnly = true, setVideoId = sv ?: item.setVideoId))
+                    return@walk true
+                }
                 if (item.type == ItemType.PLAYLIST) {
                     out.add(withLibraryActions(item, v))
                     return@walk true
@@ -47,6 +52,17 @@ object Parser {
             true
         }
         return out
+    }
+
+    private val membersRegex = Regex("MEMBERS_ONLY|SPONSORS_ONLY|\"Members only\"|\"Khusus anggota\"", RegexOption.IGNORE_CASE)
+
+    /** Lencana "Khusus anggota" (BADGE_STYLE_TYPE_MEMBERS_ONLY) pada video. */
+    private fun isMembersOnly(v: JSONObject): Boolean {
+        val badges = v.opt("badges")
+        if (badges != null && membersRegex.containsMatchIn(badges.toString())) return true
+        // lockupViewModel / renderer lain: lencana bisa ada di mana saja di dalamnya.
+        val s = v.toString()
+        return s.contains("MEMBERS_ONLY") || s.contains("SPONSORS_ONLY")
     }
 
     private val deleteKey = Regex("\"\\w*[dD]elete\\w*(Endpoint|Command)\"")
@@ -262,6 +278,14 @@ object Parser {
     private val typeLabels = setOf(
         "lagu", "song", "video", "single", "album", "ep", "episode", "podcast", "playlist", "artis", "artist",
         "video musik", "music video",
+        // Label jenis dalam bahasa lain (teks YouTube mengikuti bahasa aplikasi).
+        "senarai main", "episod", "canción", "vídeo", "álbum", "sencillo", "lista", "artista", "episodio",
+        "música", "episódio", "titre", "vidéo", "artiste", "épisode", "titel", "künstler", "folge",
+        "brano", "singolo", "трек", "песня", "видео", "альбом", "сингл", "плейлист", "исполнитель", "эпизод",
+        "şarkı", "albüm", "oynatma listesi", "sanatçı", "bölüm", "bài hát", "đĩa đơn", "danh sách phát", "nghệ sĩ", "tập",
+        "เพลง", "วิดีโอ", "อัลบั้ม", "ซิงเกิล", "เพลย์ลิสต์", "ศิลปิน", "ตอน", "गाना", "वीडियो", "एल्बम", "सिंगल",
+        "प्लेलिस्ट", "कलाकार", "एपिसोड", "曲", "動画", "アルバム", "シングル", "プレイリスト", "アーティスト", "エピソード",
+        "노래", "동영상", "앨범", "싱글", "재생목록", "아티스트", "에피소드", "歌曲", "视频", "专辑", "单曲", "播放列表", "艺人", "单集",
     )
 
     /** Ambil nama artis dari subtitle "Lagu • Taylor Swift • 3:55" (lewati label tipe). */
@@ -269,7 +293,8 @@ object Parser {
         sub.split(" • ").map { it.trim() }.firstOrNull { seg ->
             seg.isNotEmpty() && seg.lowercase() !in typeLabels &&
                 !Regex("^\\d+(:\\d+)+$").matches(seg) && !seg.contains("x diputar") && !seg.contains("views") &&
-                !seg.contains("penayangan") && !seg.contains("plays")
+                !seg.contains("penayangan") && !seg.contains("plays") &&
+                !(seg.firstOrNull()?.isDigit() == true && Regex("(回再生|次播放|회 재생|просмотр|прослушиван|reproducci|reproduç|lectures|Aufrufe|visualizzazion|görüntüleme|lượt|ครั้ง|बार|wiedergaben|plays|views)", RegexOption.IGNORE_CASE).containsMatchIn(seg))
         }
 
     private fun pageTypeOf(browse: JSONObject?): String? =

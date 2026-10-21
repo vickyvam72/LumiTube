@@ -91,41 +91,41 @@ object SongActions {
 
     private fun addCollection(ctx: Context, item: Item) {
         val app = ctx.applicationContext
-        Toast.makeText(app, "Memuat lagu…", Toast.LENGTH_SHORT).show()
+        com.lumitube.app.ui.common.LumiToast.makeText(app, "Memuat lagu…", Toast.LENGTH_SHORT).show()
         EditScope.scope.launch {
             try {
                 val c = load(item)
-                if (c.songs.isEmpty()) Toast.makeText(app, "Tidak ada lagu", Toast.LENGTH_SHORT).show()
+                if (c.songs.isEmpty()) com.lumitube.app.ui.common.LumiToast.makeText(app, "Tidak ada lagu", Toast.LENGTH_SHORT).show()
                 else addMany = c.songs
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                Toast.makeText(app, "Gagal memuat lagu", Toast.LENGTH_SHORT).show()
+                com.lumitube.app.ui.common.LumiToast.makeText(app, "Gagal memuat lagu", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun downloadCollection(ctx: Context, item: Item) {
         val app = ctx.applicationContext
-        Toast.makeText(app, "Memuat lagu…", Toast.LENGTH_SHORT).show()
+        com.lumitube.app.ui.common.LumiToast.makeText(app, "Memuat lagu…", Toast.LENGTH_SHORT).show()
         EditScope.scope.launch {
             try {
                 val c = load(item)
                 if (c.songs.isEmpty()) {
-                    Toast.makeText(app, "Tidak ada lagu", Toast.LENGTH_SHORT).show()
+                    com.lumitube.app.ui.common.LumiToast.makeText(app, "Tidak ada lagu", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 val todo = c.songs.count { !Downloader.isDownloaded(it.id, true) }
                 val pid = if (item.type == ItemType.ALBUM || item.id.startsWith("VL") || item.id.startsWith("MPRE")) item.id
                 else "VL" + (item.playlistId ?: item.id)
                 Downloader.downloadAll(c.songs, audioOnly = true, playlistId = pid, playlistTitle = c.title, playlistAuthor = c.author)
-                Toast.makeText(
+                com.lumitube.app.ui.common.LumiToast.makeText(
                     app,
-                    if (todo == 0) "Semua lagu sudah di-download" else "Mendownload $todo lagu + lirik…",
+                    if (todo == 0) "Semua lagu sudah di-download" else com.lumitube.app.tr("Mendownload %s lagu + lirik…", todo),
                     Toast.LENGTH_SHORT,
                 ).show()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                Toast.makeText(app, "Gagal memuat lagu", Toast.LENGTH_SHORT).show()
+                com.lumitube.app.ui.common.LumiToast.makeText(app, "Gagal memuat lagu", Toast.LENGTH_SHORT).show()
             }
         }
     }

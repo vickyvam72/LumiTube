@@ -42,7 +42,8 @@ object InnerTube {
     private val JSON_TYPE = "application/json".toMediaType()
     private val configured = HashSet<Client>()
 
-    val hl: String get() = Locale.getDefault().language.ifEmpty { "id" }
+    /** Bahasa teks dari YouTube = bahasa aplikasi. */
+    val hl: String get() = com.lumitube.app.I18n.current.hl
     val gl: String get() = Locale.getDefault().country.ifEmpty { "ID" }
 
     /** Ambil versi klien terbaru & visitorData langsung dari halaman YouTube (fallback ke konstanta). */
@@ -245,6 +246,7 @@ object InnerTube {
         val cookie = Session.cookie
         if (auth && cookie != null && Session.loggedIn) {
             builder.header("Cookie", cookie)
+            builder.header("X-Youtube-Bootstrap-Logged-In", "true")
             authHeader(cookie, client.origin)?.let {
                 builder.header("Authorization", it)
                 builder.header("X-Goog-AuthUser", "0")
@@ -300,6 +302,29 @@ object InnerTube {
     suspend fun search(client: Client, query: String, params: String? = null, auth: Boolean = false): JSONObject {
         val body = JSONObject().put("query", query)
         if (params != null) body.put("params", params)
+        if (auth && params == null) {
+            // Statistik kotak pencarian seperti yang dikirim youtube.com / music.youtube.com saat
+            // pengguna menekan Enter: dengan ini pencarian tercatat di histori pencarian akun.
+            val now = System.currentTimeMillis()
+            if (client == Client.MUSIC) {
+                body.put(
+                    "suggestStats", JSONObject()
+                        .put("validationStatus", "VALID")
+                        .put("parameterValidationStatus", "VALID_PARAMETERS")
+                        .put("clientName", "youtube-music")
+                        .put("searchMethod", "ENTER_KEY")
+                        .put("inputMethod", "KEYBOARD")
+                        .put("originalQuery", query)
+                        .put("availableSuggestions", JSONArray())
+                        .put("zeroPrefixEnabled", true)
+                        .put("firstEditTimeMsec", now - 3000)
+                        .put("lastEditTimeMsec", now - 500)
+                )
+            } else {
+                val oq = java.net.URLEncoder.encode(query, "UTF-8")
+                body.put("webSearchboxStatsUrl", "/search?oq=$oq&gs_l=youtube.3..0i512k1l10.0.0.0.0.0.0.0.0..0.0....0...1ac..64.youtube..0.0.0....0.")
+            }
+        }
         return post(client, "search", body, auth = auth)
     }
 

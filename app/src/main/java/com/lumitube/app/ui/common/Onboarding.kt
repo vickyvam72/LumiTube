@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
@@ -44,7 +45,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -104,7 +104,7 @@ private fun Screen(content: @Composable () -> Unit) {
  * huruf HP dibesarkan), seluruh isi diperkecil secara proporsional sampai pas.
  */
 @Composable
-private fun FitToScreen(content: @Composable () -> Unit) {
+internal fun FitToScreen(content: @Composable () -> Unit) {
     androidx.compose.ui.layout.SubcomposeLayout(Modifier.fillMaxSize()) { c ->
         val loose = c.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
         val probe = subcompose("probe", content).map { it.measure(loose) }
@@ -184,7 +184,20 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(20.dp))
+            // Pilih bahasa langsung di layar pertama (bawaan: English).
+            var picking by remember { mutableStateOf(false) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Row(
+                    Modifier.clip(RoundedCornerShape(18.dp)).background(CardBg).clickable { picking = true }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Language, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    androidx.compose.material3.Text(com.lumitube.app.I18n.current.name, color = Color.White, fontSize = 14.sp)
+                }
+            }
+            if (picking) LanguagePicker(onDismiss = { picking = false })
             AppIcon(96)
             Spacer(Modifier.height(18.dp))
             Text(appName, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium)
@@ -214,7 +227,7 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
                 PrimaryButton("Lanjut", onClick = onSkip)
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Sudah masuk sebagai ${Session.account?.name ?: "akun Google"}.",
+                    com.lumitube.app.tr("Sudah masuk sebagai %s.", Session.account?.name ?: com.lumitube.app.tr("akun Google")),
                     color = Sub, fontSize = 12.sp, textAlign = TextAlign.Center,
                 )
             } else {
@@ -286,13 +299,13 @@ private fun openAutostart(ctx: Context) {
     )
     for ((pkg, cls) in candidates) {
         if (tryStart(ctx, Intent().setComponent(ComponentName(pkg, cls)))) {
-            Toast.makeText(ctx, "Aktifkan $appName di daftar ini", Toast.LENGTH_LONG).show()
+            com.lumitube.app.ui.common.LumiToast.makeText(ctx, com.lumitube.app.tr("Aktifkan %s di daftar ini", appName), Toast.LENGTH_LONG).show()
             return
         }
     }
     // Merek lain: halaman info aplikasi (biasanya ada pilihan "Mulai otomatis" / "Baterai").
     tryStart(ctx, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
-    Toast.makeText(ctx, "Cari pilihan \"Mulai otomatis\" atau \"Autostart\" untuk $appName", Toast.LENGTH_LONG).show()
+    com.lumitube.app.ui.common.LumiToast.makeText(ctx, com.lumitube.app.tr("Cari pilihan \"Mulai otomatis\" atau \"Autostart\" untuk %s", appName), Toast.LENGTH_LONG).show()
 }
 
 @Composable
@@ -372,7 +385,7 @@ fun PermissionScreen(onDone: () -> Unit) {
             AppIcon(44)
             Text("Satu langkah lagi", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Medium)
             Text(
-                "Dua izin pertama wajib supaya ${if (music) "musik" else "video"} tetap jalan saat layar mati. Dua lainnya opsional.",
+                if (music) "Dua izin pertama wajib supaya musik tetap jalan saat layar mati. Dua lainnya opsional." else "Dua izin pertama wajib supaya video tetap jalan saat layar mati. Dua lainnya opsional.",
                 color = Sub, fontSize = 13.5.sp, lineHeight = 19.sp,
             )
             PermCard(
@@ -395,7 +408,7 @@ fun PermissionScreen(onDone: () -> Unit) {
             ) { openAutostart(ctx) }
             PermCard(
                 Icons.Filled.Link, if (music) "Buka link YouTube Music di sini" else "Buka link YouTube di sini",
-                "Opsional: link ${if (music) "YouTube Music" else "YouTube"} langsung terbuka di $appName.",
+                com.lumitube.app.tr("Opsional: link %s langsung terbuka di %s.", if (music) "YouTube Music" else "YouTube", appName),
                 granted = false, action = if (linksDone) "Ulangi" else "Atur", optional = true,
             ) {
                 CrossApp.setLinksEnabled(ctx, true)
@@ -406,7 +419,7 @@ fun PermissionScreen(onDone: () -> Unit) {
           Column {
             Spacer(Modifier.height(12.dp))
             PrimaryButton(
-                if (notif && battery) "Mulai pakai $appName" else "Aktifkan kedua izin dulu",
+                if (notif && battery) com.lumitube.app.tr("Mulai pakai %s", appName) else "Aktifkan kedua izin dulu",
                 enabled = notif && battery,
                 onClick = onDone,
             )

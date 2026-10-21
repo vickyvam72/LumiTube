@@ -12,8 +12,8 @@ android {
         applicationId = "com.lumitube.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 77
-        versionName = "2.0.0"
+        versionCode = 78
+        versionName = "2.2"
     }
 
     // Dua aplikasi terpisah dari satu kode: YouTube Lumi & YT Music Lumi.

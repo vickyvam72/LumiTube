@@ -50,7 +50,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -206,9 +206,10 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
         return
     }
 
-    val tabTitle = info?.tabs?.getOrNull(tabIndex)?.title ?: ""
-    val isShortsTab = tabTitle.equals("Shorts", true)
-    val isHomeTab = tabTitle.equals("Beranda", true) || tabTitle.equals("Home", true)
+    val curTab = info?.tabs?.getOrNull(tabIndex)
+    val tabTitle = curTab?.title ?: ""
+    val isShortsTab = curTab?.kind == "shorts" || tabTitle.equals("Shorts", true)
+    val isHomeTab = curTab?.kind == "featured" || tabTitle.equals("Beranda", true) || tabTitle.equals("Home", true)
     // Shorts berurutan jadi rak geser (Beranda) atau kisi 3 kolom (tab Shorts).
     val rows = remember(items.size, posts.size, tabIndex, chipIndex) {
         val out = mutableListOf<ChRow>()
@@ -266,7 +267,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             val ci = info
             if (ci == null) {
-                item { if (error != null) MessageBox("Gagal memuat: $error", yt.sub) else LoadingBox() }
+                item { if (error != null) MessageBox(com.lumitube.app.tr("Gagal memuat: %s", error), yt.sub) else LoadingBox() }
                 return@LazyColumn
             }
             item(key = "head") {
@@ -317,7 +318,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                                             Repo.markSubscribed(channelId, target)
                                         } catch (_: Exception) {
                                             subscribed = !target
-                                            android.widget.Toast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
+                                            com.lumitube.app.ui.common.LumiToast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -649,7 +650,7 @@ private fun ChannelSearch(channelId: String, title: String, onBack: () -> Unit, 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = yt.text) }
-            YtSearchField(field, { field = it }, "Telusuri $title", onSearch = { query = field.text.trim() }, onFocus = {}, focus = focus, modifier = Modifier.weight(1f))
+            YtSearchField(field, { field = it }, com.lumitube.app.tr("Telusuri %s", title), onSearch = { query = field.text.trim() }, onFocus = {}, focus = focus, modifier = Modifier.weight(1f))
         }
         LazyColumn(Modifier.fillMaxSize()) {
             if (loading) item { LoadingBox() }

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
@@ -46,7 +47,7 @@ import androidx.compose.material.icons.filled.SlowMotionVideo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
+import com.lumitube.app.ui.common.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -167,6 +168,18 @@ fun LiveBadge(modifier: Modifier = Modifier) {
     }
 }
 
+/** Lencana hijau "Khusus anggota" untuk video yang tidak tersedia untuk publik. */
+@Composable
+fun MembersBadge(modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF2BA640)).padding(horizontal = 5.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Star, null, tint = Color.White, modifier = Modifier.size(12.dp))
+        Text("Khusus anggota", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 3.dp))
+    }
+}
+
 /** Kartu video besar seperti di beranda YouTube. */
 @Composable
 fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
@@ -174,6 +187,7 @@ fun VideoCard(item: Item, onClick: () -> Unit, onChannel: (() -> Unit)?) {
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(bottom = 16.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
             Img(hdThumb(item), Modifier.fillMaxSize(), fallback = item.thumbnail)
+            if (item.membersOnly) MembersBadge(Modifier.align(Alignment.TopStart).padding(8.dp))
             if (item.live) {
                 LiveBadge(Modifier.align(Alignment.BottomEnd).padding(8.dp))
             } else {
@@ -248,6 +262,7 @@ fun VideoRow(item: Item, menu: List<Pair<String, () -> Unit>>? = null, onClick: 
                     }
                 }
             } else {
+                if (item.membersOnly) MembersBadge(Modifier.align(Alignment.TopStart).padding(4.dp))
                 if (item.live) LiveBadge(Modifier.align(Alignment.BottomEnd).padding(4.dp, 4.dp, 4.dp, if (item.progress != null) 7.dp else 4.dp))
                 else item.duration?.let { DurationBadge(it, Modifier.align(Alignment.BottomEnd).padding(4.dp, 4.dp, 4.dp, if (item.progress != null) 7.dp else 4.dp)) }
             }
@@ -466,7 +481,7 @@ fun SearchChannelCard(item: Item, onOpen: () -> Unit, onLogin: () -> Unit) {
                                 } catch (e: Exception) {
                                     if (e is kotlinx.coroutines.CancellationException) throw e
                                     subscribed = !target
-                                    android.widget.Toast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
+                                    com.lumitube.app.ui.common.LumiToast.makeText(ctx.applicationContext, "Gagal mengubah subscribe", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }

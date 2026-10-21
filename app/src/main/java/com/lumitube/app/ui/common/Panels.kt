@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,7 +49,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,7 +91,8 @@ fun ytPanelColors(): PanelColors {
     return PanelColors(yt.bg, yt.text, yt.sub, yt.chip, YtRed)
 }
 
-val MusicPanelColors = PanelColors(Color(0xFF1C1B22), Color.White, Color(0xB3FFFFFF), Color(0x1AFFFFFF), Color.White)
+val MusicPanelColors: PanelColors
+    get() = PanelColors(MusicColors.panel, MusicColors.text, MusicColors.sub, MusicColors.chip, if (LumiStyle.blue) YtRed else MusicColors.text)
 
 /** Panel dari bawah layar (seperti bottom sheet YouTube). */
 @Composable
@@ -364,7 +365,7 @@ fun CommentsPanel(
                                         .padding(horizontal = 8.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text("•  ${c.replyCount} balasan", color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("•  " + com.lumitube.app.tr("%s balasan", c.replyCount), color = colors.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     if (loadingReplies[c.id] == true) {
                                         Spacer(Modifier.width(8.dp))
                                         CircularProgressIndicator(Modifier.size(14.dp), color = colors.sub, strokeWidth = 2.dp)
@@ -376,7 +377,7 @@ fun CommentsPanel(
                         }
                         if (loading) item { LoadingBox(color = colors.accent) }
                         error?.let { e ->
-                            if (comments.isEmpty()) item { Text("Gagal memuat komentar: $e", color = colors.sub, modifier = Modifier.padding(24.dp)) }
+                            if (comments.isEmpty()) item { Text(com.lumitube.app.tr("Gagal memuat komentar: %s", e), color = colors.sub, modifier = Modifier.padding(24.dp)) }
                         }
                         if (!loading && error == null && comments.isEmpty()) {
                             item { Text("Belum ada komentar.", color = colors.sub, modifier = Modifier.padding(24.dp)) }
@@ -408,8 +409,8 @@ fun CommentsPanel(
                         onClick = {
                             val params = createParams
                             when {
-                                !Session.loggedIn -> Toast.makeText(context, "Login dulu untuk berkomentar", Toast.LENGTH_SHORT).show()
-                                params == null -> Toast.makeText(context, "Komentar tidak bisa dikirim untuk video ini", Toast.LENGTH_SHORT).show()
+                                !Session.loggedIn -> com.lumitube.app.ui.common.LumiToast.makeText(context, "Login dulu untuk berkomentar", Toast.LENGTH_SHORT).show()
+                                params == null -> com.lumitube.app.ui.common.LumiToast.makeText(context, "Komentar tidak bisa dikirim untuk video ini", Toast.LENGTH_SHORT).show()
                                 else -> {
                                     sending = true
                                     val text = draft.trim()
@@ -417,14 +418,14 @@ fun CommentsPanel(
                                         try {
                                             Repo.postComment(params, text)
                                             draft = ""
-                                            Toast.makeText(context, "Komentar terkirim", Toast.LENGTH_SHORT).show()
+                                            com.lumitube.app.ui.common.LumiToast.makeText(context, "Komentar terkirim", Toast.LENGTH_SHORT).show()
                                             val newest = sorts.getOrNull(1)?.second ?: sorts.getOrNull(sortSel)?.second ?: token
                                             if (newest != null) {
                                                 sortSel = if (sorts.size > 1) 1 else sortSel
                                                 load(newest, reset = true)
                                             }
                                         } catch (e: Exception) {
-                                            Toast.makeText(context, "Gagal mengirim: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            com.lumitube.app.ui.common.LumiToast.makeText(context, com.lumitube.app.tr("Gagal mengirim: %s", e.message), Toast.LENGTH_SHORT).show()
                                         } finally {
                                             sending = false
                                         }
@@ -538,7 +539,7 @@ fun VideoSettingsPanel(colors: PanelColors, onClose: () -> Unit) {
                     )
                 }
             }
-            item { SettingHeader("Kecepatan putar", colors) }
+            item { PanelHeader("Kecepatan putar", colors) }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { sp ->
@@ -557,7 +558,7 @@ fun VideoSettingsPanel(colors: PanelColors, onClose: () -> Unit) {
                     }
                 }
             }
-            item { SettingHeader("Kualitas video", colors) }
+            item { PanelHeader("Kualitas video", colors) }
             val current = Session.maxQuality
             val list = PlaybackManager.qualities
             if (list.isEmpty()) {
@@ -589,7 +590,7 @@ fun VideoSettingsPanel(colors: PanelColors, onClose: () -> Unit) {
 }
 
 @Composable
-private fun SettingHeader(text: String, colors: PanelColors) {
+private fun PanelHeader(text: String, colors: PanelColors) {
     Text(text, color = colors.sub, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp))
 }
 
@@ -604,51 +605,115 @@ private fun formatSize(bytes: Long): String = when {
 @Composable
 fun DownloadDialog(item: Item, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val options by produceState<Result<List<DownloadOption>>?>(null, item.id) {
+    val choice by produceState<Result<DlChoice>?>(null, item.id) {
         value = try {
-            Result.success(Downloader.options(item.id))
+            val s = com.lumitube.app.data.StreamResolver.resolve(item.id, audioOnly = false)
+            if (s.isLive) {
+                Result.success(DlChoice.Live(com.lumitube.app.data.LiveDownloader.variants(item.id)))
+            } else {
+                val list = Downloader.options(item.id)
+                // YT Music Lumi: pilihan audio dulu, baru video.
+                Result.success(DlChoice.Normal(if (com.lumitube.app.CrossApp.isMusic) list.sortedBy { !it.audioOnly } else list))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+    var fromStart by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Tutup") } },
-        title = { Text("Download", fontWeight = FontWeight.Bold) },
+        title = { Text(if (choice?.getOrNull() is DlChoice.Live) "Download live" else "Download", fontWeight = FontWeight.Bold) },
         text = {
-            val r = options
+            val r = choice
             when {
                 r == null -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                r.isFailure -> Text("Gagal mengambil pilihan: ${r.exceptionOrNull()?.message}")
-                else -> {
-                    val list = r.getOrNull().orEmpty()
-                    if (list.isEmpty()) {
-                        Text("Tidak ada format yang bisa diunduh.")
-                    } else {
-                        LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
-                            items(list) { o ->
+                r.isFailure -> Text(com.lumitube.app.tr("Gagal mengambil pilihan: %s", r.exceptionOrNull()?.message ?: ""))
+                else -> when (val c = r.getOrNull()) {
+                    is DlChoice.Live -> Column {
+                        Text(
+                            "Siaran ini sedang live. Rekaman berjalan sampai live selesai atau kamu menekan \"Berhenti & simpan\" di notifikasi.",
+                            fontSize = 13.sp, lineHeight = 18.sp,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        listOf(true to "Dari awal live", false to "Mulai dari detik ini").forEach { (v, label) ->
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { fromStart = v },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.RadioButton(selected = fromStart == v, onClick = { fromStart = v })
+                                Text(label, fontSize = 15.sp)
+                            }
+                        }
+                        if (fromStart) {
+                            Text(
+                                "Bagian awal hanya bisa diambil selama YouTube masih menyimpannya.",
+                                fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
+                            )
+                        }
+                        Text("Kualitas", fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+                        if (c.list.isEmpty()) Text("Tidak ada format yang bisa diunduh.")
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 240.dp)) {
+                            items(c.list) { v ->
+                                val key = "${item.id}:live:${v.label}"
+                                val recording = com.lumitube.app.data.LiveDownloader.isRecording(key)
                                 Row(
                                     Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable {
-                                        Downloader.start(item, o)
-                                        Toast.makeText(context, "Mengunduh ${o.label}…", Toast.LENGTH_SHORT).show()
+                                        if (recording) {
+                                            com.lumitube.app.data.LiveDownloader.stop(key)
+                                        } else {
+                                            com.lumitube.app.data.LiveDownloader.start(item, v, fromStart)
+                                            com.lumitube.app.ui.common.LumiToast.makeText(context, "Merekam live…", Toast.LENGTH_SHORT).show()
+                                        }
                                         onDismiss()
                                     }.padding(horizontal = 4.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(if (o.audioOnly) Icons.Filled.MusicNote else Icons.Filled.Download, null)
+                                    Icon(Icons.Filled.Download, null)
                                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                                        Text(o.label, fontWeight = FontWeight.Medium)
-                                        Text(o.detail, fontSize = 12.sp)
+                                        androidx.compose.material3.Text(v.label, fontWeight = FontWeight.Medium)
+                                        Text(if (recording) "Sedang direkam • ketuk untuk berhenti & simpan" else "Video MP4", fontSize = 12.sp)
                                     }
-                                    Text(formatSize(o.size), fontSize = 12.sp)
                                 }
                             }
                         }
                     }
+                    is DlChoice.Normal -> {
+                        val list = c.list
+                        if (list.isEmpty()) {
+                            Text("Tidak ada format yang bisa diunduh.")
+                        } else {
+                            LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
+                                items(list) { o ->
+                                    Row(
+                                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable {
+                                            Downloader.start(item, o)
+                                            com.lumitube.app.ui.common.LumiToast.makeText(context, com.lumitube.app.tr("Mengunduh %s…", o.label), Toast.LENGTH_SHORT).show()
+                                            onDismiss()
+                                        }.padding(horizontal = 4.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(if (o.audioOnly) Icons.Filled.MusicNote else Icons.Filled.Download, null)
+                                        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                                            Text(o.label, fontWeight = FontWeight.Medium)
+                                            Text(o.detail, fontSize = 12.sp)
+                                        }
+                                        Text(formatSize(o.size), fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    null -> Unit
                 }
             }
         },
     )
+}
+
+private sealed interface DlChoice {
+    data class Normal(val list: List<DownloadOption>) : DlChoice
+    data class Live(val list: List<com.lumitube.app.data.LiveVariant>) : DlChoice
 }
 
 /** Kumpulan di halaman Download: lagu/video yang didownload (otomatis) atau playlist yang didownload. */
@@ -678,8 +743,8 @@ fun DownloadsList(
     val songs = all.filter { it.audioOnly }
     val videos = all.filter { !it.audioOnly }
     val collections = buildList {
-        if (songs.isNotEmpty()) add(DlCollection("auto-songs", "Lagu yang didownload", "Playlist otomatis • ${songs.size} lagu", songs, true))
-        if (videos.isNotEmpty()) add(DlCollection("auto-videos", "Video yang didownload", "Playlist otomatis • ${videos.size} video", videos, true))
+        if (songs.isNotEmpty()) add(DlCollection("auto-songs", "Lagu yang didownload", com.lumitube.app.tr("Playlist otomatis • %s lagu", songs.size), songs, true))
+        if (videos.isNotEmpty()) add(DlCollection("auto-videos", "Video yang didownload", com.lumitube.app.tr("Playlist otomatis • %s video", videos.size), videos, true))
         for (pl in Downloader.playlists) {
             val recs = pl.videoIds.mapNotNull { id -> all.firstOrNull { it.videoId == id && it.audioOnly == pl.audioOnly } }
             val unit = if (pl.audioOnly) "lagu" else "video"
@@ -696,12 +761,24 @@ fun DownloadsList(
         items(active, key = { "a" + it.key }) { a ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Text(a.title, color = colors.text, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${a.label} • ${a.status}", color = colors.sub, fontSize = 12.sp)
-                LinearProgressIndicator(
-                    progress = { a.progress },
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    color = YtRed,
-                )
+                Text(a.label + " • " + com.lumitube.app.tr(a.status), color = colors.sub, fontSize = 12.sp)
+                if (a.live) {
+                    // Rekaman live: berjalan terus sampai dihentikan.
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LinearProgressIndicator(modifier = Modifier.weight(1f), color = YtRed)
+                        Box(
+                            Modifier.padding(start = 12.dp).clip(RoundedCornerShape(16.dp)).background(YtRed)
+                                .clickable { com.lumitube.app.data.LiveDownloader.stop(a.key) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) { Text("Berhenti & simpan", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium) }
+                    }
+                } else {
+                    LinearProgressIndicator(
+                        progress = { a.progress },
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        color = YtRed,
+                    )
+                }
             }
         }
         if (opened == null) {
@@ -813,8 +890,8 @@ fun DownloadsList(
     confirmPl?.let { pl ->
         AlertDialog(
             onDismissRequest = { confirmPl = null },
-            title = { Text("Hapus \"${pl.title}\" dari Download?") },
-            text = { Text("Pilih apakah ${if (pl.audioOnly) "lagu" else "video"} di dalamnya ikut dihapus dari HP.") },
+            title = { Text(com.lumitube.app.tr("Hapus \"%s\" dari Download?", pl.title)) },
+            text = { Text(if (pl.audioOnly) "Pilih apakah lagu di dalamnya ikut dihapus dari HP." else "Pilih apakah video di dalamnya ikut dihapus dari HP.") },
             confirmButton = {
                 TextButton(onClick = { Downloader.deletePlaylist(pl, withFiles = true); confirmPl = null; openKey = null }) { Text("Hapus beserta file") }
             },

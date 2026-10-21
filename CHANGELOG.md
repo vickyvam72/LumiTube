@@ -10,6 +10,62 @@
 
 ---
 
+## ✦ v2.2 — 21 Oktober 2026 / 21 October 2026
+
+> 🌐 **Pilih bahasa / Choose your language** — ketuk salah satu untuk membuka / tap a section to expand it.
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+### ⚡ Peningkatan
+
+- **16 bahasa aplikasi**: English (bawaan), Bahasa Indonesia, Bahasa Melayu, Español, Português, Français, Deutsch, Italiano, Русский, Türkçe, Tiếng Việt, ไทย, हिन्दी, 日本語, 한국어, dan 中文. Bahasa aplikasi dan subtitle ikut berubah, sedangkan judul dan audio video tetap asli. Bisa dipilih di layar pertama atau di Setelan
+- **Download live yang sedang berjalan**: pilih rekam dari awal live atau mulai dari detik ini. Rekaman berjalan sampai live selesai atau kamu menekan "Berhenti & simpan"
+- **Tema terang dan gelap** di kedua aplikasi (bawaan: YouTube Lumi terang, YT Music Lumi gelap)
+- **Warna biru Lumi** (opsional, bawaan mati): tampilan dominan biru seperti logo Lumi, termasuk garis putar, Shorts, dan logo
+- **Pop up offline**: muncul kecil di bawah saat internet putus, termasuk di mode PiP, dan hilang begitu online lagi
+- **Lencana "Khusus anggota"** pada video yang hanya tersedia untuk anggota channel
+- **Setelan dalam satu layar**, tanpa perlu scroll
+- **Watch & Listen Together**: secara bawaan hanya pembuat room yang memilih video/lagu, dengan opsi agar anggota room juga bisa memilih
+- Judul video tampil di layar penuh bersama tombol kontrol
+- Tombol **Tutup** di notifikasi pemutar video dan lagu
+- YT Music Lumi: pilihan download kini dimulai dari audio, baru video
+- Panduan "Atur ulang link" kini berupa langkah-langkah yang jelas dan tidak terpotong
+
+### 🐞 Perbaikan
+- Pencarian dari YouTube Lumi dan YT Music Lumi kini tercatat di histori pencarian YouTube dan YouTube Music asli
+- Live yang tidak bisa diputar ulang: garis merah tetap diam di ujung dan tidak bisa digeser, tidak lagi berulang-ulang
+- Tab channel tetap lengkap di semua bahasa
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+### ⚡ Improvements
+
+- **16 app languages**: English (default), Bahasa Indonesia, Bahasa Melayu, Español, Português, Français, Deutsch, Italiano, Русский, Türkçe, Tiếng Việt, ไทย, हिन्दी, 日本語, 한국어 and 中文. The app language and subtitles change, while video titles and audio stay original. Pick it on the first screen or in Settings
+- **Download live streams while they're live**: record from the start of the live or from this second. Recording continues until the live ends or you tap "Stop & save"
+- **Light and dark themes** in both apps (default: YouTube Lumi light, YT Music Lumi dark)
+- **Lumi blue colors** (optional, off by default): a mostly blue look like the Lumi logo, including the progress bar, Shorts and logo
+- **Offline pop-up**: a small pop-up at the bottom when the internet drops, also in PiP mode, gone as soon as you're back online
+- **"Members only" badge** on videos available only to channel members
+- **Settings on a single screen**, no scrolling needed
+- **Watch & Listen Together**: by default only the room creator picks the video/song, with an option to let room members pick too
+- The video title shows in full screen together with the controls
+- A **Close** button in the video and music player notification
+- YT Music Lumi: download options now list audio first, then video
+- The "Reset links" guide is now clear step-by-step instructions that are no longer cut off
+
+### 🐞 Fixes
+- Searches from YouTube Lumi and YT Music Lumi are now saved to the official YouTube and YouTube Music search history
+- Live streams that can't be rewound: the red bar now stays at the end and can't be dragged, instead of looping
+- Channel tabs stay complete in every language
+
+</details>
+
+---
+
 ## ✦ v2.0 — 13 Oktober 2026 / 13 October 2026
 
 > 🌐 **Pilih bahasa / Choose your language** — ketuk salah satu untuk membuka / tap a section to expand it.

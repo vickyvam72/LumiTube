@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,7 +42,7 @@ fun sleepTimerLabel(): String {
         PlaybackManager.sleepEndOfItem -> "Sampai selesai"
         at != null -> {
             val left = ((at - now) / 1000).coerceAtLeast(0)
-            "%d:%02d lagi".format(left / 60, left % 60)
+            com.lumitube.app.tr("%s lagi", "%d:%02d".format(left / 60, left % 60))
         }
         else -> "Nonaktif"
     }
@@ -62,11 +61,11 @@ fun SleepTimerDialog(endLabel: String = "Sampai video selesai", onDismiss: () ->
         title = { Text("Timer tidur") },
         text = {
             Column {
-                Text("Status: $status", fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
+                Text(com.lumitube.app.tr("Status: %s", com.lumitube.app.tr(status)), fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
                 val active = PlaybackManager.sleepAt != null || PlaybackManager.sleepEndOfItem
                 Option("Nonaktif", !active) { PlaybackManager.cancelSleep(); onDismiss() }
                 for (m in listOf(3, 5, 10, 15, 30, 60)) {
-                    Option("$m menit", false) { PlaybackManager.setSleepMinutes(m); onDismiss() }
+                    Option(com.lumitube.app.tr("%s menit", m), false) { PlaybackManager.setSleepMinutes(m); onDismiss() }
                 }
                 Option(endLabel, PlaybackManager.sleepEndOfItem) { PlaybackManager.setSleepEndOfItem(); onDismiss() }
                 Option("Pilih jam…", false) {
@@ -79,8 +78,8 @@ fun SleepTimerDialog(endLabel: String = "Sampai video selesai", onDismiss: () ->
                             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
                         }
                         PlaybackManager.setSleepAtTime(t.timeInMillis)
-                        android.widget.Toast.makeText(
-                            context, "Aplikasi akan ditutup pukul %02d.%02d".format(h, min), android.widget.Toast.LENGTH_SHORT,
+                        com.lumitube.app.ui.common.LumiToast.makeText(
+                            context, com.lumitube.app.tr("Aplikasi akan ditutup pukul %s", "%02d.%02d".format(h, min)), android.widget.Toast.LENGTH_SHORT,
                         ).show()
                     }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
                     onDismiss()
