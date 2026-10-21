@@ -817,6 +817,10 @@ object PlaybackManager {
 
     private var historyFor: String? = null
     private var historyWarned = false
+
+    /** Bertambah setiap kali sebuah lagu/video tercatat di Histori: layar Histori memuat ulang. */
+    var historyTick by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
     private var lastStream: Pair<String, com.lumitube.app.data.Stream>? = null
 
     /** Masukkan video/lagu yang diputar ke Histori akun YouTube (sekali per pemutaran). */
@@ -833,16 +837,23 @@ object PlaybackManager {
                 // Semua yang diputar di YT Music Lumi (lagu maupun video, dari bagian mana pun) masuk Histori YT Music.
                 val music = com.lumitube.app.CrossApp.isMusic || !isVideo
                 val ok = com.lumitube.app.data.InnerTube.registerWatch(item.id, item.playlistId, music = music, stream = tracking, short = item.type == ItemType.SHORT)
-                if (!ok && !historyWarned) {
+                val res = com.lumitube.app.data.InnerTube.lastHistoryResult
+                val musicOk = !music || Regex("MUSIC-[ab]:2\\d\\d").containsMatchIn(res)
+                if ((!ok || !musicOk) && !historyWarned) {
                     historyWarned = true
                     com.lumitube.app.ui.common.LumiToast.makeText(
                         appContext,
-                        "Video belum tercatat di Histori (${com.lumitube.app.data.InnerTube.lastHistoryResult.take(120)}). Cek apakah Histori tontonan dijeda di akun YouTube.",
+                        "${if (music) "Lagu" else "Video"} belum tercatat di Histori (${res.take(120)}). Cek apakah Histori tontonan dijeda di akun YouTube.",
                         android.widget.Toast.LENGTH_LONG,
                     ).show()
                 }
                 // Histori yang tersimpan sementara di memori dibuang supaya video ini langsung muncul.
                 listOf("hist" + true, "FEhistory", "FEmusic_history").forEach { com.lumitube.app.ui.common.FeedLoader.invalidate(it) }
+                if (ok) {
+                    // Beri YouTube sesaat untuk menyimpan, lalu layar Histori yang terbuka memuat ulang.
+                    kotlinx.coroutines.delay(1500)
+                    historyTick++
+                }
             } catch (_: Exception) {
             }
         }

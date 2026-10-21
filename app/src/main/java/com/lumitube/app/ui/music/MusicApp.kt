@@ -117,7 +117,8 @@ private fun MusicHistoryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -
         return
     }
     val feed = rememberFeed(key = "FEmusic_history", more = { Repo.musicMore(it) }) { Repo.musicBrowse("FEmusic_history") }
-    LaunchedEffect(Unit) { feed.load() }
+    // Dimuat ulang saat dibuka dan setiap kali lagu baru tercatat (langsung muncul, seperti YT Music asli).
+    LaunchedEffect(PlaybackManager.historyTick) { feed.load() }
     ShelfList(feed, onItem, header)
 }
 
@@ -662,7 +663,7 @@ private fun LibraryScreen(onItem: (Item, List<Item>) -> Unit, onLogin: () -> Uni
         else -> {
             val feed = rememberFeed(key = browseId, more = { Repo.musicMore(it) }) { Repo.musicBrowse(browseId) }
             // Riwayat selalu terbaru (sama dengan YouTube Music asli).
-            LaunchedEffect(browseId) { if (browseId == "FEmusic_history") feed.load() }
+            LaunchedEffect(browseId, PlaybackManager.historyTick) { if (browseId == "FEmusic_history") feed.load() }
             val deleter = com.lumitube.app.ui.common.rememberPlaylistDeleter()
             ShelfList(feed, onItem, chips, deleter = if (browseId == "FEmusic_liked_playlists") deleter else null, library = true)
         }

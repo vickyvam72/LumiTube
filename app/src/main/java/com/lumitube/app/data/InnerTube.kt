@@ -158,9 +158,25 @@ object InnerTube {
                 val tracking = r.optJSONObject("playbackTracking")
                 val playback = tracking?.optJSONObject("videostatsPlaybackUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
                 if (playback != null) {
+                    // a) Cara ytmusicapi (add_history_item): URL pelacakan apa adanya + ver, c, cpn saja.
+                    val cpn = (1..16).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
+                    val simple = playback + (if (playback.contains('?')) "&" else "?") + "ver=2&c=WEB_REMIX&cpn=$cpn"
+                    val b = Request.Builder().url(simple)
+                        .header("User-Agent", DESKTOP_UA)
+                        .header("Origin", Client.MUSIC.origin)
+                        .header("X-Origin", Client.MUSIC.origin)
+                        .header("Referer", Client.MUSIC.origin + "/")
+                        .header("Cookie", cookie)
+                        .header("X-Goog-AuthUser", "0")
+                    authHeader(cookie, Client.MUSIC.origin)?.let { b.header("Authorization", it) }
+                    Session.visitorData?.let { b.header("X-Goog-Visitor-Id", it) }
+                    val code = try { http.newCall(b.build()).execute().use { it.code } } catch (e: Exception) { -1 }
+                    log += "MUSIC-a:$code"
+                    ok = code in 200..299
+                    // b) Seperti pemutar music.youtube.com (playback + watchtime).
                     val watchtime = tracking.optJSONObject("videostatsWatchtimeUrl")?.optString("baseUrl")?.takeIf { it.startsWith("http") }
                     val len = r.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toDoubleOrNull() ?: 1.0
-                    ok = send(playback, watchtime, Client.MUSIC.clientName, Client.MUSIC.version, Client.MUSIC.origin, len, "MUSIC")
+                    ok = send(playback, watchtime, Client.MUSIC.clientName, Client.MUSIC.version, Client.MUSIC.origin, len, "MUSIC-b") || ok
                 } else {
                     log += "MUSIC:${r.optJSONObject("playabilityStatus")?.optString("status") ?: "no-tracking"}"
                 }
