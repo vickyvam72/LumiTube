@@ -43,6 +43,10 @@ data class Stream(
     val formats: List<Format> = emptyList(),
     /** Manifest DASH (dipakai untuk live bila tidak ada HLS, mis. live untuk anak). */
     val dashUrl: String? = null,
+    /** Pengganti parameter "n" (klien web) untuk semua URL HLS live; tanpa ini YouTube menolak (403). */
+    val nMap: Map<String, String> = emptyMap(),
+    /** Catatan singkat untuk laporan (mis. "n✓"). */
+    val note: String = "",
     val lengthSeconds: Long = 0,
     val captions: List<Caption> = emptyList(),
     /** Bahasa terjemahan otomatis yang didukung YouTube (kode, nama). */
@@ -405,6 +409,39 @@ object StreamResolver {
         }
     }
 
+    private val nPath = Regex("/n/([^/?#]+)")
+    private val nQuery = Regex("([?&])n=([^&#]+)")
+
+    /** Ganti nilai "n" (di path /n/…/ maupun ?n=) memakai peta hasil skrip pemutar. */
+    fun rewriteN(url: String, map: Map<String, String>): String {
+        if (map.isEmpty()) return url
+        var u = nPath.replace(url) { m -> map[m.groupValues[1]]?.let { "/n/$it" } ?: m.value }
+        u = nQuery.replace(u) { m -> map[m.groupValues[2]]?.let { "${m.groupValues[1]}n=$it" } ?: m.value }
+        return u
+    }
+
+    /** Kumpulkan semua nilai "n" di manifest HLS live (utama + satu varian) lalu pecahkan sekaligus. */
+    private suspend fun liveNMap(hls: String, cfg: Cipher.PlayerConfig, c: PlayerClient): Map<String, String> {
+        fun fetch(url: String): String {
+            val b = Request.Builder().url(url).header("User-Agent", c.mediaUa ?: c.userAgent)
+            c.mediaHeaders.forEach { (k, v) -> b.header(k, v) }
+            return InnerTube.http.newCall(b.build()).execute().use { it.body?.string() ?: "" }
+        }
+        val ns = LinkedHashSet<String>()
+        fun collect(text: String) {
+            nPath.findAll(text).forEach { ns.add(it.groupValues[1]) }
+            nQuery.findAll(text).forEach { ns.add(it.groupValues[2]) }
+        }
+        collect(hls)
+        val master = try { fetch(hls) } catch (_: Exception) { "" }
+        collect(master)
+        master.lines().firstOrNull { it.startsWith("http") }?.let { v ->
+            try { collect(fetch(v)) } catch (_: Exception) { }
+        }
+        if (ns.isEmpty()) return emptyMap()
+        return Cipher.solve(cfg, emptyList(), ns.toList()).second.filter { (k, v) -> v.isNotBlank() && v != k }
+    }
+
     private fun visitorFor(c: PlayerClient): String? {
         if (!c.ownVisitor) return Session.visitorData
         visitors[c.name]?.let { return it }
@@ -485,6 +522,16 @@ object StreamResolver {
         val isLive = json.obj("videoDetails")?.optBoolean("isLive", false) == true
         val hls = sd.str("hlsManifestUrl")
         val dash = sd.str("dashManifestUrl")
+        // Live dari klien web: parameter "n" di URL HLS harus diubah dengan skrip pemutar YouTube.
+        val liveN: Map<String, String>? = if (isLive && hls != null && (c.kind == Kind.EMBED || c.name == "WEB")) {
+            try {
+                val cfgN = cipherCfg ?: Cipher.config(Cipher.embedPage(videoId).playerUrl)
+                if (cfgN != null) liveNMap(hls, cfgN, c) else emptyMap()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                emptyMap()
+            }
+        } else null
         // Siaran langsung diputar lewat HLS (atau DASH bila HLS tidak ada); klien tanpa keduanya dilewati.
         if (isLive && hls == null && dash == null) {
             throw IOException("Live tanpa HLS [" + sd.keys().asSequence().joinToString(",") + "]")
@@ -576,8 +623,14 @@ object StreamResolver {
             lengthSeconds = json.str("videoDetails", "lengthSeconds")?.toLongOrNull() ?: 0L,
             videoUrl = null,
             audioUrl = null,
-            hlsUrl = hls,
+            hlsUrl = liveN?.let { rewriteN(hls ?: "", it) } ?: hls,
             dashUrl = dash,
+            nMap = liveN ?: emptyMap(),
+            note = when {
+                liveN == null -> ""
+                liveN.isEmpty() -> "n✗"
+                else -> "n✓"
+            },
             captions = json.arr("captions", "playerCaptionsTracklistRenderer", "captionTracks")?.objects()
                 ?.mapNotNull { t ->
                     val base = t.str("baseUrl") ?: return@mapNotNull null

@@ -222,6 +222,7 @@ object PlaybackManager {
     /** Jumlah percobaan ulang (ganti klien) untuk item saat ini. */
     private var retries = 0
     private var currentClient = ""
+    private var currentNote = ""
     /** Semua hasil lirik untuk lagu saat ini (terbaik di depan). */
     var lyricsList by mutableStateOf<List<Lyrics>>(emptyList())
         private set
@@ -364,7 +365,7 @@ object PlaybackManager {
                         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
                     if (!network || retries > 2) {
                         val http = (e.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode
-                        StreamResolver.notePlaybackError(item.id, currentClient.substringBefore('/'), http?.let { "HTTP $it" } ?: e.errorCodeName)
+                        StreamResolver.notePlaybackError(item.id, currentClient.substringBefore('/'), (http?.let { "HTTP $it" } ?: e.errorCodeName) + if (currentNote.isNotEmpty()) ", $currentNote" else "")
                         if (!StreamResolver.markRejected(item.id, currentClient)) StreamResolver.resetRejected(item.id)
                     } else {
                         StreamResolver.invalidate(item.id)
@@ -973,6 +974,7 @@ object PlaybackManager {
                         }
                     }
                     currentClient = stream.client
+                    currentNote = stream.note
                     if (!stream.isLive) {
                         com.lumitube.app.data.Storyboard.parse(stream.storyboardSpec, stream.lengthSeconds * 1000)?.let { storyboard = it }
                     }
@@ -1079,9 +1081,18 @@ object PlaybackManager {
         if (id != null && itag != null) "$id-$itag-$clen" else spec.key ?: u.toString()
     }
 
-    private fun plainFactory(s: Stream) = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
-        .setUserAgent(s.userAgent.ifEmpty { null })
-        .setDefaultRequestProperties(s.headers)
+    private fun plainFactory(s: Stream): androidx.media3.datasource.DataSource.Factory {
+        val base = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(mediaHttp)
+            .setUserAgent(s.userAgent.ifEmpty { null })
+            .setDefaultRequestProperties(s.headers)
+        if (s.nMap.isEmpty()) return base
+        // Live web: ubah parameter "n" di setiap URL playlist & potongan HLS.
+        return androidx.media3.datasource.ResolvingDataSource.Factory(base) { spec ->
+            val u = spec.uri.toString()
+            val r = StreamResolver.rewriteN(u, s.nMap)
+            if (r == u) spec else spec.withUri(android.net.Uri.parse(r))
+        }
+    }
 
     /**
      * [write] = true hanya untuk prefetch. Pemutar utama cukup MEMBACA bagian awal yang sudah
