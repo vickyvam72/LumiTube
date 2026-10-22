@@ -117,6 +117,7 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
     var loadingMore by remember { mutableStateOf(false) }
     var subscribed by remember(channelId) { mutableStateOf(false) }
     var showAbout by remember(channelId) { mutableStateOf(false) }
+    var showLinks by remember(channelId) { mutableStateOf(false) }
     var searching by remember(channelId) { mutableStateOf(false) }
     val chips = remember(channelId) { mutableStateListOf<ChannelChip>() }
     var chipIndex by remember(channelId) { mutableIntStateOf(0) }
@@ -297,7 +298,8 @@ fun ChannelScreen(channelId: String, onBack: () -> Unit, open: (Item) -> Unit, o
                         }
                     }
                     ci.link?.let { link ->
-                        Row(Modifier.padding(top = 8.dp).clickable { showAbout = true }, verticalAlignment = Alignment.CenterVertically) {
+                        if (showLinks) ChannelLinksSheet(ci) { showLinks = false }
+                        Row(Modifier.padding(top = 8.dp).clickable { showLinks = true }, verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Link, null, tint = yt.text, modifier = Modifier.size(18.dp))
                             Text(link, color = yt.text, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp))
                         }
@@ -553,6 +555,59 @@ private fun ZoomImage(url: String) {
             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
             placeholder = Color.Transparent,
         )
+    }
+}
+
+/** Buka link channel: link YouTube di Lumi sendiri, lainnya di browser/aplikasinya. */
+private fun openChannelLink(ctx: android.content.Context, u: String) {
+    val uri = android.net.Uri.parse(if (u.startsWith("http")) u else "https://$u")
+    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    val yt = Regex("(^|\\.)(youtube\\.com|youtu\\.be)$").containsMatchIn(uri.host ?: "")
+    try {
+        ctx.startActivity(if (yt) android.content.Intent(intent).setPackage(ctx.packageName) else intent)
+    } catch (_: Exception) {
+        try { ctx.startActivity(intent) } catch (_: Exception) { }
+    }
+}
+
+/** Panel "Link" dari bio channel (Instagram, TikTok, situs, …), seperti aplikasi YouTube. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ChannelLinksSheet(ci: ChannelInfo, onClose: () -> Unit) {
+    val yt = LocalYt.current
+    val ctx = LocalContext.current
+    var about by remember(ci.id) { mutableStateOf<ChannelAbout?>(null) }
+    var loading by remember(ci.id) { mutableStateOf(true) }
+    LaunchedEffect(ci.id) {
+        about = try { ci.aboutToken?.let { ChannelRepo.about(it) } } catch (_: Exception) { null }
+        loading = false
+    }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onClose,
+        containerColor = yt.bg,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("Link", color = yt.text, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, bottom = 12.dp))
+            val links = about?.links.orEmpty()
+            when {
+                loading -> LoadingBox()
+                links.isEmpty() -> Text("Link tidak tersedia", color = yt.sub, fontSize = 14.sp, modifier = Modifier.padding(20.dp))
+                else -> links.forEach { (title, url, icon) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onClose(); openChannelLink(ctx, url) }.padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (icon != null) Img(icon, Modifier.size(32.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit, placeholder = Color.Transparent)
+                        else Icon(Icons.Filled.Language, null, tint = yt.text, modifier = Modifier.size(32.dp))
+                        Column(Modifier.padding(start = 20.dp)) {
+                            Text(title, color = yt.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(url, color = yt.sub, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

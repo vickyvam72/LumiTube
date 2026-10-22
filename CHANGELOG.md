@@ -40,6 +40,7 @@
 - Menghapus penelusuran di YouTube Lumi dan YT Music Lumi (tekan lama di histori penelusuran) kini ikut menghapusnya dari histori penelusuran YouTube dan YouTube Music asli
 - Layar perkenalan dan izin saat pertama dibuka, serta jendela Watch & Listen Together, kini berwarna biru Lumi
 - Link di komentar kini bisa dipencet: link YouTube dibuka di Lumi, link lain di browser
+- YouTube Lumi: tulisan link di bio channel (mis. "Instagram dan 3 link lainnya") membuka panel **Link** berisi semua link channel, seperti YouTube asli
 - YT Music Lumi: **lagu dari Beranda tidak pernah buntu**. Setelah lagu terakhir (Pilihan cepat, Favorit yang terlupakan, radio, dll.), Next berlanjut dengan lagu serupa
 - **Playlist hanya memutar isinya sendiri** (YouTube Lumi & YT Music Lumi, termasuk playlist download): tidak pernah lanjut ke saran. Next di lagu/video terakhir kembali ke yang pertama, dan Ulangi playlist mengulang dari awal
 - YT Music Lumi: halaman artis punya **Lagu teratas** yang bisa digeser kanan-kiri dengan tombol **Putar semua**. Lagu yang diputar dari sini tetap lagu artis itu dan diulang dari awal saat habis
@@ -98,6 +99,7 @@
 - Deleting a search in YouTube Lumi and YT Music Lumi (long-press it in search history) now also removes it from the official YouTube and YouTube Music search history
 - The welcome and permission screens on first launch, and the Watch & Listen Together window, now use Lumi blue
 - Links in comments can now be tapped: YouTube links open in Lumi, other links in the browser
+- YouTube Lumi: the link line in a channel bio (e.g. "Instagram and 3 more links") opens a **Links** panel with all of the channel's links, like the official YouTube
 - YT Music Lumi: **songs from Home never run out**. After the last song (Quick picks, Forgotten favorites, radio, etc.), Next continues with similar songs
 - **Playlists only play their own items** (YouTube Lumi & YT Music Lumi, including downloaded playlists): they never continue into suggestions. Next on the last song/video goes back to the first, and Repeat playlist starts over
 - YT Music Lumi: artist pages have **Top songs** you can swipe left and right, with a **Play all** button. Songs played from there stay with that artist and start over when the list ends
